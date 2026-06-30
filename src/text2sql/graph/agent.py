@@ -21,6 +21,7 @@ from ..catalog.catalog import Catalog
 from ..config import LLM, PATHS, LLMConfig
 from ..db.adapter import make_adapter
 from ..llm.client import LLMClient
+from ..runtime_config import load_llm_override, save_llm_override
 from ..tools.toolbox import Toolbox
 from ..trace import Tracer
 from .nodes import Nodes
@@ -32,6 +33,7 @@ def build_graph(nodes: Nodes, checkpointer: MemorySaver):
     g.add_node("scope", nodes.scope)
     g.add_node("clarify", nodes.clarify)
     g.add_node("plan_build", nodes.plan_build)
+    g.add_node("resolve_values", nodes.resolve_values)
     g.add_node("join_advisor", nodes.join_advisor)
     g.add_node("present", nodes.present)
     g.add_node("synth", nodes.synth)
@@ -73,7 +75,7 @@ class Agent:
         self.tracer = Tracer(session)
         self.catalog = catalog or Catalog.load()
         self.db = make_adapter(tracer=self.tracer)
-        self.llm = LLMClient(tracer=self.tracer)
+        self.llm = LLMClient(cfg=self._llm_cfg_from_override(), tracer=self.tracer)
         self.tools = Toolbox(self.catalog, self.db, tracer=self.tracer)
         self.nodes = Nodes(self.catalog, self.db, self.llm, self.tools,
                            workspace_dir=PATHS.workspace_dir, tracer=self.tracer)
@@ -98,11 +100,22 @@ class Agent:
         self.db.reload()
         self._rewire()
 
+    @staticmethod
+    def _llm_cfg_from_override() -> LLMConfig:
+        """LLMConfig с учётом сохранённого выбора /model (config_runtime.json)."""
+        override = load_llm_override()
+        if not override:
+            return LLM
+        provider, model = override
+        return LLMConfig(provider=provider, base_url=LLM.base_url, api_key=LLM.api_key,
+                         model=model, max_tokens=LLM.max_tokens, temperature=LLM.temperature)
+
     def set_llm(self, provider: str, model: str) -> None:
-        """Сменить LLM (для /model). GigaChat читает токены из env."""
+        """Сменить LLM (для /model) и СОХРАНИТЬ выбор в конфиг. GigaChat читает токены из env."""
         cfg = LLMConfig(provider=provider, base_url=LLM.base_url, api_key=LLM.api_key,
                         model=model, max_tokens=LLM.max_tokens, temperature=LLM.temperature)
         self.llm = LLMClient(cfg=cfg, tracer=self.tracer)
+        save_llm_override(provider, model)
         self._rewire()
 
     def ask(self, question: str) -> Turn:

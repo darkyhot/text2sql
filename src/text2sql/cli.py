@@ -230,6 +230,9 @@ class CLI:
                     print(f"  • {n}")
                 for iss in turn.interrupt.get("issues", []):
                     print(f"  ⚠ {iss}")
+                sql_preview = turn.interrupt.get("sql", "")
+                if sql_preview:
+                    print("\n── SQL ──\n" + sql_preview)
                 ans = input("\n" + _OK_HINT).strip()
                 turn = self._with_status("обрабатываю", lambda: self.agent.respond(ans))
             else:
@@ -238,7 +241,7 @@ class CLI:
 
     def _render_result(self, turn: Turn) -> None:
         if turn.status == "done" and turn.result:
-            sql = turn.state.get("sql", "")
+            sql = turn.state.get("sql_display") or turn.state.get("sql", "")
             res = turn.result
             print(f"\n✅ Готово. Строк: {res.get('rowcount')} → {res.get('csv')}")
             if sql:

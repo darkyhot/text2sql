@@ -59,7 +59,8 @@ CLI().run()
 `/reset`, `/clear`, `/exit`.
 
 - `/config_db_conn` — настроить подключение к БД (Greenplum/Postgres, Kerberos).
-- `/model` — выбрать модель GigaChat (Gigachat-3-Ultra / Gigachat-2-Max).
+- `/model` — выбрать модель GigaChat (Gigachat-3-Ultra / Gigachat-2-Max). Выбор
+  сохраняется в `config_runtime.json` и переживает перезапуск/обновление кода.
 - `/table_list` — показать таблицы из метаданных.
 - `/add_table schema.table` — добавить таблицу в манифест `tables_list.csv` и
   собрать по ней метаданные.

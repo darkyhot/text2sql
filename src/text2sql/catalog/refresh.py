@@ -17,6 +17,7 @@ from __future__ import annotations
 import json
 import logging
 import math
+import os
 import re
 from itertools import combinations
 from pathlib import Path
@@ -88,7 +89,9 @@ def _find_pk(df: pd.DataFrame, max_cols: int = 4) -> list[str]:
     return []
 
 
-def _sample_values(series: pd.Series, cap: int = 12) -> str:
+def _sample_values(series: pd.Series, cap: int = 25) -> str:
+    """Значения категориальной колонки (для резолва фильтров). Порог 25 —
+    чтобы захватить enum/подтипы (напр. task_subtype). Высококардинальные → ''."""
     non_null = series.dropna()
     if non_null.empty:
         return ""
@@ -115,12 +118,17 @@ def _read_seed(path: Path, key: str, name_field: str) -> dict[str, str]:
 
 class MetadataRefresh:
     def __init__(self, db: DbAdapter, *, llm=None, data_dir: Path | None = None,
-                 sample_n: int = 100_000, per_table_timeout_ms: int = 300_000):
+                 sample_n: int = 100_000, per_table_timeout_ms: int = 300_000,
+                 pk_source: str | None = None):
         self.db = db
         self.llm = llm
         self.data_dir = data_dir or PATHS.data_dir
         self.sample_n = sample_n
         self.per_table_timeout_ms = per_table_timeout_ms  # 5 мин на таблицу
+        # Источник PK: "compute" — вычислять из сэмпла (прод, реальные данные);
+        # "seed" — брать из кураторской метадаты (тест-контейнер с синтетикой, где
+        # эвристика по сэмплу ненадёжна). По умолчанию из env PK_SOURCE, иначе compute.
+        self.pk_source = (pk_source or os.getenv("PK_SOURCE", "compute")).strip().lower()
         self._col_seed = _read_seed(self.data_dir / "column_description_few_shots.yaml", "columns", "column_name")
         self._tbl_seed = _read_seed(self.data_dir / "table_description_few_shots.yaml", "tables", "table_name")
         self._grain_seed = self._load_grain_seed()
@@ -176,7 +184,12 @@ class MetadataRefresh:
         df = pd.DataFrame(sample.rows, columns=sample.columns) if sample.rows else \
             pd.DataFrame(columns=sample.columns)
         n = len(df)
-        pk = self._pk_seed.get(fqn) or _find_pk(df)
+        # На проде PK вычисляется из реальных данных (как в исходном проекте);
+        # сид — fallback. На синтетике (PK_SOURCE=seed) — наоборот. См. __init__.
+        if self.pk_source == "seed":
+            pk = self._pk_seed.get(fqn) or _find_pk(df)
+        else:
+            pk = _find_pk(df) or self._pk_seed.get(fqn)
         class_counts: dict[str, int] = {}
         attr_rows: list[dict] = []
         for cm in cols_meta:

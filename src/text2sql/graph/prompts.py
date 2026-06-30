@@ -51,6 +51,10 @@ PLAN_SYS = (
     "НЕ используй BETWEEN с последним днём месяца (ошибки вида 29 февраля, потеря "
     "последнего дня для timestamp). Пример «февраль 2026»: >= '2026-02-01' и < '2026-03-01'.\n"
     "- Булевы фильтры: op 'IS TRUE'/'IS FALSE'.\n"
+    "- Текстовый фильтр по категории/подтипу: НАЙДИ колонку, в чьих «примерах значений» "
+    "встречается нужное понятие, и фильтруй именно по ней (op 'ILIKE', value '%понятие%'). "
+    "НЕ выдумывай значения и не переводи их на английский — бери из примеров. Если ни в одной "
+    "колонке нет подходящего значения — добавь это в ambiguities, а не выдумывай условие.\n"
     "Схема ответа (StructuredPlan):\n"
     '{"intent":str,'
     '"tables":[{"ref":fqn,"alias":str}],'
@@ -70,10 +74,13 @@ def plan_user(question: str, corrections: list[str], tables: list[TableMeta],
         lines.append("Правки пользователя (учти их): " + " | ".join(corrections))
     for t in tables:
         lines.append(f"\nТаблица {t.fqn} (alias предложи сам). PK-гипотеза: {t.pk_hypothesis or '—'}")
-        lines.append("Колонки [имя | тип | класс | pk | описание]:")
+        lines.append("Колонки [имя | тип | класс | pk | описание | примеры значений]:")
         for c in t.columns:
             pk = "PK" if c.is_pk_hypothesis else ""
-            lines.append(f"  {c.name} | {c.dtype} | {c.semantic_class} | {pk} | {c.description}")
+            # Примеры значений критичны для текстовых фильтров: по ним видно, в какой
+            # колонке лежит нужное понятие (напр. подтип «фактический отток»).
+            samples = f" | примеры: {', '.join(c.sample_values[:25])}" if c.sample_values else ""
+            lines.append(f"  {c.name} | {c.dtype} | {c.semantic_class} | {pk} | {c.description}{samples}")
     if join_candidates:
         lines.append("\nJoin-кандидаты (overlap значений — чем больше, тем вернее маппинг):")
         for jc in join_candidates:

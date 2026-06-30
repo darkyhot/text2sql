@@ -15,13 +15,26 @@ from ..catalog.catalog import Catalog
 from ..db.adapter import DbAdapter
 from ..llm.client import LLMClient
 from ..plan.model import StructuredPlan
-from ..plan.render import normalize_plan, render_nl, render_sql, validate_plan
+from ..plan.render import normalize_plan, render_nl, render_sql, render_sql_plain, validate_plan
 from ..tools.toolbox import Toolbox
 from . import prompts
 from .state import AgentState
 
 MAX_CORRECTIONS = 6
 _OK_WORDS = {"ok", "ок", "да", "окей", "go", "поехали", "выполняй", "согласен", ""}
+
+
+def _is_texty(dtype: str) -> bool:
+    d = (dtype or "").lower()
+    return "char" in d or "text" in d
+
+
+def _best_match(term: str, values: list[str]) -> str:
+    """Из найденных значений выбрать лучшее под term (подстрока, регистронезависимо)."""
+    t = term.lower()
+    contains = [v for v in values if t in v.lower()]
+    pool = contains or values
+    return min(pool, key=len)  # самое короткое совпадение — обычно точнее
 
 
 class Nodes:
@@ -65,7 +78,10 @@ class Nodes:
         options = ambiguity["options"]
         choice = interrupt({"type": "ambiguity", "question": ambiguity.get("question", ""),
                             "options": options})
-        chosen = self._resolve_ambiguity(options, choice) or state.get("chosen_tables", [])
+        picked = self._resolve_ambiguity(options, choice)
+        # Оставляем только реально существующие в каталоге таблицы.
+        chosen = [t for t in picked if self.catalog.get(t)] or state.get("chosen_tables", [])
+        logger.info("node clarify: выбор=%r -> таблицы=%s", choice, chosen)
         if not chosen:
             return Command(goto="__end__", update={"status": "error",
                            "notes": ["Не удалось разрешить неоднозначность."]})
@@ -74,12 +90,17 @@ class Nodes:
 
     @staticmethod
     def _resolve_ambiguity(options: list[dict], choice: Any) -> list[str]:
+        def _tables(opt: dict) -> list[str]:
+            t = opt.get("tables", [])
+            return [t] if isinstance(t, str) else list(t)
+
         if isinstance(choice, int) and 0 <= choice < len(options):
-            return options[choice].get("tables", [])
+            return _tables(options[choice])
         s = str(choice).strip().lower()
+        # индекс 0-based (как в выводе CLI: [0], [1]) или подстрока метки
         for i, opt in enumerate(options):
-            if s == str(i) or s in opt.get("label", "").lower():
-                return opt.get("tables", [])
+            if s == str(i) or (s and s in opt.get("label", "").lower()):
+                return _tables(opt)
         return []
 
     # ---------- PLAN BUILD ----------
@@ -97,7 +118,61 @@ class Nodes:
             return Command(goto="__end__", update={"status": "error",
                            "notes": [f"План не распарсился: {exc}"]})
         self._trace({"kind": "node", "node": "plan_build", "plan": plan.model_dump()})
-        return Command(goto="join_advisor", update={"plan": plan.model_dump(), "facts": {"join_candidates": jc}})
+        return Command(goto="resolve_values", update={"plan": plan.model_dump(), "facts": {"join_candidates": jc}})
+
+    # ---------- RESOLVE VALUES (живой резолв текстовых фильтров) ----------
+    def resolve_values(self, state: AgentState) -> Command:
+        """Сопоставить значения текстовых фильтров с реальными значениями в БД
+        (живая проба distinct_values). Закрывает кейс «task_subtype='фактический
+        отток'»: значение берётся из данных, а не из устаревшей метадаты. Если
+        значение лежит в ДРУГОЙ категориальной колонке — переключает фильтр на неё."""
+        plan = StructuredPlan(**state["plan"])
+        notes: list[str] = list(state.get("notes", []))
+        changed = False
+        for f in plan.filters:
+            if f.op not in ("=", "ILIKE") or not isinstance(f.value, str) or not f.value.strip():
+                continue
+            alias = f.column.split(".", 1)[0] if "." in f.column else None
+            col = f.column.split(".", 1)[-1]
+            tref = plan.table_by_alias(alias) if alias else (plan.tables[0] if plan.tables else None)
+            tmeta = self.catalog.get(tref.ref) if tref else None
+            if not tmeta:
+                continue
+            colmeta = next((c for c in tmeta.columns if c.name == col), None)
+            if colmeta and not _is_texty(colmeta.dtype):
+                continue  # резолвим только текстовые колонки
+            term = f.value.strip().strip("%")
+            # 1) пробуем выбранную колонку
+            vals = self.tools.distinct_values(tref.ref, col, like=term, n=10, enforce_cost=False)
+            if vals:
+                best = _best_match(term, vals)
+                if f"%{best}%" != f.value or f.op != "ILIKE":
+                    notes.append(f"Значение '{f.value}' сопоставлено с '{best}' (колонка {col}).")
+                f.op, f.value, f.resolved_via = "ILIKE", f"%{best}%", "probe"
+                changed = True
+                continue
+            # 2) ищем понятие в других категориальных колонках таблицы (мог ошибиться столбцом)
+            found = None
+            for c in tmeta.columns:
+                if c.name == col or not _is_texty(c.dtype):
+                    continue
+                if c.semantic_class not in ("enum_like", "label", "free_text"):
+                    continue
+                alt = self.tools.distinct_values(tref.ref, c.name, like=term, n=5, enforce_cost=False)
+                if alt:
+                    found = (c.name, _best_match(term, alt))
+                    break
+            if found:
+                newcol, newval = found
+                notes.append(f"Значение '{f.value}' не найдено в {col}; найдено в {newcol}='{newval}' — переключаю фильтр.")
+                f.column = f"{alias}.{newcol}" if alias else newcol
+                f.op, f.value, f.resolved_via = "ILIKE", f"%{newval}%", "probe"
+                changed = True
+            else:
+                notes.append(f"⚠ Значение '{f.value}' не найдено в БД (колонки таблицы) — проверьте фильтр.")
+        if changed:
+            self._trace({"kind": "node", "node": "resolve_values", "filters": [f.model_dump() for f in plan.filters]})
+        return Command(goto="join_advisor", update={"plan": plan.model_dump(), "notes": notes})
 
     # ---------- JOIN ADVISOR (анти-fan-out) ----------
     def join_advisor(self, state: AgentState) -> Command:
@@ -146,8 +221,9 @@ class Nodes:
     def present(self, state: AgentState) -> Command:
         plan = StructuredPlan(**state["plan"])
         nl = render_nl(plan)
+        sql_preview = render_sql_plain(plan)   # читаемый SQL для аналитика
         issues = validate_plan(plan)
-        decision = interrupt({"type": "approve_plan", "plan_nl": nl,
+        decision = interrupt({"type": "approve_plan", "plan_nl": nl, "sql": sql_preview,
                               "issues": issues, "notes": state.get("notes", [])})
         text = str(decision).strip()
         if text.lower() in _OK_WORDS:
@@ -172,7 +248,7 @@ class Nodes:
             logger.warning("node synth: EXPLAIN не прошёл: %s | sql=%s", exc, sql)
             return Command(goto="__end__", update={"status": "error", "sql": sql,
                            "notes": [f"EXPLAIN не прошёл (вероятно ошибка в SQL): {exc}"]})
-        return Command(goto="execute", update={"sql": sql,
+        return Command(goto="execute", update={"sql": sql, "sql_display": render_sql_plain(plan),
                        "validation": {"issues": issues, "explain_cost": cost}})
 
     def execute(self, state: AgentState) -> Command:

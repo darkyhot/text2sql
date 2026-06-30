@@ -3,6 +3,7 @@ __pycache__/
 *.pyc
 .env
 config_db.json
+config_runtime.json
 workspace/*.csv
 traces/*.jsonl
 .ipynb_checkpoints/

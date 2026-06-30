@@ -133,6 +133,27 @@ def normalize_plan(plan: StructuredPlan) -> StructuredPlan:
     return plan
 
 
+class _PlainSQL:
+    """Псевдо-адаптер для читаемого SQL без кавычек идентификаторов (для показа
+    пользователю). Исполняется всегда квотированный render_sql(plan, db)."""
+    def quote_ident(self, name: str) -> str:
+        return name
+
+    def qualified(self, schema: str, table: str) -> str:
+        return f"{schema}.{table}"
+
+    def ilike_op(self) -> str:
+        return "ILIKE"
+
+
+def render_sql_plain(plan: StructuredPlan) -> str:
+    """Читаемый SQL без кавычек — для показа в плане и результате."""
+    try:
+        return render_sql(plan, _PlainSQL())
+    except Exception:  # noqa: BLE001
+        return ""
+
+
 def render_nl(plan: StructuredPlan) -> str:
     """Человекочитаемый план для показа пользователю (то, что он окает)."""
     out: list[str] = []

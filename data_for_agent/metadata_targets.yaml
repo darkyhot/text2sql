@@ -1,9 +1,0 @@
-tables:
-- schema_name: s_grnplm_ld_salesntwrk_pcap_sn_uzp
-  table_name: uzp_data_epk_consolidation
-- schema_name: s_grnplm_ld_salesntwrk_pcap_sn_uzp
-  table_name: uzp_dim_gosb
-- schema_name: s_grnplm_ld_salesntwrk_pcap_sn_uzp
-  table_name: uzp_dwh_fact_outflow
-- schema_name: s_grnplm_ld_salesntwrk_pcap_sn_uzp
-  table_name: uzp_dwh_sale_funnel_task

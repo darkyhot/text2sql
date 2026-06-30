@@ -59,7 +59,12 @@ class Toolbox:
         }
 
     # --- Tier-2: живые значения колонки ---
-    def distinct_values(self, fqn: str, column: str, *, like: str | None = None, n: int = 20) -> list[str]:
+    def distinct_values(self, fqn: str, column: str, *, like: str | None = None, n: int = 20,
+                        enforce_cost: bool = True) -> list[str]:
+        """Живые значения колонки (для резолва фильтров). enforce_cost=False —
+        не упираться в cost-потолок (для value-резолва: LIMIT + statement_timeout
+        и так ограничивают; на больших таблицах ILIKE c LIMIT часто завершается рано).
+        При любой ошибке/таймауте возвращает [] (резолв деградирует мягко, не падает)."""
         t = self.catalog.get(fqn)
         if t is None:
             return []
@@ -71,7 +76,11 @@ class Toolbox:
             where = f"WHERE {col} {self.db.ilike_op()} '%{safe}%'"
             params_note = like
         sql = f"SELECT DISTINCT {col} AS v FROM {self.db.qualified(t.schema, t.table)} {where} LIMIT {int(n)}"
-        res = self.db.run_select(sql, limit=n)
+        try:
+            res = self.db.run_select(sql, limit=n, enforce_cost=enforce_cost)
+        except Exception:  # noqa: BLE001  (cost/timeout/ошибка — мягкая деградация)
+            self._trace({"tool": "distinct_values", "fqn": fqn, "column": column, "like": params_note, "error": True})
+            return []
         vals = [str(r["v"]) for r in res.rows if r["v"] is not None]
         self._trace({"tool": "distinct_values", "fqn": fqn, "column": column, "like": params_note, "n_found": len(vals)})
         return vals

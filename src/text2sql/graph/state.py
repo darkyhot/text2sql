@@ -19,7 +19,8 @@ class AgentState(TypedDict, total=False):
     plan: dict[str, Any] | None        # StructuredPlan.model_dump()
     plan_nl: str                       # человекочитаемый рендер (то, что окают)
 
-    sql: str
+    sql: str                           # исполняемый SQL (с кавычками идентификаторов)
+    sql_display: str                   # читаемый SQL без кавычек (для показа)
     validation: dict[str, Any]
     result: dict[str, Any]             # {csv, rowcount, columns}
 

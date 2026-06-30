@@ -49,3 +49,12 @@
 2026-06-30 15:58:53,501 [INFO] text2sql.catalog.refresh: metadata: собрана s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_fact_outflow (строк сэмпла=200, колонок=29, pk=['gosb_id', 'inn', 'report_dt'])
 2026-06-30 15:58:53,508 [INFO] text2sql.db.adapter: metadata_sample s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task: strategy=sort_random est=200 n=100000 timeout_ms=300000
 2026-06-30 15:58:53,536 [INFO] text2sql.catalog.refresh: metadata: собрана s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task (строк сэмпла=200, колонок=40, pk=['task_code'])
+2026-06-30 16:50:17,757 [INFO] text2sql.logging_setup: Логирование инициализировано → /home/darky/text2sql/workspace/agent.log
+2026-06-30 16:50:17,758 [INFO] text2sql.cli: CLI запущен
+2026-06-30 16:50:18,111 [INFO] text2sql.cli: CLI ввод: <запрос>
+2026-06-30 16:50:18,169 [INFO] text2sql.graph.nodes: node scope: вопрос='Посчитай сумму оттоков по дате и названию ГОСБ' правок=0
+2026-06-30 16:50:41,062 [INFO] text2sql.graph.nodes: node execute: sql=SELECT "f"."report_dt", "g"."old_gosb_name", SUM("f"."outflow_qty") AS "total_outflow_qty"
+FROM "s_grnplm_ld_salesntwrk_pcap_sn_uzp"."uzp_dwh_fact_outflow" AS "f"
+INNER JOIN "s_grnplm_ld_salesntwrk_pcap_sn_uzp"."uzp_dim_gosb" AS "g" ON "f"."gosb_id" = "g"."old_gosb_id" AND "f"."tb_id" = "g"."tb_id"
+GROUP BY "f"."report_dt", "g"."old_gosb_name"
+2026-06-30 16:50:41,071 [INFO] text2sql.cli: CLI ввод: /exit

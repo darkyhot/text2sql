@@ -33,6 +33,9 @@ logger = logging.getLogger(__name__)
 
 _METRIC_RE = re.compile(r"(^|_)(qty|quantity|amt|amount|sum|total|cnt|count|avg|rate|ratio|pct|perc|percent|val|value)($|_)", re.I)
 _ID_RE = re.compile(r"(^|_)(id|code|key|inn|kpp|ogrn|okato|oktmo)($|_)", re.I)
+# Системные таймстемпы — почти всегда уникальны, но НЕ бизнес-ключи. Отличаем от
+# бизнес-дат (report_dt, task_create_dt): системные — *_dttm / inserted/modified/updated.
+_SYS_TS_RE = re.compile(r"(dttm$|timestamp|inserted|modified|updated|_update_|^update_|load_)", re.I)
 _DATE_TYPES = ("date", "timestamp", "time")
 _NUM_TYPES = ("int", "numeric", "decimal", "double", "real", "float", "smallint", "bigint")
 _BOOL_TYPES = ("bool",)
@@ -72,14 +75,18 @@ def _classify(name: str, dtype: str, unique_pct: float, n_distinct: int) -> str:
 
 
 def _find_pk(df: pd.DataFrame, max_cols: int = 4) -> list[str]:
-    """Минимальная уникальная комбинация на сэмпле. Сначала без метрик."""
+    """Минимальная уникальная комбинация на сэмпле. Бизнес-ключи в приоритете:
+    метрики и СИСТЕМНЫЕ таймстемпы (inserted/modified/update _dttm) откладываем —
+    иначе почти-уникальный load-таймстемп ложно становится PK (и на проде тоже)."""
     if df.empty:
         return []
     cols = [c for c in df.columns if df[c].notna().all() and df[c].nunique(dropna=False) > 1]
     if not cols:
         return []
-    preferred = [c for c in cols if not _is_metric_name(c)]
-    deferred = [c for c in cols if _is_metric_name(c)]
+    def _low_priority(c: str) -> bool:
+        return _is_metric_name(c) or bool(_SYS_TS_RE.search(c))
+    preferred = [c for c in cols if not _low_priority(c)]
+    deferred = [c for c in cols if _low_priority(c)]
     for candidates in ([preferred] if preferred else []) + [preferred + deferred]:
         upper = min(max_cols, len(candidates))
         for size in range(1, upper + 1):

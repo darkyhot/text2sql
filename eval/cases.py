@@ -40,10 +40,13 @@ def _no_fanout(turn):
 
 
 # ---- проверки ----
-def chk_values_9_57(turn, db):
-    vals = {str(v) for v in _values(turn)}
-    ok = {"9", "57"}.issubset(vals)
-    return ok, f"values={vals}"
+def chk_q1_distinct_counts(turn, db):
+    """Результат содержит реальные distinct tb_id и new_gosb_id (считаем из БД)."""
+    ref = db.run_select(
+        f"SELECT count(DISTINCT tb_id) a, count(DISTINCT new_gosb_id) b FROM {S}.uzp_dim_gosb")
+    exp = {str(ref.rows[0]["a"]), str(ref.rows[0]["b"])}
+    got = {str(v) for v in _values(turn)}
+    return exp.issubset(got), f"expected⊆got? exp={exp} got={got}"
 
 
 def chk_single_row(turn, db):
@@ -66,18 +69,43 @@ def chk_has_sum_metric(turn, db):
     return ok, f"metrics={[(m.get('agg'),m.get('column')) for m in metrics]}"
 
 
-def chk_q2_rowcount(turn, db):
-    rc = (turn.result or {}).get("rowcount")
-    return rc == 92, f"rowcount={rc} (эталон 92)"
+def chk_q2_has_rows(turn, db):
+    """Join вернул непустой результат (точный rowcount зависит от данных — не хардкодим)."""
+    rc = (turn.result or {}).get("rowcount") or 0
+    return rc > 0, f"rowcount={rc}"
 
 
-def chk_ambiguity_or_valid_table(turn, db):
-    """Q3: либо показана неоднозначность с обеими таблицами, либо выбрана одна из валидных."""
-    valid = {f"{S}.uzp_dwh_fact_outflow", f"{S}.uzp_dwh_sale_funnel_task"}
-    chosen = set(turn.state.get("chosen_tables", []))
-    surfaced = turn.state.get("ambiguity_surfaced", False)
-    ok = bool(chosen & valid) or surfaced
-    return ok, f"chosen={[c.split('.')[-1] for c in chosen]} surfaced={surfaced}"
+def _filters(turn):
+    return _plan(turn).get("filters", [])
+
+
+def _has_filter(turn, col_sub, val_sub=None):
+    for f in _filters(turn):
+        c = str(f.get("column", "")).lower()
+        v = str(f.get("value", "")).lower()
+        if col_sub in c and (val_sub is None or val_sub in v):
+            return True
+    return False
+
+
+def chk_q3_correct_interpretation(turn, db):
+    """Q3: верная трактовка 'фактический отток' — ЛИБО fact_outflow.is_task,
+    ЛИБО sale_funnel_task.task_subtype ~ 'отток'. task_type='Отток' (широкий) — НЕВЕРНО."""
+    tables = {t["ref"] for t in _plan(turn).get("tables", [])}
+    variant_fact = (f"{S}.uzp_dwh_fact_outflow" in tables) and _has_filter(turn, "is_task")
+    variant_task = (f"{S}.uzp_dwh_sale_funnel_task" in tables) and _has_filter(turn, "task_subtype", "отток")
+    ok = variant_fact or variant_task
+    detail = (f"tables={[t.split('.')[-1] for t in tables]} "
+              f"fact.is_task={variant_fact} task.subtype~отток={variant_task} "
+              f"filters={[(f.get('column'), f.get('op'), f.get('value')) for f in _filters(turn)]}")
+    return ok, detail
+
+
+def chk_q3_feb_date(turn, db):
+    """Должен быть фильтр по дате создания/отчёта в феврале 2026."""
+    ok = _has_filter(turn, "dt", "2026-02") or _has_filter(turn, "report_dt", "2026-02") \
+        or _has_filter(turn, "create", "2026-02")
+    return ok, f"filters={[(f.get('column'), f.get('value')) for f in _filters(turn)]}"
 
 
 CASES = [
@@ -85,18 +113,20 @@ CASES = [
         "id": "Q1_count_tb_gosb",
         "question": "Сколько всего есть тб и госб?",
         "ambiguity_pick": 0,
-        "checks": [chk_values_9_57, chk_single_row],
+        "checks": [chk_q1_distinct_counts, chk_single_row],
     },
     {
         "id": "Q2_outflow_by_date_gosb",
         "question": "Посчитай сумму оттоков по дате и названию ГОСБ",
         "ambiguity_pick": 0,
-        "checks": [chk_join_no_fanout, chk_join_keys_full_pk, chk_has_sum_metric, chk_q2_rowcount],
+        "checks": [chk_join_no_fanout, chk_join_keys_full_pk, chk_has_sum_metric, chk_q2_has_rows],
     },
     {
         "id": "Q3_tasks_outflow_feb2026",
         "question": "Сколько задач по фактическому оттоку поставили в феврале 2026 года?",
+        # при неоднозначности выбираем вариант с sale_funnel_task (task_subtype);
+        # _ambiguity_pick_for ниже выберет по содержимому, индекс — запасной.
         "ambiguity_pick": 0,
-        "checks": [chk_ambiguity_or_valid_table],
+        "checks": [chk_q3_correct_interpretation, chk_q3_feb_date],
     },
 ]

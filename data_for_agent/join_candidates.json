@@ -4,29 +4,224 @@
     "right": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dim_gosb",
     "pairs": [
       {
+        "left_col": "client_type_id",
+        "right_col": "old_gosb_id",
+        "overlap": 3
+      },
+      {
+        "left_col": "client_type_id",
+        "right_col": "tb_id",
+        "overlap": 1
+      },
+      {
+        "left_col": "epk_gosb_id",
+        "right_col": "old_gosb_id",
+        "overlap": 2
+      },
+      {
+        "left_col": "epk_gosb_id",
+        "right_col": "tb_id",
+        "overlap": 5
+      },
+      {
         "left_col": "gosb_id",
         "right_col": "old_gosb_id",
-        "overlap": 53
+        "overlap": 29
       },
       {
         "left_col": "gosb_method_id",
         "right_col": "old_gosb_id",
+        "overlap": 5
+      },
+      {
+        "left_col": "gosb_method_id",
+        "right_col": "tb_id",
+        "overlap": 2
+      },
+      {
+        "left_col": "head_holding_epk_id",
+        "right_col": "old_gosb_id",
+        "overlap": 2
+      },
+      {
+        "left_col": "holding_epk_id",
+        "right_col": "old_gosb_id",
+        "overlap": 5
+      },
+      {
+        "left_col": "holding_epk_id",
+        "right_col": "tb_id",
         "overlap": 1
+      },
+      {
+        "left_col": "importance_lvl_id",
+        "right_col": "old_gosb_id",
+        "overlap": 4
+      },
+      {
+        "left_col": "importance_lvl_id",
+        "right_col": "tb_id",
+        "overlap": 3
+      },
+      {
+        "left_col": "industry_id",
+        "right_col": "old_gosb_id",
+        "overlap": 4
+      },
+      {
+        "left_col": "industry_id",
+        "right_col": "tb_id",
+        "overlap": 2
+      },
+      {
+        "left_col": "km_gosb_id",
+        "right_col": "old_gosb_id",
+        "overlap": 4
+      },
+      {
+        "left_col": "km_gosb_id",
+        "right_col": "tb_id",
+        "overlap": 2
+      },
+      {
+        "left_col": "kpp",
+        "right_col": "old_gosb_id",
+        "overlap": 6
+      },
+      {
+        "left_col": "kpp",
+        "right_col": "tb_id",
+        "overlap": 3
+      },
+      {
+        "left_col": "kpp_gosb_id",
+        "right_col": "old_gosb_id",
+        "overlap": 5
+      },
+      {
+        "left_col": "kpp_gosb_id",
+        "right_col": "tb_id",
+        "overlap": 2
+      },
+      {
+        "left_col": "last_deal_gosb_id",
+        "right_col": "old_gosb_id",
+        "overlap": 3
+      },
+      {
+        "left_col": "last_deal_gosb_id",
+        "right_col": "tb_id",
+        "overlap": 1
+      },
+      {
+        "left_col": "last_mzp_activity_gosb_id",
+        "right_col": "old_gosb_id",
+        "overlap": 5
+      },
+      {
+        "left_col": "last_mzp_activity_gosb_id",
+        "right_col": "tb_id",
+        "overlap": 2
+      },
+      {
+        "left_col": "ogrn",
+        "right_col": "old_gosb_id",
+        "overlap": 6
+      },
+      {
+        "left_col": "ogrn",
+        "right_col": "tb_id",
+        "overlap": 2
+      },
+      {
+        "left_col": "okato",
+        "right_col": "old_gosb_id",
+        "overlap": 5
+      },
+      {
+        "left_col": "okato",
+        "right_col": "tb_id",
+        "overlap": 2
+      },
+      {
+        "left_col": "okato_gosb_id",
+        "right_col": "old_gosb_id",
+        "overlap": 6
+      },
+      {
+        "left_col": "okato_gosb_id",
+        "right_col": "tb_id",
+        "overlap": 3
+      },
+      {
+        "left_col": "oktmo",
+        "right_col": "old_gosb_id",
+        "overlap": 4
+      },
+      {
+        "left_col": "oktmo",
+        "right_col": "tb_id",
+        "overlap": 3
+      },
+      {
+        "left_col": "oktmo_gosb_id",
+        "right_col": "old_gosb_id",
+        "overlap": 3
+      },
+      {
+        "left_col": "oktmo_gosb_id",
+        "right_col": "tb_id",
+        "overlap": 1
+      },
+      {
+        "left_col": "payroll_gosb_id",
+        "right_col": "old_gosb_id",
+        "overlap": 5
+      },
+      {
+        "left_col": "payroll_gosb_id",
+        "right_col": "tb_id",
+        "overlap": 2
       },
       {
         "left_col": "priority_id",
         "right_col": "old_gosb_id",
+        "overlap": 6
+      },
+      {
+        "left_col": "priority_id",
+        "right_col": "tb_id",
+        "overlap": 2
+      },
+      {
+        "left_col": "report_id",
+        "right_col": "old_gosb_id",
+        "overlap": 4
+      },
+      {
+        "left_col": "report_id",
+        "right_col": "tb_id",
+        "overlap": 2
+      },
+      {
+        "left_col": "segment_id",
+        "right_col": "old_gosb_id",
+        "overlap": 10
+      },
+      {
+        "left_col": "segment_id",
+        "right_col": "tb_id",
         "overlap": 1
       },
       {
         "left_col": "status_id",
         "right_col": "old_gosb_id",
-        "overlap": 1
+        "overlap": 2
       },
       {
         "left_col": "tb_id",
         "right_col": "tb_id",
-        "overlap": 9
+        "overlap": 12
       }
     ]
   },
@@ -35,76 +230,176 @@
     "right": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_fact_outflow",
     "pairs": [
       {
+        "left_col": "client_type_id",
+        "right_col": "gosb_id",
+        "overlap": 3
+      },
+      {
+        "left_col": "epk_gosb_id",
+        "right_col": "gosb_id",
+        "overlap": 2
+      },
+      {
         "left_col": "gosb_id",
         "right_col": "gosb_id",
-        "overlap": 49
+        "overlap": 29
       },
       {
         "left_col": "gosb_method_id",
         "right_col": "gosb_id",
-        "overlap": 1
+        "overlap": 5
       },
       {
-        "left_col": "inn",
-        "right_col": "inn",
-        "overlap": 76
-      },
-      {
-        "left_col": "priority_id",
+        "left_col": "head_holding_epk_id",
         "right_col": "gosb_id",
-        "overlap": 1
+        "overlap": 2
       },
       {
-        "left_col": "status_id",
+        "left_col": "holding_epk_id",
         "right_col": "gosb_id",
-        "overlap": 1
+        "overlap": 5
       },
       {
-        "left_col": "tb_id",
-        "right_col": "tb_id",
-        "overlap": 9
-      }
-    ]
-  },
-  {
-    "left": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_epk_consolidation",
-    "right": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task",
-    "pairs": [
-      {
-        "left_col": "gosb_id",
-        "right_col": "gosb_id",
-        "overlap": 49
-      },
-      {
-        "left_col": "inn",
-        "right_col": "inn",
-        "overlap": 73
-      },
-      {
-        "left_col": "tb_id",
-        "right_col": "tb_id",
-        "overlap": 9
-      }
-    ]
-  },
-  {
-    "left": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dim_gosb",
-    "right": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_fact_outflow",
-    "pairs": [
-      {
-        "left_col": "new_gosb_id",
+        "left_col": "importance_lvl_id",
         "right_col": "gosb_id",
         "overlap": 4
       },
       {
-        "left_col": "old_gosb_id",
+        "left_col": "industry_id",
         "right_col": "gosb_id",
-        "overlap": 51
+        "overlap": 4
+      },
+      {
+        "left_col": "inn",
+        "right_col": "inn",
+        "overlap": 200
+      },
+      {
+        "left_col": "km_gosb_id",
+        "right_col": "gosb_id",
+        "overlap": 4
+      },
+      {
+        "left_col": "kpp",
+        "right_col": "gosb_id",
+        "overlap": 6
+      },
+      {
+        "left_col": "kpp_gosb_id",
+        "right_col": "gosb_id",
+        "overlap": 5
+      },
+      {
+        "left_col": "last_deal_gosb_id",
+        "right_col": "gosb_id",
+        "overlap": 3
+      },
+      {
+        "left_col": "last_mzp_activity_gosb_id",
+        "right_col": "gosb_id",
+        "overlap": 5
+      },
+      {
+        "left_col": "ogrn",
+        "right_col": "gosb_id",
+        "overlap": 6
+      },
+      {
+        "left_col": "okato",
+        "right_col": "gosb_id",
+        "overlap": 5
+      },
+      {
+        "left_col": "okato_gosb_id",
+        "right_col": "gosb_id",
+        "overlap": 6
+      },
+      {
+        "left_col": "oktmo",
+        "right_col": "gosb_id",
+        "overlap": 4
+      },
+      {
+        "left_col": "oktmo_gosb_id",
+        "right_col": "gosb_id",
+        "overlap": 3
+      },
+      {
+        "left_col": "payroll_gosb_id",
+        "right_col": "gosb_id",
+        "overlap": 5
+      },
+      {
+        "left_col": "priority_id",
+        "right_col": "gosb_id",
+        "overlap": 6
+      },
+      {
+        "left_col": "report_id",
+        "right_col": "gosb_id",
+        "overlap": 4
+      },
+      {
+        "left_col": "segment_id",
+        "right_col": "gosb_id",
+        "overlap": 10
+      },
+      {
+        "left_col": "status_id",
+        "right_col": "gosb_id",
+        "overlap": 2
       },
       {
         "left_col": "tb_id",
         "right_col": "tb_id",
-        "overlap": 9
+        "overlap": 12
+      }
+    ]
+  },
+  {
+    "left": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_epk_consolidation",
+    "right": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task",
+    "pairs": [
+      {
+        "left_col": "gosb_id",
+        "right_col": "gosb_id",
+        "overlap": 29
+      },
+      {
+        "left_col": "inn",
+        "right_col": "inn",
+        "overlap": 200
+      },
+      {
+        "left_col": "tb_id",
+        "right_col": "tb_id",
+        "overlap": 12
+      }
+    ]
+  },
+  {
+    "left": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dim_gosb",
+    "right": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_fact_outflow",
+    "pairs": [
+      {
+        "left_col": "old_gosb_id",
+        "right_col": "gosb_id",
+        "overlap": 29
+      },
+      {
+        "left_col": "old_gosb_id",
+        "right_col": "saphr_id",
+        "overlap": 6
+      },
+      {
+        "left_col": "tb_id",
+        "right_col": "saphr_id",
+        "overlap": 4
+      },
+      {
+        "left_col": "tb_id",
+        "right_col": "tb_id",
+        "overlap": 12
       }
     ]
   },
@@ -114,13 +409,43 @@
     "pairs": [
       {
         "left_col": "old_gosb_id",
+        "right_col": "emp_post_id",
+        "overlap": 6
+      },
+      {
+        "left_col": "old_gosb_id",
         "right_col": "gosb_id",
-        "overlap": 52
+        "overlap": 29
+      },
+      {
+        "left_col": "old_gosb_id",
+        "right_col": "isu_struct_saphr_id",
+        "overlap": 6
+      },
+      {
+        "left_col": "old_gosb_id",
+        "right_col": "manager_saphr_id",
+        "overlap": 9
+      },
+      {
+        "left_col": "tb_id",
+        "right_col": "emp_post_id",
+        "overlap": 3
+      },
+      {
+        "left_col": "tb_id",
+        "right_col": "isu_struct_saphr_id",
+        "overlap": 3
+      },
+      {
+        "left_col": "tb_id",
+        "right_col": "manager_saphr_id",
+        "overlap": 2
       },
       {
         "left_col": "tb_id",
         "right_col": "tb_id",
-        "overlap": 9
+        "overlap": 12
       }
     ]
   },
@@ -130,18 +455,33 @@
     "pairs": [
       {
         "left_col": "gosb_id",
+        "right_col": "emp_post_id",
+        "overlap": 6
+      },
+      {
+        "left_col": "gosb_id",
         "right_col": "gosb_id",
-        "overlap": 50
+        "overlap": 29
+      },
+      {
+        "left_col": "gosb_id",
+        "right_col": "isu_struct_saphr_id",
+        "overlap": 6
+      },
+      {
+        "left_col": "gosb_id",
+        "right_col": "manager_saphr_id",
+        "overlap": 9
       },
       {
         "left_col": "inn",
         "right_col": "inn",
-        "overlap": 77
+        "overlap": 200
       },
       {
         "left_col": "tb_id",
         "right_col": "tb_id",
-        "overlap": 9
+        "overlap": 12
       }
     ]
   }

@@ -222,6 +222,7 @@ class CLI:
                     if o.get("rationale"):
                         print(f"      {o['rationale']}")
                 ans = input("\nНомер варианта: ").strip()
+                logger.info("CLI ответ (выбор варианта): %r", ans)
                 turn = self._with_status("планирую", lambda: self.agent.respond(ans))
             elif itype == "approve_plan":
                 print("\n── ПЛАН ──")
@@ -234,6 +235,7 @@ class CLI:
                 if sql_preview:
                     print("\n── SQL ──\n" + sql_preview)
                 ans = input("\n" + _OK_HINT).strip()
+                logger.info("CLI ответ на план: %r", ans)
                 turn = self._with_status("обрабатываю", lambda: self.agent.respond(ans))
             else:
                 break

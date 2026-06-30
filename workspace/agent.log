@@ -58,3 +58,21 @@ FROM "s_grnplm_ld_salesntwrk_pcap_sn_uzp"."uzp_dwh_fact_outflow" AS "f"
 INNER JOIN "s_grnplm_ld_salesntwrk_pcap_sn_uzp"."uzp_dim_gosb" AS "g" ON "f"."gosb_id" = "g"."old_gosb_id" AND "f"."tb_id" = "g"."tb_id"
 GROUP BY "f"."report_dt", "g"."old_gosb_name"
 2026-06-30 16:50:41,071 [INFO] text2sql.cli: CLI ввод: /exit
+2026-06-30 17:53:17,610 [INFO] text2sql.logging_setup: Логирование инициализировано → /home/darky/text2sql/workspace/agent.log
+2026-06-30 17:53:17,721 [INFO] text2sql.db.adapter: metadata_sample s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_epk_consolidation: strategy=sort_random est=800 n=100000 timeout_ms=300000
+2026-06-30 17:53:17,838 [INFO] text2sql.catalog.refresh: metadata: собрана s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_epk_consolidation (строк сэмпла=800, колонок=43, pk=['epk_id'])
+2026-06-30 17:53:17,847 [INFO] text2sql.db.adapter: metadata_sample s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dim_gosb: strategy=sort_random est=60 n=100000 timeout_ms=300000
+2026-06-30 17:53:17,859 [INFO] text2sql.catalog.refresh: metadata: собрана s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dim_gosb (строк сэмпла=60, колонок=18, pk=['old_gosb_id', 'tb_id'])
+2026-06-30 17:53:17,868 [INFO] text2sql.db.adapter: metadata_sample s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_fact_outflow: strategy=sort_random est=1500 n=100000 timeout_ms=300000
+2026-06-30 17:53:17,926 [INFO] text2sql.catalog.refresh: metadata: собрана s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_fact_outflow (строк сэмпла=1500, колонок=29, pk=['gosb_id', 'inn', 'report_dt'])
+2026-06-30 17:53:17,935 [INFO] text2sql.db.adapter: metadata_sample s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task: strategy=sort_random est=1500 n=100000 timeout_ms=300000
+2026-06-30 17:53:18,013 [INFO] text2sql.catalog.refresh: metadata: собрана s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task (строк сэмпла=1500, колонок=40, pk=['task_code'])
+2026-06-30 18:04:09,040 [INFO] text2sql.logging_setup: Логирование инициализировано → /home/darky/text2sql/workspace/agent.log
+2026-06-30 18:04:09,138 [INFO] text2sql.db.adapter: metadata_sample s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_epk_consolidation: strategy=sort_random est=854 n=100000 timeout_ms=300000
+2026-06-30 18:04:09,204 [INFO] text2sql.catalog.refresh: metadata: собрана s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_epk_consolidation (строк сэмпла=800, колонок=43, pk=['epk_id'])
+2026-06-30 18:04:09,212 [INFO] text2sql.db.adapter: metadata_sample s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dim_gosb: strategy=sort_random est=250 n=100000 timeout_ms=300000
+2026-06-30 18:04:09,224 [INFO] text2sql.catalog.refresh: metadata: собрана s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dim_gosb (строк сэмпла=60, колонок=18, pk=['old_gosb_id', 'tb_id'])
+2026-06-30 18:04:09,232 [INFO] text2sql.db.adapter: metadata_sample s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_fact_outflow: strategy=sort_random est=1620 n=100000 timeout_ms=300000
+2026-06-30 18:04:09,294 [INFO] text2sql.catalog.refresh: metadata: собрана s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_fact_outflow (строк сэмпла=1500, колонок=29, pk=['gosb_id', 'inn', 'report_dt'])
+2026-06-30 18:04:09,303 [INFO] text2sql.db.adapter: metadata_sample s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task: strategy=sort_random est=1606 n=100000 timeout_ms=300000
+2026-06-30 18:04:09,382 [INFO] text2sql.catalog.refresh: metadata: собрана s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task (строк сэмпла=1500, колонок=40, pk=['task_code'])

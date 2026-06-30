@@ -1,0 +1,239 @@
+columns:
+- column_name: client_type_id
+  description: Идентификатор типа клиента
+- column_name: client_type_name
+  description: Наименование типа клиента
+- column_name: company_name
+  description: Наименование компании
+- column_name: epk_create_dttm
+  description: Дата создания карточки ЕПК
+- column_name: epk_gosb_id
+  description: Идентификатор ГОСБ из витрины данных ЕПК КБ
+- column_name: epk_id
+  description: Идентификатор ЕПК
+- column_name: gosb_id
+  description: Идентификатор ГОСБ
+- column_name: gosb_method_id
+  description: Идентификатор метода для заполнения поля gosb_id
+- column_name: head_holding_epk_id
+  description: Идентификатор ЕПК головного холдинга
+- column_name: head_holding_name
+  description: Наименование головного холдинга
+- column_name: holding_epk_id
+  description: Идентификатор ЕПК холдинга
+- column_name: holding_name
+  description: Наименование холдинга
+- column_name: importance_lvl_id
+  description: Идентификатор уровня значимости
+- column_name: industry_id
+  description: Идентификатор отрасли
+- column_name: industry_name
+  description: Наименование отрасли
+- column_name: inn
+  description: ИНН
+- column_name: is_educational
+  description: Признак ВУЗ
+- column_name: is_key_client
+  description: Признак ключевого клиента
+- column_name: is_military
+  description: Признак силовой организации
+- column_name: is_parent
+  description: Признак головной организации
+- column_name: km_gosb_id
+  description: Идентификатор ГОСБ по значению ГОСБ закрепленного КМ
+- column_name: kpp
+  description: КПП
+- column_name: kpp_gosb_id
+  description: Идентификатор ГОСБ в соответствии со значением КПП
+- column_name: last_deal_gosb_id
+  description: Идентификатор ГОСБ по сотруднику, создавшему последнюю по дате сделку
+    по клиенту
+- column_name: last_mzp_activity_gosb_id
+  description: Идентификатор ГОСБ по значению ГОСБ сотрудника, создавшего последнюю
+    по дате активность по клиенту
+- column_name: modified_dttm
+  description: Дата и время изменения записи
+- column_name: ogrn
+  description: ОГРН
+- column_name: okato
+  description: ОКАТО
+- column_name: okato_gosb_id
+  description: Идентификатор ГОСБ в соответствии со значением ОКАТО
+- column_name: oktmo
+  description: ОКТМО
+- column_name: oktmo_gosb_id
+  description: Идентификатор ГОСБ в соответствии со значением ОКТМО
+- column_name: old_epk_id
+  description: История изменений ЕПК
+- column_name: payroll_gosb_id
+  description: Идентификатор ГОСБ по максимальному количеству зачислений
+- column_name: priority_id
+  description: Идентификатор приоритета
+- column_name: priority_name
+  description: Наименование приоритета
+- column_name: reference_head_holding_name
+  description: Наименование эталонного головного холдинга
+- column_name: reference_holding_name
+  description: Наименование эталонного холдинга
+- column_name: report_id
+  description: Идентификатор во внешней системе
+- column_name: segment_id
+  description: Идентификатор сегмента
+- column_name: segment_name
+  description: Наименование сегмента
+- column_name: status_id
+  description: Идентификатор статуса организации
+- column_name: status_name
+  description: Наименование статуса для организации
+- column_name: tb_id
+  description: Идентификатор ТБ
+- column_name: author_login
+  description: Логин автора записи
+- column_name: inserted_dttm
+  description: Дата и время добавления записи
+- column_name: isu_branch_id
+  description: Номер филиала для ИСУ
+- column_name: isu_branch_name
+  description: Наименование филиала для ИСУ
+- column_name: new_gosb_id
+  description: Новый номер ГОСБ
+- column_name: new_gosb_name
+  description: Новое наименование ГОСБ
+- column_name: old_gosb_id
+  description: Старый номер ГОСБ
+- column_name: old_gosb_name
+  description: Старое наименование ГОСБ
+- column_name: pirs_gosb_id
+  description: Номер ГОСБ в АС ПИРС
+- column_name: pirs_gosb_name
+  description: Наименование ГОСБ в АС ПИРС
+- column_name: region_id
+  description: Идентификатор региона
+- column_name: region_name
+  description: Наименование региона
+- column_name: tb_full_name
+  description: Полное наименование ТБ
+- column_name: tb_short_name
+  description: Краткое наименование ТБ
+- column_name: timezone_violation_msk
+  description: Отклонение часового пояса от МСК
+- column_name: utc_timezone
+  description: Часовой пояс UTC
+- column_name: web_gosb_id
+  description: Номер ГОСБ
+- column_name: calc_fl_qty
+  description: Расчетное количество получателей при расчета Оттока. Обозначается как
+    минимальное кол-во получателей за периоды T-1, T-2, T-12
+- column_name: client_communication_infopovod
+  description: Инфоповод для общения с клиентами
+- column_name: fact_payee_qty
+  description: Фактическое количество получателей начислений
+- column_name: is_force
+  description: Признак силовой организации
+- column_name: is_oktmo
+  description: Признак ОКТМО организации (принадлежит ГОСБ эмиссии карт)
+- column_name: is_task
+  description: Признак выставленной задачи
+- column_name: m_avg_salary_amt
+  description: Средняя зарплата в отчетный месяц
+- column_name: mzp_fio
+  description: ФИО закрепленного МЗП
+- column_name: next_m_avg_salary_amt
+  description: Средняя зарплата в следующий месяц
+- column_name: next_m_fl_val
+  description: Численность ФЛ в следующий месяц
+- column_name: oktmo_subject_code
+  description: Код субъекта РФ согласно справочнику ОКТМО
+- column_name: oktmo_subject_district_city_code
+  description: Код ОКТМО субъекта РФ, муниципального района или округа, городского
+    или сельского поселения согласно справочнику ОКТМО
+- column_name: oktmo_subject_district_code
+  description: Код субъекта РФ, муниципального района или округа согласно справочнику
+    ОКТМО
+- column_name: other_inn_emp_perc
+  description: Доля сотрудников получивших выплаты в других ИНН
+- column_name: outflow_perc
+  description: Доля оттока
+- column_name: outflow_qty
+  description: Кол-во ФЛ переставших быть ЗП клиентами СБЕРа
+- column_name: plan_payee_qty
+  description: Плановое количество получателей начислений
+- column_name: prev_m_avg_salary_amt
+  description: Средняя зарплата в предыдущий месяц
+- column_name: prev_m_fl_val
+  description: Численность ФЛ в предыдущий месяц
+- column_name: prev_m_overflow_qty
+  description: Кол-во ФЛ, перешедших получать ЗП в другую организацию, но оставшихся
+    ЗП клиентами СБЕРа
+- column_name: report_dt
+  description: Отчетная дата
+- column_name: saphr_id
+  description: Табельный номер закрепленного МЗП
+- column_name: campaign_code
+  description: Код кампании
+- column_name: deal_code
+  description: Код сделки
+- column_name: emp_fio
+  description: ФИО сотрудника
+- column_name: emp_post
+  description: Должность сотрудника
+- column_name: emp_post_id
+  description: Идентификатор должности сотрудника
+- column_name: escalation_parent_task_code
+  description: Код родительской задачи при эскалации
+- column_name: fact_close_task_dttm
+  description: Фактическая дата и время закрытия задачи
+- column_name: gosb_name
+  description: Наименование ГОСБ
+- column_name: is_task_closed
+  description: Признак закрытия задачи
+- column_name: is_task_closed_success
+  description: Признак успешного закрытия задачи
+- column_name: is_task_in_progress
+  description: Признак - задача выполняется
+- column_name: isu_struct_saphr_id
+  description: Табельный номер сотрудника или структура ИСУ
+- column_name: last_active_dttm
+  description: Дата и время последней активности
+- column_name: last_active_status
+  description: Статус последней активности
+- column_name: last_active_type
+  description: Тип последней активности
+- column_name: manager_fio
+  description: ФИО руководителя
+- column_name: manager_saphr_id
+  description: Табельный номер руководителя
+- column_name: plan_close_task_dttm
+  description: Плановая дата и время закрытия задачи
+- column_name: role_code
+  description: Код роли
+- column_name: src_task_as_code
+  description: Код АС источника задачи
+- column_name: src_task_business
+  description: Бизнес источник задачи
+- column_name: src_update_dttm
+  description: Дата-время обновления источника
+- column_name: task_category
+  description: Категория задачи
+- column_name: task_code
+  description: Код задачи
+- column_name: task_comment
+  description: Комментарий по задаче
+- column_name: task_create_dt
+  description: Дата создания задачи
+- column_name: task_questionnaire
+  description: Анкета по задаче
+- column_name: task_subtype
+  description: Подтип задачи
+- column_name: task_text
+  description: Текст задачи
+- column_name: task_text_status
+  description: Текстовый статус по отработке задачи
+- column_name: task_type
+  description: Тип задачи
+- column_name: tb_name
+  description: Наименование ТБ
+- column_name: unrealized_deal_potential
+  description: Нереализованный потенциал по сделке
+- column_name: update_dttm
+  description: Дата-время обновления

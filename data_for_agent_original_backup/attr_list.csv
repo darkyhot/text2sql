@@ -1,0 +1,131 @@
+schema_name,table_name,column_name,dType,is_not_null,description,is_primary_key,not_null_perc,unique_perc,foreign_key_target,sample_values,partition_key
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_data_epk_consolidation,client_type_id,smallint,False,Идентификатор типа клиента,False,100.0,0.01,,2|4|1|10|5|3|9|6|7,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_data_epk_consolidation,client_type_name,varchar(255),False,Наименование типа клиента,False,100.0,0.01,,"Индивидуальный предприниматель|Холдинг (не являющийся ЮЛ)|Юридическое лицо|Кандидат|Избирательная комиссия / объединение / фонд (не являющиеся ЮЛ)|Лица, осуществляющие деятельность, не отнесённую к предпринимательству|ПИФ|Территория|Войсковая часть",False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_data_epk_consolidation,company_name,varchar(4000),False,Наименование компании,False,100.0,93.94,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_data_epk_consolidation,epk_create_dttm,timestamp,False,Дата создания карточки ЕПК,False,100.0,91.18,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_data_epk_consolidation,epk_gosb_id,integer,False,Идентификатор ГОСБ из витрины данных ЕПК КБ,False,66.67,0.08,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_data_epk_consolidation,epk_id,bigint,False,Идентификатор ЕПК,True,100.0,100.0,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_data_epk_consolidation,gosb_id,integer,False,Идентификатор ГОСБ,False,90.69,0.09,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_data_epk_consolidation,gosb_method_id,smallint,False,Идентификатор метода для заполнения поля gosb_id,False,100.0,0.01,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_data_epk_consolidation,head_holding_epk_id,bigint,False,Идентификатор ЕПК головного холдинга,False,15.15,13.41,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_data_epk_consolidation,head_holding_name,varchar(500),False,Наименование головного холдинга,False,15.15,13.47,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_data_epk_consolidation,holding_epk_id,bigint,False,Идентификатор ЕПК холдинга,False,15.15,13.47,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_data_epk_consolidation,holding_name,varchar(500),False,Наименование холдинга,False,15.15,13.53,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_data_epk_consolidation,importance_lvl_id,smallint,False,Идентификатор уровня значимости,False,0.03,0.0,,1.0|2.0,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_data_epk_consolidation,industry_id,smallint,False,Идентификатор отрасли,False,52.47,0.02,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_data_epk_consolidation,industry_name,varchar(255),False,Наименование отрасли,False,52.47,0.02,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_data_epk_consolidation,inn,bigint,False,ИНН,False,95.6,95.52,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_data_epk_consolidation,is_educational,boolean,False,Признак ВУЗ,False,100.0,0.0,,False|True,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_data_epk_consolidation,is_key_client,boolean,False,Признак ключевого клиента,False,100.0,0.0,,False|True,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_data_epk_consolidation,is_military,boolean,False,Признак силовой организации,False,100.0,0.0,,False|True,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_data_epk_consolidation,is_parent,boolean,False,Признак головной организации,False,100.0,0.0,,False|True,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_data_epk_consolidation,km_gosb_id,integer,False,Идентификатор ГОСБ по значению ГОСБ закрепленного КМ,False,14.59,0.09,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_data_epk_consolidation,kpp,bigint,False,КПП,False,37.85,3.14,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_data_epk_consolidation,kpp_gosb_id,integer,False,Идентификатор ГОСБ в соответствии со значением КПП,False,35.92,0.08,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_data_epk_consolidation,last_deal_gosb_id,integer,False,"Идентификатор ГОСБ по сотруднику, создавшему последнюю по дате сделку по клиенту",False,7.38,0.09,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_data_epk_consolidation,last_mzp_activity_gosb_id,integer,False,"Идентификатор ГОСБ по значению ГОСБ сотрудника, создавшего последнюю по дате активность по клиенту",False,3.42,0.09,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_data_epk_consolidation,modified_dttm,timestamp,False,Дата и время изменения записи,False,100.0,0.0,,2026-05-19 03:00:39.172073,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_data_epk_consolidation,ogrn,bigint,False,ОГРН,False,95.22,95.15,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_data_epk_consolidation,okato,bigint,False,ОКАТО,False,86.64,12.47,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_data_epk_consolidation,okato_gosb_id,integer,False,Идентификатор ГОСБ в соответствии со значением ОКАТО,False,83.69,0.09,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_data_epk_consolidation,oktmo,bigint,False,ОКТМО,False,84.99,12.83,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_data_epk_consolidation,oktmo_gosb_id,integer,False,Идентификатор ГОСБ в соответствии со значением ОКТМО,False,82.94,0.08,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_data_epk_consolidation,old_epk_id,varchar(4000),False,История изменений ЕПК,False,10.76,10.76,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_data_epk_consolidation,payroll_gosb_id,integer,False,Идентификатор ГОСБ по максимальному количеству зачислений,False,25.13,0.09,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_data_epk_consolidation,priority_id,smallint,False,Идентификатор приоритета,False,54.98,0.02,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_data_epk_consolidation,priority_name,varchar(100),False,Наименование приоритета,False,54.98,0.02,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_data_epk_consolidation,reference_head_holding_name,varchar(500),False,Наименование эталонного головного холдинга,False,15.15,13.47,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_data_epk_consolidation,reference_holding_name,varchar(500),False,Наименование эталонного холдинга,False,15.15,13.53,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_data_epk_consolidation,report_id,bigint,False,Идентификатор во внешней системе,False,89.42,89.09,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_data_epk_consolidation,segment_id,smallint,False,Идентификатор сегмента,False,99.94,0.01,,1.0|2.0|8.0|3.0|7.0|4.0|5.0|12.0|6.0|9.0,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_data_epk_consolidation,segment_name,varchar(100),False,Наименование сегмента,False,99.94,0.01,,"Микро|Малые|Рег. госсектор|Средние|Клиенты машиностроения|Крупные|Крупнейшие|Эмитенты ЦБ, не являющиеся клиентами Банка|Фин.институты|SBI",False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_data_epk_consolidation,status_id,smallint,False,Идентификатор статуса организации,False,94.98,0.01,,2.0|1.0|3.0|5.0|10.0|4.0|11.0,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_data_epk_consolidation,status_name,varchar(100),False,Наименование статуса для организации,False,94.98,0.01,,Ликвидирована|Активна|На стадии ликвидации|Банкротство|Сформирован|Реорганизация|Формируется,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_data_epk_consolidation,tb_id,smallint,False,Идентификатор ТБ,False,90.69,0.01,,44.0|54.0|16.0|52.0|38.0|40.0|55.0|13.0|42.0|18.0|70.0,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dim_gosb,author_login,text,False,Логин автора записи,False,100.0,0.55,,03496217 (Шмаков Сергей Андреевич [Shmakov.Se.An@omega.sbrf.ru]),False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dim_gosb,inserted_dttm,timestamp,False,Дата и время добавления записи,False,100.0,0.55,,2025-07-10 15:45:10,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dim_gosb,isu_branch_id,bigint,False,Номер филиала для ИСУ,False,80.66,54.14,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dim_gosb,isu_branch_name,text,False,Наименование филиала для ИСУ,False,100.0,57.46,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dim_gosb,new_gosb_id,integer,False,Новый номер ГОСБ,False,100.0,58.01,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dim_gosb,new_gosb_name,text,False,Новое наименование ГОСБ,False,100.0,57.46,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dim_gosb,old_gosb_id,integer,False,Старый номер ГОСБ,True,100.0,98.9,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dim_gosb,old_gosb_name,text,False,Старое наименование ГОСБ,False,100.0,84.53,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dim_gosb,pirs_gosb_id,bigint,False,Номер ГОСБ в АС ПИРС,False,97.24,51.93,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dim_gosb,pirs_gosb_name,text,False,Наименование ГОСБ в АС ПИРС,False,100.0,52.49,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dim_gosb,region_id,smallint,False,Идентификатор региона,False,61.33,45.3,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dim_gosb,region_name,varchar(512),False,Наименование региона,False,100.0,45.86,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dim_gosb,tb_full_name,text,False,Полное наименование ТБ,False,100.0,6.63,,Уральский банк|Среднерусский банк|Центрально-Черноземный банк|Байкальский банк|Московский банк|Северо-Западный банк|Юго-Западный банк|Поволжский банк|Сибирский банк|Центральный аппарат|Дальневосточный банк|Волго-Вятский банк,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dim_gosb,tb_id,integer,False,Номер ТБ,True,100.0,6.63,,16|40|13|18|38|55|52|54|44|2|70|42,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dim_gosb,tb_short_name,text,False,Краткое наименование ТБ,False,100.0,6.63,,УБ|СРБ|ЦЧБ|ББ|МБ|СЗБ|ЮЗБ|ПБ|СибБ|ЦА|ДВБ|ВВБ,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dim_gosb,timezone_violation_msk,smallint,False,Отклонение часового пояса от МСК,False,100.0,6.08,,2|0|5|1|4|7|-1|9|8|3|6,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dim_gosb,utc_timezone,smallint,False,Часовой пояс UTC,False,100.0,6.08,,5|3|8|4|7|10|2|12|11|6|9,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dim_gosb,web_gosb_id,integer,False,Номер ГОСБ,False,96.69,59.12,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_fact_outflow,author_login,text,False,Логин автора записи,False,100.0,0.0,,22241506 (Ямщиков Владислав Александрович [VAYamshchikov@omega.sbrf.ru])|22306063 (Шелест Софья Андреевна [SAndShelest@omega.sbrf.ru])|20197423 (Шелест Станислав Андреевич [SAShelest@omega.sbrf.ru]),False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_fact_outflow,calc_fl_qty,integer,False,"Расчетное количество получателей при расчета Оттока. Обозначается как минимальное кол-во получателей за периоды T-1, T-2, T-12",False,100.0,0.38,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_fact_outflow,client_communication_infopovod,varchar(4000),False,Инфоповод для общения с клиентами,False,100.0,2.58,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_fact_outflow,fact_payee_qty,integer,False,Фактическое количество получателей начислений,False,100.0,0.31,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_fact_outflow,gosb_id,integer,False,Идентификатор ГОСБ,True,100.0,0.1,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_fact_outflow,inn,bigint,False,ИНН,True,100.0,90.63,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_fact_outflow,inserted_dttm,timestamp,False,Дата и время добавления записи,False,100.0,0.0,,2026-03-04 17:37:27|2026-05-06 14:26:26|2026-05-06 16:57:27|2026-03-10 15:48:49,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_fact_outflow,is_force,boolean,False,Признак силовой организации,False,100.0,0.0,,False|True,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_fact_outflow,is_oktmo,boolean,False,Признак ОКТМО организации (принадлежит ГОСБ эмиссии карт),False,100.0,0.0,,False|True,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_fact_outflow,is_task,boolean,False,Признак выставленной задачи,False,100.0,0.0,,False|True,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_fact_outflow,m_avg_salary_amt,"numeric(18, 2)",False,Средняя зарплата в отчетный месяц,False,100.0,32.11,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_fact_outflow,mzp_fio,varchar(100),False,ФИО закрепленного МЗП,False,100.0,2.19,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_fact_outflow,next_m_avg_salary_amt,"numeric(18, 2)",False,Средняя зарплата в следующий месяц,False,100.0,15.97,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_fact_outflow,next_m_fl_val,integer,False,Численность ФЛ в следующий месяц,False,100.0,0.23,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_fact_outflow,oktmo,varchar(11),False,Код ОКТМО,False,100.0,9.35,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_fact_outflow,oktmo_subject_code,varchar(2),False,Код субъекта РФ согласно справочнику ОКТМО,False,100.0,0.1,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_fact_outflow,oktmo_subject_district_city_code,varchar(8),False,"Код ОКТМО субъекта РФ, муниципального района или округа, городского или сельского поселения согласно справочнику ОКТМО",False,100.0,7.34,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_fact_outflow,oktmo_subject_district_code,varchar(5),False,"Код субъекта РФ, муниципального района или округа согласно справочнику ОКТМО",False,100.0,3.49,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_fact_outflow,other_inn_emp_perc,"numeric(18, 4)",False,Доля сотрудников получивших выплаты в других ИНН,False,100.0,0.0,,0.0,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_fact_outflow,outflow_perc,"numeric(18, 4)",False,Доля оттока,False,100.0,0.1,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_fact_outflow,outflow_qty,integer,False,Кол-во ФЛ переставших быть ЗП клиентами СБЕРа,False,100.0,0.2,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_fact_outflow,plan_payee_qty,integer,False,Плановое количество получателей начислений,False,100.0,0.38,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_fact_outflow,prev_m_avg_salary_amt,"numeric(18, 2)",False,Средняя зарплата в предыдущий месяц,False,100.0,74.57,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_fact_outflow,prev_m_fl_val,integer,False,Численность ФЛ в предыдущий месяц,False,100.0,0.4,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_fact_outflow,prev_m_overflow_qty,integer,False,"Кол-во ФЛ, перешедших получать ЗП в другую организацию, но оставшихся ЗП клиентами СБЕРа",False,100.0,0.0,,0,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_fact_outflow,report_dt,date,False,Отчетная дата,True,100.0,0.05,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_fact_outflow,saphr_id,bigint,False,Табельный номер закрепленного МЗП,False,25.49,2.17,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_fact_outflow,segment_name,varchar(100),False,Наименование сегмента,False,100.0,0.01,,ММБ|КСБ|РГС|КФИ|СКМ,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_fact_outflow,tb_id,smallint,False,Идентификатор ТБ,False,100.0,0.01,,44|13|70|55|42|54|38|18|52|16|40,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,campaign_code,varchar(255),False,Код кампании,False,38.09,0.06,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,company_name,varchar(4000),False,Наименование компании,False,99.37,87.68,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,deal_code,varchar(200),False,Код сделки,False,24.14,24.14,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,emp_fio,varchar(255),False,ФИО сотрудника,False,99.94,4.11,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,emp_post,varchar(255),False,Должность сотрудника,False,99.94,0.02,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,emp_post_id,bigint,False,Идентификатор должности сотрудника,False,99.94,0.02,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,escalation_parent_task_code,varchar(100),False,Код родительской задачи при эскалации,False,0.0,0.0,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,fact_close_task_dttm,timestamp,False,Фактическая дата и время закрытия задачи,False,65.44,60.26,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,gosb_id,integer,False,Идентификатор ГОСБ,False,99.97,0.1,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,gosb_name,varchar(100),False,Наименование ГОСБ,False,99.97,0.1,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,inn,bigint,False,ИНН (Идентификационный номер налогоплательщика),False,99.41,90.36,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,is_task_closed,boolean,False,Признак закрытия задачи,False,100.0,0.0,,True|False,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,is_task_closed_success,boolean,False,Признак успешного закрытия задачи,False,100.0,0.0,,False|True,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,is_task_in_progress,boolean,False,Признак - задача выполняется,False,100.0,0.0,,False|True,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,isu_struct_saphr_id,bigint,False,Табельный номер сотрудника или структура ИСУ,False,100.0,4.18,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,last_active_dttm,timestamp,False,Дата и время последней активности,False,65.26,47.21,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,last_active_status,varchar(255),False,Статус последней активности,False,95.93,0.01,,Отменена сотрудником|Закрыто|В работе|Исполнена|Просрочено|Просрочена|Новая|Новое|Запланирована,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,last_active_type,varchar(255),False,Тип последней активности,False,65.54,0.0,,Звонок|Встреча,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,manager_fio,varchar(255),False,ФИО руководителя,False,95.83,0.56,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,manager_saphr_id,bigint,False,Табельный номер руководителя,False,95.87,0.56,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,plan_close_task_dttm,timestamp,False,Плановая дата и время закрытия задачи,False,99.94,12.65,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,report_dt,date,False,Отчетная дата,False,100.0,0.03,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,role_code,varchar(20),False,Код роли,False,100.0,0.01,,МЗП|СЗП|РН|МС-СМС|НУ|НО|МКК|ЗУПР РБ|РН по Сервису|ДУ|ИД,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,segment_name,varchar(100),False,Наименование сегмента,False,99.37,0.01,,Фин.институты|Клиенты машиностроения|Средние|Крупнейшие|Рег. госсектор|Микро|Малые|Крупные|SBI,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,src_task_as_code,varchar(20),False,Код АС источника задачи,False,100.0,0.0,,ЦА (УЗП)|ЦА (SCRM)|ИСУ,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,src_task_business,varchar(100),False,Бизнес источник задачи,False,0.13,0.0,,Ключевой клиент,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,src_update_dttm,timestamp,False,Дата-время обновления источника,False,100.0,0.0,,2026-05-19 04:01:18.889262|2026-05-19 08:00:58.365766,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,task_category,varchar(255),False,Категория задачи,False,100.0,0.0,,Предложение|Задача,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,task_code,varchar(100),False,Код задачи,True,100.0,100.0,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,task_comment,varchar(4000),False,Комментарий по задаче,False,75.83,28.64,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,task_create_dt,date,False,Дата создания задачи,False,100.0,0.55,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,task_questionnaire,varchar(4000),False,Анкета по задаче,False,14.49,5.38,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,task_subtype,varchar(255),False,Подтип задачи,False,75.37,0.49,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,task_text,varchar(20000),False,Текст задачи,False,99.78,49.55,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,task_text_status,varchar(255),False,Текстовый статус по отработке задачи,False,100.0,0.01,,Закрыта|Закрыта: Своевременно|Не закрыта|Закрыта: С просрочкой|Закрыта: Статус невозможно отработать,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,task_type,varchar(255),False,Тип задачи,False,99.94,0.02,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,tb_id,integer,False,Идентификатор ТБ,False,99.97,0.01,,13.0|55.0|16.0|52.0|70.0|40.0|42.0|44.0|18.0|54.0|38.0,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,tb_name,varchar(100),False,Наименование ТБ,False,99.97,0.01,,Центрально-Черноземный банк|Северо-Западный банк|Уральский банк|Юго-Западный банк|Дальневосточный банк|Среднерусский банк|Волго-Вятский банк|Сибирский банк|Байкальский банк|Поволжский банк|Московский банк,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,unrealized_deal_potential,integer,False,Нереализованный потенциал по сделке,False,24.14,0.07,,,False
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,update_dttm,timestamp,False,Дата-время обновления,False,100.0,0.0,,2026-05-19 08:00:58.365766,False

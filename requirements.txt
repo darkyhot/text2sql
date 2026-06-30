@@ -1,0 +1,11 @@
+langgraph>=0.2
+openai>=1.40
+sqlalchemy>=2.0
+psycopg2-binary
+pandas
+pydantic>=2
+rank-bm25
+pyyaml
+python-dotenv
+# Прод: бэкенд GigaChat (на локальном DeepSeek-контуре не требуется)
+langchain-gigachat

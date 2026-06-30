@@ -1,0 +1,9 @@
+tables:
+- table_name: uzp_data_epk_consolidation
+  description: Данные по атрибутам ЕПК организаций
+- table_name: uzp_dim_gosb
+  description: Справочник ТБ и ГОСБ
+- table_name: uzp_dwh_fact_outflow
+  description: Информация по фактическим оттокам для УЗП
+- table_name: uzp_dwh_sale_funnel_task
+  description: Воронка продаж по всем задачам УЗП

@@ -1,0 +1,1278 @@
+{
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_epk_consolidation.client_type_id": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_data_epk_consolidation",
+    "column": "client_type_id",
+    "semantic_class": "join_key",
+    "semantic_tags": [
+      "dense",
+      "join_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_epk_consolidation.client_type_name": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_data_epk_consolidation",
+    "column": "client_type_name",
+    "semantic_class": "enum_like",
+    "semantic_tags": [
+      "categorical",
+      "dense",
+      "filter_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_epk_consolidation.company_name": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_data_epk_consolidation",
+    "column": "company_name",
+    "semantic_class": "label",
+    "semantic_tags": [
+      "dense",
+      "filter_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_epk_consolidation.epk_create_dttm": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_data_epk_consolidation",
+    "column": "epk_create_dttm",
+    "semantic_class": "date",
+    "semantic_tags": [
+      "dense",
+      "filter_candidate",
+      "time_axis"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_epk_consolidation.epk_gosb_id": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_data_epk_consolidation",
+    "column": "epk_gosb_id",
+    "semantic_class": "join_key",
+    "semantic_tags": [
+      "join_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_epk_consolidation.epk_id": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_data_epk_consolidation",
+    "column": "epk_id",
+    "semantic_class": "identifier",
+    "semantic_tags": [
+      "dense",
+      "join_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_epk_consolidation.gosb_id": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_data_epk_consolidation",
+    "column": "gosb_id",
+    "semantic_class": "join_key",
+    "semantic_tags": [
+      "join_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_epk_consolidation.gosb_method_id": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_data_epk_consolidation",
+    "column": "gosb_method_id",
+    "semantic_class": "join_key",
+    "semantic_tags": [
+      "dense",
+      "join_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_epk_consolidation.head_holding_epk_id": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_data_epk_consolidation",
+    "column": "head_holding_epk_id",
+    "semantic_class": "join_key",
+    "semantic_tags": [
+      "join_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_epk_consolidation.head_holding_name": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_data_epk_consolidation",
+    "column": "head_holding_name",
+    "semantic_class": "label",
+    "semantic_tags": [
+      "categorical",
+      "filter_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_epk_consolidation.holding_epk_id": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_data_epk_consolidation",
+    "column": "holding_epk_id",
+    "semantic_class": "join_key",
+    "semantic_tags": [
+      "join_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_epk_consolidation.holding_name": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_data_epk_consolidation",
+    "column": "holding_name",
+    "semantic_class": "label",
+    "semantic_tags": [
+      "categorical",
+      "filter_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_epk_consolidation.importance_lvl_id": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_data_epk_consolidation",
+    "column": "importance_lvl_id",
+    "semantic_class": "join_key",
+    "semantic_tags": [
+      "join_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_epk_consolidation.industry_id": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_data_epk_consolidation",
+    "column": "industry_id",
+    "semantic_class": "join_key",
+    "semantic_tags": [
+      "join_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_epk_consolidation.industry_name": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_data_epk_consolidation",
+    "column": "industry_name",
+    "semantic_class": "label",
+    "semantic_tags": [
+      "categorical",
+      "filter_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_epk_consolidation.inn": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_data_epk_consolidation",
+    "column": "inn",
+    "semantic_class": "metric",
+    "semantic_tags": [
+      "aggregate_candidate",
+      "dense"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_epk_consolidation.is_educational": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_data_epk_consolidation",
+    "column": "is_educational",
+    "semantic_class": "flag",
+    "semantic_tags": [
+      "dense",
+      "filter_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_epk_consolidation.is_key_client": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_data_epk_consolidation",
+    "column": "is_key_client",
+    "semantic_class": "flag",
+    "semantic_tags": [
+      "dense",
+      "filter_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_epk_consolidation.is_military": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_data_epk_consolidation",
+    "column": "is_military",
+    "semantic_class": "flag",
+    "semantic_tags": [
+      "dense",
+      "filter_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_epk_consolidation.is_parent": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_data_epk_consolidation",
+    "column": "is_parent",
+    "semantic_class": "flag",
+    "semantic_tags": [
+      "dense",
+      "filter_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_epk_consolidation.km_gosb_id": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_data_epk_consolidation",
+    "column": "km_gosb_id",
+    "semantic_class": "join_key",
+    "semantic_tags": [
+      "join_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_epk_consolidation.kpp": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_data_epk_consolidation",
+    "column": "kpp",
+    "semantic_class": "metric",
+    "semantic_tags": [
+      "aggregate_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_epk_consolidation.kpp_gosb_id": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_data_epk_consolidation",
+    "column": "kpp_gosb_id",
+    "semantic_class": "join_key",
+    "semantic_tags": [
+      "join_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_epk_consolidation.last_deal_gosb_id": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_data_epk_consolidation",
+    "column": "last_deal_gosb_id",
+    "semantic_class": "join_key",
+    "semantic_tags": [
+      "join_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_epk_consolidation.last_mzp_activity_gosb_id": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_data_epk_consolidation",
+    "column": "last_mzp_activity_gosb_id",
+    "semantic_class": "join_key",
+    "semantic_tags": [
+      "join_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_epk_consolidation.modified_dttm": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_data_epk_consolidation",
+    "column": "modified_dttm",
+    "semantic_class": "system_timestamp",
+    "semantic_tags": [
+      "dense"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_epk_consolidation.ogrn": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_data_epk_consolidation",
+    "column": "ogrn",
+    "semantic_class": "metric",
+    "semantic_tags": [
+      "aggregate_candidate",
+      "dense"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_epk_consolidation.okato": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_data_epk_consolidation",
+    "column": "okato",
+    "semantic_class": "metric",
+    "semantic_tags": [
+      "aggregate_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_epk_consolidation.okato_gosb_id": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_data_epk_consolidation",
+    "column": "okato_gosb_id",
+    "semantic_class": "join_key",
+    "semantic_tags": [
+      "join_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_epk_consolidation.oktmo": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_data_epk_consolidation",
+    "column": "oktmo",
+    "semantic_class": "metric",
+    "semantic_tags": [
+      "aggregate_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_epk_consolidation.oktmo_gosb_id": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_data_epk_consolidation",
+    "column": "oktmo_gosb_id",
+    "semantic_class": "join_key",
+    "semantic_tags": [
+      "join_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_epk_consolidation.old_epk_id": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_data_epk_consolidation",
+    "column": "old_epk_id",
+    "semantic_class": "join_key",
+    "semantic_tags": [
+      "join_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_epk_consolidation.payroll_gosb_id": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_data_epk_consolidation",
+    "column": "payroll_gosb_id",
+    "semantic_class": "join_key",
+    "semantic_tags": [
+      "join_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_epk_consolidation.priority_id": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_data_epk_consolidation",
+    "column": "priority_id",
+    "semantic_class": "join_key",
+    "semantic_tags": [
+      "join_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_epk_consolidation.priority_name": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_data_epk_consolidation",
+    "column": "priority_name",
+    "semantic_class": "label",
+    "semantic_tags": [
+      "categorical",
+      "filter_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_epk_consolidation.reference_head_holding_name": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_data_epk_consolidation",
+    "column": "reference_head_holding_name",
+    "semantic_class": "label",
+    "semantic_tags": [
+      "categorical",
+      "filter_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_epk_consolidation.reference_holding_name": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_data_epk_consolidation",
+    "column": "reference_holding_name",
+    "semantic_class": "label",
+    "semantic_tags": [
+      "categorical",
+      "filter_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_epk_consolidation.report_id": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_data_epk_consolidation",
+    "column": "report_id",
+    "semantic_class": "join_key",
+    "semantic_tags": [
+      "join_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_epk_consolidation.segment_id": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_data_epk_consolidation",
+    "column": "segment_id",
+    "semantic_class": "join_key",
+    "semantic_tags": [
+      "dense",
+      "join_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_epk_consolidation.segment_name": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_data_epk_consolidation",
+    "column": "segment_name",
+    "semantic_class": "enum_like",
+    "semantic_tags": [
+      "categorical",
+      "dense",
+      "filter_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_epk_consolidation.status_id": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_data_epk_consolidation",
+    "column": "status_id",
+    "semantic_class": "join_key",
+    "semantic_tags": [
+      "join_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_epk_consolidation.status_name": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_data_epk_consolidation",
+    "column": "status_name",
+    "semantic_class": "enum_like",
+    "semantic_tags": [
+      "categorical",
+      "filter_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_epk_consolidation.tb_id": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_data_epk_consolidation",
+    "column": "tb_id",
+    "semantic_class": "join_key",
+    "semantic_tags": [
+      "join_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dim_gosb.author_login": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dim_gosb",
+    "column": "author_login",
+    "semantic_class": "free_text",
+    "semantic_tags": [
+      "dense"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dim_gosb.inserted_dttm": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dim_gosb",
+    "column": "inserted_dttm",
+    "semantic_class": "system_timestamp",
+    "semantic_tags": [
+      "dense"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dim_gosb.isu_branch_id": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dim_gosb",
+    "column": "isu_branch_id",
+    "semantic_class": "join_key",
+    "semantic_tags": [
+      "join_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dim_gosb.isu_branch_name": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dim_gosb",
+    "column": "isu_branch_name",
+    "semantic_class": "label",
+    "semantic_tags": [
+      "dense",
+      "filter_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dim_gosb.new_gosb_id": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dim_gosb",
+    "column": "new_gosb_id",
+    "semantic_class": "join_key",
+    "semantic_tags": [
+      "dense",
+      "join_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dim_gosb.new_gosb_name": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dim_gosb",
+    "column": "new_gosb_name",
+    "semantic_class": "label",
+    "semantic_tags": [
+      "dense",
+      "filter_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dim_gosb.old_gosb_id": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dim_gosb",
+    "column": "old_gosb_id",
+    "semantic_class": "identifier",
+    "semantic_tags": [
+      "dense",
+      "join_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dim_gosb.old_gosb_name": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dim_gosb",
+    "column": "old_gosb_name",
+    "semantic_class": "label",
+    "semantic_tags": [
+      "dense",
+      "filter_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dim_gosb.pirs_gosb_id": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dim_gosb",
+    "column": "pirs_gosb_id",
+    "semantic_class": "join_key",
+    "semantic_tags": [
+      "dense",
+      "join_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dim_gosb.pirs_gosb_name": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dim_gosb",
+    "column": "pirs_gosb_name",
+    "semantic_class": "label",
+    "semantic_tags": [
+      "dense",
+      "filter_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dim_gosb.region_id": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dim_gosb",
+    "column": "region_id",
+    "semantic_class": "join_key",
+    "semantic_tags": [
+      "join_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dim_gosb.region_name": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dim_gosb",
+    "column": "region_name",
+    "semantic_class": "label",
+    "semantic_tags": [
+      "dense",
+      "filter_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dim_gosb.tb_full_name": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dim_gosb",
+    "column": "tb_full_name",
+    "semantic_class": "label",
+    "semantic_tags": [
+      "categorical",
+      "dense",
+      "filter_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dim_gosb.tb_id": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dim_gosb",
+    "column": "tb_id",
+    "semantic_class": "join_key",
+    "semantic_tags": [
+      "dense",
+      "join_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dim_gosb.tb_short_name": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dim_gosb",
+    "column": "tb_short_name",
+    "semantic_class": "label",
+    "semantic_tags": [
+      "categorical",
+      "dense",
+      "filter_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dim_gosb.timezone_violation_msk": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dim_gosb",
+    "column": "timezone_violation_msk",
+    "semantic_class": "metric",
+    "semantic_tags": [
+      "aggregate_candidate",
+      "dense"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dim_gosb.utc_timezone": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dim_gosb",
+    "column": "utc_timezone",
+    "semantic_class": "metric",
+    "semantic_tags": [
+      "aggregate_candidate",
+      "dense"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dim_gosb.web_gosb_id": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dim_gosb",
+    "column": "web_gosb_id",
+    "semantic_class": "join_key",
+    "semantic_tags": [
+      "dense",
+      "join_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_fact_outflow.author_login": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_fact_outflow",
+    "column": "author_login",
+    "semantic_class": "free_text",
+    "semantic_tags": [
+      "dense"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_fact_outflow.calc_fl_qty": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_fact_outflow",
+    "column": "calc_fl_qty",
+    "semantic_class": "metric",
+    "semantic_tags": [
+      "aggregate_candidate",
+      "dense"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_fact_outflow.client_communication_infopovod": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_fact_outflow",
+    "column": "client_communication_infopovod",
+    "semantic_class": "free_text",
+    "semantic_tags": [
+      "dense"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_fact_outflow.fact_payee_qty": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_fact_outflow",
+    "column": "fact_payee_qty",
+    "semantic_class": "metric",
+    "semantic_tags": [
+      "aggregate_candidate",
+      "dense"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_fact_outflow.gosb_id": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_fact_outflow",
+    "column": "gosb_id",
+    "semantic_class": "join_key",
+    "semantic_tags": [
+      "dense",
+      "join_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_fact_outflow.inn": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_fact_outflow",
+    "column": "inn",
+    "semantic_class": "join_key",
+    "semantic_tags": [
+      "dense",
+      "join_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_fact_outflow.inserted_dttm": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_fact_outflow",
+    "column": "inserted_dttm",
+    "semantic_class": "system_timestamp",
+    "semantic_tags": [
+      "dense"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_fact_outflow.is_force": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_fact_outflow",
+    "column": "is_force",
+    "semantic_class": "flag",
+    "semantic_tags": [
+      "dense",
+      "filter_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_fact_outflow.is_oktmo": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_fact_outflow",
+    "column": "is_oktmo",
+    "semantic_class": "flag",
+    "semantic_tags": [
+      "dense",
+      "filter_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_fact_outflow.is_task": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_fact_outflow",
+    "column": "is_task",
+    "semantic_class": "flag",
+    "semantic_tags": [
+      "dense",
+      "filter_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_fact_outflow.m_avg_salary_amt": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_fact_outflow",
+    "column": "m_avg_salary_amt",
+    "semantic_class": "metric",
+    "semantic_tags": [
+      "aggregate_candidate",
+      "dense"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_fact_outflow.mzp_fio": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_fact_outflow",
+    "column": "mzp_fio",
+    "semantic_class": "label",
+    "semantic_tags": [
+      "categorical",
+      "dense",
+      "filter_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_fact_outflow.next_m_avg_salary_amt": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_fact_outflow",
+    "column": "next_m_avg_salary_amt",
+    "semantic_class": "metric",
+    "semantic_tags": [
+      "aggregate_candidate",
+      "dense"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_fact_outflow.next_m_fl_val": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_fact_outflow",
+    "column": "next_m_fl_val",
+    "semantic_class": "metric",
+    "semantic_tags": [
+      "aggregate_candidate",
+      "dense"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_fact_outflow.oktmo": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_fact_outflow",
+    "column": "oktmo",
+    "semantic_class": "free_text",
+    "semantic_tags": [
+      "dense"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_fact_outflow.oktmo_subject_code": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_fact_outflow",
+    "column": "oktmo_subject_code",
+    "semantic_class": "join_key",
+    "semantic_tags": [
+      "dense",
+      "join_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_fact_outflow.oktmo_subject_district_city_code": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_fact_outflow",
+    "column": "oktmo_subject_district_city_code",
+    "semantic_class": "join_key",
+    "semantic_tags": [
+      "dense",
+      "join_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_fact_outflow.oktmo_subject_district_code": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_fact_outflow",
+    "column": "oktmo_subject_district_code",
+    "semantic_class": "join_key",
+    "semantic_tags": [
+      "dense",
+      "join_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_fact_outflow.other_inn_emp_perc": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_fact_outflow",
+    "column": "other_inn_emp_perc",
+    "semantic_class": "metric",
+    "semantic_tags": [
+      "aggregate_candidate",
+      "dense"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_fact_outflow.outflow_perc": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_fact_outflow",
+    "column": "outflow_perc",
+    "semantic_class": "metric",
+    "semantic_tags": [
+      "aggregate_candidate",
+      "dense"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_fact_outflow.outflow_qty": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_fact_outflow",
+    "column": "outflow_qty",
+    "semantic_class": "metric",
+    "semantic_tags": [
+      "aggregate_candidate",
+      "dense"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_fact_outflow.plan_payee_qty": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_fact_outflow",
+    "column": "plan_payee_qty",
+    "semantic_class": "metric",
+    "semantic_tags": [
+      "aggregate_candidate",
+      "dense"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_fact_outflow.prev_m_avg_salary_amt": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_fact_outflow",
+    "column": "prev_m_avg_salary_amt",
+    "semantic_class": "metric",
+    "semantic_tags": [
+      "aggregate_candidate",
+      "dense"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_fact_outflow.prev_m_fl_val": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_fact_outflow",
+    "column": "prev_m_fl_val",
+    "semantic_class": "metric",
+    "semantic_tags": [
+      "aggregate_candidate",
+      "dense"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_fact_outflow.prev_m_overflow_qty": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_fact_outflow",
+    "column": "prev_m_overflow_qty",
+    "semantic_class": "metric",
+    "semantic_tags": [
+      "aggregate_candidate",
+      "dense"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_fact_outflow.report_dt": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_fact_outflow",
+    "column": "report_dt",
+    "semantic_class": "date",
+    "semantic_tags": [
+      "dense",
+      "filter_candidate",
+      "time_axis"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_fact_outflow.saphr_id": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_fact_outflow",
+    "column": "saphr_id",
+    "semantic_class": "join_key",
+    "semantic_tags": [
+      "join_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_fact_outflow.segment_name": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_fact_outflow",
+    "column": "segment_name",
+    "semantic_class": "enum_like",
+    "semantic_tags": [
+      "categorical",
+      "dense",
+      "filter_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_fact_outflow.tb_id": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_fact_outflow",
+    "column": "tb_id",
+    "semantic_class": "join_key",
+    "semantic_tags": [
+      "dense",
+      "join_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task.campaign_code": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_sale_funnel_task",
+    "column": "campaign_code",
+    "semantic_class": "join_key",
+    "semantic_tags": [
+      "join_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task.company_name": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_sale_funnel_task",
+    "column": "company_name",
+    "semantic_class": "label",
+    "semantic_tags": [
+      "dense",
+      "filter_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task.deal_code": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_sale_funnel_task",
+    "column": "deal_code",
+    "semantic_class": "join_key",
+    "semantic_tags": [
+      "join_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task.emp_fio": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_sale_funnel_task",
+    "column": "emp_fio",
+    "semantic_class": "label",
+    "semantic_tags": [
+      "categorical",
+      "dense",
+      "filter_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task.emp_post": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_sale_funnel_task",
+    "column": "emp_post",
+    "semantic_class": "free_text",
+    "semantic_tags": [
+      "dense"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task.emp_post_id": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_sale_funnel_task",
+    "column": "emp_post_id",
+    "semantic_class": "join_key",
+    "semantic_tags": [
+      "dense",
+      "join_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task.escalation_parent_task_code": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_sale_funnel_task",
+    "column": "escalation_parent_task_code",
+    "semantic_class": "join_key",
+    "semantic_tags": [
+      "join_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task.fact_close_task_dttm": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_sale_funnel_task",
+    "column": "fact_close_task_dttm",
+    "semantic_class": "date",
+    "semantic_tags": [
+      "filter_candidate",
+      "time_axis"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task.gosb_id": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_sale_funnel_task",
+    "column": "gosb_id",
+    "semantic_class": "join_key",
+    "semantic_tags": [
+      "dense",
+      "join_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task.gosb_name": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_sale_funnel_task",
+    "column": "gosb_name",
+    "semantic_class": "label",
+    "semantic_tags": [
+      "categorical",
+      "dense",
+      "filter_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task.inn": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_sale_funnel_task",
+    "column": "inn",
+    "semantic_class": "metric",
+    "semantic_tags": [
+      "aggregate_candidate",
+      "dense"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task.is_task_closed": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_sale_funnel_task",
+    "column": "is_task_closed",
+    "semantic_class": "flag",
+    "semantic_tags": [
+      "dense",
+      "filter_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task.is_task_closed_success": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_sale_funnel_task",
+    "column": "is_task_closed_success",
+    "semantic_class": "flag",
+    "semantic_tags": [
+      "dense",
+      "filter_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task.is_task_in_progress": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_sale_funnel_task",
+    "column": "is_task_in_progress",
+    "semantic_class": "flag",
+    "semantic_tags": [
+      "dense",
+      "filter_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task.isu_struct_saphr_id": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_sale_funnel_task",
+    "column": "isu_struct_saphr_id",
+    "semantic_class": "join_key",
+    "semantic_tags": [
+      "dense",
+      "join_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task.last_active_dttm": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_sale_funnel_task",
+    "column": "last_active_dttm",
+    "semantic_class": "date",
+    "semantic_tags": [
+      "filter_candidate",
+      "time_axis"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task.last_active_status": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_sale_funnel_task",
+    "column": "last_active_status",
+    "semantic_class": "enum_like",
+    "semantic_tags": [
+      "categorical",
+      "dense",
+      "filter_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task.last_active_type": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_sale_funnel_task",
+    "column": "last_active_type",
+    "semantic_class": "enum_like",
+    "semantic_tags": [
+      "categorical",
+      "filter_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task.manager_fio": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_sale_funnel_task",
+    "column": "manager_fio",
+    "semantic_class": "label",
+    "semantic_tags": [
+      "categorical",
+      "dense",
+      "filter_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task.manager_saphr_id": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_sale_funnel_task",
+    "column": "manager_saphr_id",
+    "semantic_class": "join_key",
+    "semantic_tags": [
+      "dense",
+      "join_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task.plan_close_task_dttm": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_sale_funnel_task",
+    "column": "plan_close_task_dttm",
+    "semantic_class": "date",
+    "semantic_tags": [
+      "dense",
+      "filter_candidate",
+      "time_axis"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task.report_dt": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_sale_funnel_task",
+    "column": "report_dt",
+    "semantic_class": "date",
+    "semantic_tags": [
+      "dense",
+      "filter_candidate",
+      "time_axis"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task.role_code": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_sale_funnel_task",
+    "column": "role_code",
+    "semantic_class": "join_key",
+    "semantic_tags": [
+      "dense",
+      "join_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task.segment_name": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_sale_funnel_task",
+    "column": "segment_name",
+    "semantic_class": "enum_like",
+    "semantic_tags": [
+      "categorical",
+      "dense",
+      "filter_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task.src_task_as_code": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_sale_funnel_task",
+    "column": "src_task_as_code",
+    "semantic_class": "join_key",
+    "semantic_tags": [
+      "dense",
+      "join_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task.src_task_business": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_sale_funnel_task",
+    "column": "src_task_business",
+    "semantic_class": "free_text",
+    "semantic_tags": []
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task.src_update_dttm": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_sale_funnel_task",
+    "column": "src_update_dttm",
+    "semantic_class": "date",
+    "semantic_tags": [
+      "dense",
+      "filter_candidate",
+      "time_axis"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task.task_category": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_sale_funnel_task",
+    "column": "task_category",
+    "semantic_class": "enum_like",
+    "semantic_tags": [
+      "categorical",
+      "dense",
+      "filter_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task.task_code": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_sale_funnel_task",
+    "column": "task_code",
+    "semantic_class": "identifier",
+    "semantic_tags": [
+      "dense",
+      "join_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task.task_comment": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_sale_funnel_task",
+    "column": "task_comment",
+    "semantic_class": "free_text",
+    "semantic_tags": []
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task.task_create_dt": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_sale_funnel_task",
+    "column": "task_create_dt",
+    "semantic_class": "date",
+    "semantic_tags": [
+      "dense",
+      "filter_candidate",
+      "time_axis"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task.task_questionnaire": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_sale_funnel_task",
+    "column": "task_questionnaire",
+    "semantic_class": "free_text",
+    "semantic_tags": []
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task.task_subtype": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_sale_funnel_task",
+    "column": "task_subtype",
+    "semantic_class": "enum_like",
+    "semantic_tags": [
+      "categorical",
+      "filter_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task.task_text": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_sale_funnel_task",
+    "column": "task_text",
+    "semantic_class": "free_text",
+    "semantic_tags": [
+      "dense"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task.task_text_status": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_sale_funnel_task",
+    "column": "task_text_status",
+    "semantic_class": "enum_like",
+    "semantic_tags": [
+      "categorical",
+      "dense",
+      "filter_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task.task_type": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_sale_funnel_task",
+    "column": "task_type",
+    "semantic_class": "enum_like",
+    "semantic_tags": [
+      "categorical",
+      "dense",
+      "filter_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task.tb_id": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_sale_funnel_task",
+    "column": "tb_id",
+    "semantic_class": "join_key",
+    "semantic_tags": [
+      "dense",
+      "join_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task.tb_name": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_sale_funnel_task",
+    "column": "tb_name",
+    "semantic_class": "label",
+    "semantic_tags": [
+      "categorical",
+      "dense",
+      "filter_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task.unrealized_deal_potential": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_sale_funnel_task",
+    "column": "unrealized_deal_potential",
+    "semantic_class": "metric",
+    "semantic_tags": [
+      "aggregate_candidate"
+    ]
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task.update_dttm": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_sale_funnel_task",
+    "column": "update_dttm",
+    "semantic_class": "date",
+    "semantic_tags": [
+      "dense",
+      "filter_candidate",
+      "time_axis"
+    ]
+  }
+}

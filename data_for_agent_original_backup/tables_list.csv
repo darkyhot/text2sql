@@ -1,0 +1,5 @@
+schema_name,table_name,description,grain
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_data_epk_consolidation,Данные по атрибутам ЕПК организаций,client
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dim_gosb,Справочник ТБ и ГОСБ,organization
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_fact_outflow,Информация по фактическим оттокам для УЗП,event
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,Воронка продаж по всем задачам УЗП,task

@@ -1,0 +1,100 @@
+{
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_epk_consolidation": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_data_epk_consolidation",
+    "grain": "client",
+    "table_role": "fact",
+    "primary_subjects": [
+      "client"
+    ],
+    "time_axis_columns": [
+      "epk_create_dttm"
+    ],
+    "filter_friendliness": 0.349,
+    "join_richness": 0.512,
+    "column_class_counts": {
+      "join_key": 21,
+      "enum_like": 3,
+      "label": 7,
+      "date": 1,
+      "identifier": 1,
+      "metric": 5,
+      "flag": 4,
+      "system_timestamp": 1
+    }
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dim_gosb": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dim_gosb",
+    "grain": "organization",
+    "table_role": "reference",
+    "primary_subjects": [
+      "organization"
+    ],
+    "time_axis_columns": [],
+    "filter_friendliness": 0.389,
+    "join_richness": 0.389,
+    "column_class_counts": {
+      "free_text": 1,
+      "system_timestamp": 1,
+      "join_key": 6,
+      "label": 7,
+      "identifier": 1,
+      "metric": 2
+    }
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_fact_outflow": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_fact_outflow",
+    "grain": "event",
+    "table_role": "event",
+    "primary_subjects": [
+      "event"
+    ],
+    "time_axis_columns": [
+      "report_dt"
+    ],
+    "filter_friendliness": 0.207,
+    "join_richness": 0.241,
+    "column_class_counts": {
+      "free_text": 3,
+      "metric": 12,
+      "join_key": 7,
+      "system_timestamp": 1,
+      "flag": 3,
+      "label": 1,
+      "date": 1,
+      "enum_like": 1
+    }
+  },
+  "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task": {
+    "schema": "s_grnplm_ld_salesntwrk_pcap_sn_uzp",
+    "table": "uzp_dwh_sale_funnel_task",
+    "grain": "task",
+    "table_role": "fact",
+    "primary_subjects": [
+      "task"
+    ],
+    "time_axis_columns": [
+      "fact_close_task_dttm",
+      "last_active_dttm",
+      "plan_close_task_dttm",
+      "report_dt",
+      "src_update_dttm",
+      "task_create_dt",
+      "update_dttm"
+    ],
+    "filter_friendliness": 0.55,
+    "join_richness": 0.275,
+    "column_class_counts": {
+      "join_key": 10,
+      "label": 5,
+      "free_text": 5,
+      "date": 7,
+      "metric": 2,
+      "flag": 3,
+      "enum_like": 7,
+      "identifier": 1
+    }
+  }
+}

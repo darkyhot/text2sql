@@ -41,47 +41,7 @@ s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_data_epk_consolidation,segment_id,smallin
 s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_data_epk_consolidation,segment_name,character varying,False,Наименование сегмента,False,100.0,100.0,,free_text
 s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_data_epk_consolidation,status_id,smallint,False,Идентификатор статуса организации,False,100.0,100.0,,join_key
 s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_data_epk_consolidation,status_name,character varying,False,Наименование статуса для организации,False,100.0,100.0,,free_text
-s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_data_epk_consolidation,tb_id,smallint,False,Идентификатор ТБ,False,100.0,4.5,11|4|2|12|9|5|3|15|1,join_key
-s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,campaign_code,character varying,False,Код кампании,False,100.0,100.0,,join_key
-s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,company_name,character varying,False,Наименование компании,False,100.0,100.0,,free_text
-s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,deal_code,character varying,False,Код сделки,False,100.0,100.0,,join_key
-s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,emp_fio,character varying,False,ФИО сотрудника,False,100.0,100.0,,free_text
-s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,emp_post,character varying,False,Должность сотрудника,False,100.0,100.0,,free_text
-s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,emp_post_id,bigint,False,Идентификатор должности сотрудника,False,100.0,100.0,,join_key
-s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,escalation_parent_task_code,character varying,False,Код родительской задачи при эскалации,False,100.0,100.0,,join_key
-s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,fact_close_task_dttm,timestamp without time zone,False,Фактическая дата и время закрытия задачи,False,100.0,100.0,,date
-s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,gosb_id,integer,False,Идентификатор ГОСБ,False,100.0,26.5,,join_key
-s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,gosb_name,character varying,False,Наименование ГОСБ,False,100.0,100.0,,free_text
-s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,inn,bigint,False,ИНН,False,100.0,59.5,,join_key
-s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,is_task_closed,boolean,False,Признак закрытия задачи,False,100.0,1.0,True|False,flag
-s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,is_task_closed_success,boolean,False,Признак успешного закрытия задачи,False,100.0,1.0,True|False,flag
-s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,is_task_in_progress,boolean,False,Признак - задача выполняется,False,100.0,1.0,True|False,flag
-s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,isu_struct_saphr_id,bigint,False,Табельный номер сотрудника или структура ИСУ,False,100.0,100.0,,join_key
-s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,last_active_dttm,timestamp without time zone,False,Дата и время последней активности,False,100.0,100.0,,date
-s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,last_active_status,character varying,False,Статус последней активности,False,100.0,100.0,,free_text
-s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,last_active_type,character varying,False,Тип последней активности,False,100.0,100.0,,free_text
-s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,manager_fio,character varying,False,ФИО руководителя,False,100.0,100.0,,free_text
-s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,manager_saphr_id,bigint,False,Табельный номер руководителя,False,100.0,100.0,,join_key
-s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,plan_close_task_dttm,timestamp without time zone,False,Плановая дата и время закрытия задачи,False,100.0,100.0,,date
-s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,report_dt,date,False,Отчетная дата,False,100.0,83.5,,date
-s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,role_code,character varying,False,Код роли,False,100.0,100.0,,join_key
-s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,segment_name,character varying,False,Наименование сегмента,False,100.0,100.0,,free_text
-s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,src_task_as_code,character varying,False,Код АС источника задачи,False,100.0,100.0,,join_key
-s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,src_task_business,character varying,False,Бизнес источник задачи,False,100.0,100.0,,free_text
-s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,src_update_dttm,timestamp without time zone,False,Дата-время обновления источника,False,100.0,100.0,,date
-s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,task_category,character varying,False,Категория задачи,False,100.0,100.0,,free_text
-s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,task_code,character varying,True,Код задачи,True,100.0,100.0,,join_key
-s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,task_comment,character varying,False,Комментарий по задаче,False,100.0,100.0,,free_text
-s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,task_create_dt,date,False,Дата создания задачи,False,100.0,81.5,,date
-s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,task_questionnaire,character varying,False,Анкета по задаче,False,100.0,100.0,,free_text
-s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,task_subtype,character varying,False,Подтип задачи,False,100.0,100.0,,free_text
-s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,task_text,character varying,False,Текст задачи,False,100.0,100.0,,free_text
-s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,task_text_status,character varying,False,Текстовый статус по отработке задачи,False,100.0,100.0,,free_text
-s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,task_type,character varying,False,Тип задачи,False,100.0,100.0,,free_text
-s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,tb_id,integer,False,Идентификатор ТБ,False,100.0,4.5,11|5|15|12|1|9|2|3|4,join_key
-s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,tb_name,character varying,False,Наименование ТБ,False,100.0,100.0,,free_text
-s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,unrealized_deal_potential,integer,False,Нереализованный потенциал по сделке,False,100.0,100.0,,metric
-s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,update_dttm,timestamp without time zone,False,Дата-время обновления,False,100.0,100.0,,date
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_data_epk_consolidation,tb_id,smallint,False,Идентификатор ТБ,False,100.0,4.5,2|11|15|12|9|4|1|5|3,join_key
 s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dim_gosb,author_login,text,False,Логин автора записи,False,100.0,100.0,,free_text
 s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dim_gosb,inserted_dttm,timestamp without time zone,False,Дата и время добавления записи,False,100.0,100.0,,date
 s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dim_gosb,isu_branch_id,bigint,False,Номер филиала для ИСУ,False,100.0,100.0,,join_key
@@ -95,7 +55,7 @@ s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dim_gosb,pirs_gosb_name,text,False,Наи
 s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dim_gosb,region_id,smallint,False,Идентификатор региона,False,100.0,100.0,,join_key
 s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dim_gosb,region_name,character varying,False,Наименование региона,False,100.0,100.0,,free_text
 s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dim_gosb,tb_full_name,text,False,Полное наименование ТБ,False,100.0,100.0,,free_text
-s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dim_gosb,tb_id,integer,True,Идентификатор ТБ,True,100.0,4.5,1|2|11|12|4|5|3|15|9,join_key
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dim_gosb,tb_id,integer,True,Идентификатор ТБ,True,100.0,4.5,4|9|11|2|1|15|12|3|5,join_key
 s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dim_gosb,tb_short_name,text,False,Краткое наименование ТБ,False,100.0,100.0,,free_text
 s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dim_gosb,timezone_violation_msk,smallint,False,Отклонение часового пояса от МСК,False,100.0,100.0,,metric
 s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dim_gosb,utc_timezone,smallint,False,Часовой пояс UTC,False,100.0,99.5,,metric
@@ -128,4 +88,44 @@ s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_fact_outflow,prev_m_overflow_qty,inte
 s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_fact_outflow,report_dt,date,True,Отчетная дата,True,100.0,80.5,,date
 s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_fact_outflow,saphr_id,bigint,False,Табельный номер закрепленного МЗП,False,100.0,55.0,,join_key
 s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_fact_outflow,segment_name,character varying,False,Наименование сегмента,False,100.0,100.0,,free_text
-s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_fact_outflow,tb_id,smallint,False,Идентификатор ТБ,False,100.0,4.5,15|12|11|5|3|9|1|4|2,join_key
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_fact_outflow,tb_id,smallint,False,Идентификатор ТБ,False,100.0,4.5,11|15|12|9|2|4|5|3|1,join_key
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,campaign_code,character varying,False,Код кампании,False,100.0,100.0,,join_key
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,company_name,character varying,False,Наименование компании,False,100.0,100.0,,free_text
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,deal_code,character varying,False,Код сделки,False,100.0,100.0,,join_key
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,emp_fio,character varying,False,ФИО сотрудника,False,100.0,100.0,,free_text
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,emp_post,character varying,False,Должность сотрудника,False,100.0,100.0,,free_text
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,emp_post_id,bigint,False,Идентификатор должности сотрудника,False,100.0,100.0,,join_key
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,escalation_parent_task_code,character varying,False,Код родительской задачи при эскалации,False,100.0,100.0,,join_key
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,fact_close_task_dttm,timestamp without time zone,False,Фактическая дата и время закрытия задачи,False,100.0,100.0,,date
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,gosb_id,integer,False,Идентификатор ГОСБ,False,100.0,26.5,,join_key
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,gosb_name,character varying,False,Наименование ГОСБ,False,100.0,100.0,,free_text
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,inn,bigint,False,ИНН,False,100.0,59.5,,join_key
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,is_task_closed,boolean,False,Признак закрытия задачи,False,100.0,1.0,False|True,flag
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,is_task_closed_success,boolean,False,Признак успешного закрытия задачи,False,100.0,1.0,False|True,flag
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,is_task_in_progress,boolean,False,Признак - задача выполняется,False,100.0,1.0,True|False,flag
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,isu_struct_saphr_id,bigint,False,Табельный номер сотрудника или структура ИСУ,False,100.0,100.0,,join_key
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,last_active_dttm,timestamp without time zone,False,Дата и время последней активности,False,100.0,100.0,,date
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,last_active_status,character varying,False,Статус последней активности,False,100.0,100.0,,free_text
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,last_active_type,character varying,False,Тип последней активности,False,100.0,100.0,,free_text
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,manager_fio,character varying,False,ФИО руководителя,False,100.0,100.0,,free_text
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,manager_saphr_id,bigint,False,Табельный номер руководителя,False,100.0,100.0,,join_key
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,plan_close_task_dttm,timestamp without time zone,False,Плановая дата и время закрытия задачи,False,100.0,100.0,,date
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,report_dt,date,False,Отчетная дата,False,100.0,83.5,,date
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,role_code,character varying,False,Код роли,False,100.0,100.0,,join_key
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,segment_name,character varying,False,Наименование сегмента,False,100.0,100.0,,free_text
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,src_task_as_code,character varying,False,Код АС источника задачи,False,100.0,100.0,,join_key
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,src_task_business,character varying,False,Бизнес источник задачи,False,100.0,100.0,,free_text
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,src_update_dttm,timestamp without time zone,False,Дата-время обновления источника,False,100.0,100.0,,date
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,task_category,character varying,False,Категория задачи,False,100.0,100.0,,free_text
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,task_code,character varying,True,Код задачи,True,100.0,100.0,,join_key
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,task_comment,character varying,False,Комментарий по задаче,False,100.0,100.0,,free_text
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,task_create_dt,date,False,Дата создания задачи,False,100.0,81.5,,date
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,task_questionnaire,character varying,False,Анкета по задаче,False,100.0,100.0,,free_text
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,task_subtype,character varying,False,Подтип задачи,False,100.0,100.0,,free_text
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,task_text,character varying,False,Текст задачи,False,100.0,100.0,,free_text
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,task_text_status,character varying,False,Текстовый статус по отработке задачи,False,100.0,100.0,,free_text
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,task_type,character varying,False,Тип задачи,False,100.0,100.0,,free_text
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,tb_id,integer,False,Идентификатор ТБ,False,100.0,4.5,12|11|15|2|1|4|9|5|3,join_key
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,tb_name,character varying,False,Наименование ТБ,False,100.0,100.0,,free_text
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,unrealized_deal_potential,integer,False,Нереализованный потенциал по сделке,False,100.0,100.0,,metric
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,update_dttm,timestamp without time zone,False,Дата-время обновления,False,100.0,100.0,,date

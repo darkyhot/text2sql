@@ -65,6 +65,29 @@ def build_metadata_sample_sql(schema: str, table: str, n: int, est_rows: int | N
     return base + f" WHERE random() < {p:.10g} LIMIT :n"
 
 
+KERBEROS_MESSAGE = (
+    "Ошибка Kerberos: тикет истёк или недоступен (GSSAPI). "
+    "Перевыпустите kerberos-тикет (kinit) и повторите запрос."
+)
+_KERBEROS_MARKERS = (
+    "gssapi", "kerberos", "ticket expired", "gss failure", "gss encryption",
+    "credentials cache", "no credentials", "server_lost",
+)
+
+
+def is_kerberos_auth_error(exc: BaseException | None) -> bool:
+    """True, если в цепочке исключений есть признак истёкшего/отсутствующего
+    kerberos-тикета (GSSAPI). Проверяет __cause__/__context__ рекурсивно."""
+    seen: set[int] = set()
+    cur = exc
+    while cur is not None and id(cur) not in seen:
+        seen.add(id(cur))
+        if any(m in str(cur).lower() for m in _KERBEROS_MARKERS):
+            return True
+        cur = cur.__cause__ or cur.__context__
+    return False
+
+
 class GuardError(Exception):
     """Запрос отклонён предохранителем (не read-only, дорогой, многооператорный)."""
 

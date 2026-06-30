@@ -54,14 +54,22 @@ CLI().run()
 отвечаешь `ok` (выполнить) или текстом (правка плана); при неоднозначности —
 номер варианта. Результат каждого запроса → `workspace/last_query.csv`.
 
-Команды: `/help`, `/config_db_conn`, `/model`, `/add_table schema.table`,
-`/refresh_metadata`, `/reset`, `/clear`, `/exit`.
+Команды: `/help`, `/config_db_conn`, `/model`, `/table_list`,
+`/add_table schema.table`, `/remove_table schema.table`, `/refresh_metadata`,
+`/reset`, `/clear`, `/exit`.
 
+- `/config_db_conn` — настроить подключение к БД (Greenplum/Postgres, Kerberos).
+- `/model` — выбрать модель GigaChat (Gigachat-3-Ultra / Gigachat-2-Max).
+- `/table_list` — показать таблицы из метаданных.
 - `/add_table schema.table` — добавить таблицу в манифест `tables_list.csv` и
   собрать по ней метаданные.
+- `/remove_table schema.table` — удалить таблицу из метаданных.
 - `/refresh_metadata` — пересобрать метаданные **только по таблицам манифеста**
   (адаптивный сэмпл по размеру таблицы, таймаут 5 мин/таблица; сбойная таблица
   пропускается с уведомлением, рефреш продолжается).
+
+При истёкшем Kerberos-тикете агент выводит явное сообщение «Ошибка Kerberos…
+перевыпустите kinit».
 
 **Логи** для разбора инцидентов пишутся в `workspace/agent.log` (поток узлов,
 исполняемый SQL, ошибки, трейсбэки) — этот файл удобно прислать при сбое.

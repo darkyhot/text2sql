@@ -113,9 +113,18 @@ def _orderby_sql(db: DbAdapter, item: str) -> str:
 
 
 def normalize_plan(plan: StructuredPlan) -> StructuredPlan:
-    """Generic-нормализация: измерения из GROUP BY должны быть видимы в SELECT.
-    Слабая модель часто кладёт их только в group_by — добавляем как проекции,
-    чтобы пользователь увидел разрезы, а не голые агрегаты."""
+    """Generic-нормализация SELECT↔GROUP BY (валидный SQL + видимые разрезы).
+
+    1. При наличии агрегата неагрегированные проекции обязаны быть в GROUP BY —
+       иначе СУБД падает с GroupingError. Добавляем их в group_by.
+    2. Измерения из GROUP BY должны быть видимы в SELECT — добавляем как проекции,
+       чтобы пользователь видел разрезы, а не голые агрегаты."""
+    has_agg = any(m.agg != "none" for m in plan.metrics)
+    if has_agg:
+        for p in plan.projections:
+            if p.column not in plan.group_by:
+                plan.group_by.append(p.column)
+
     projected = {p.column for p in plan.projections}
     metric_cols = {m.column for m in plan.metrics}
     missing = [c for c in plan.group_by if c not in projected and c not in metric_cols]

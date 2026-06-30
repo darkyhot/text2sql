@@ -33,8 +33,10 @@ def setup_logging(*, level: int = logging.DEBUG) -> Path:
         "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
     ))
     root.addHandler(handler)
-    # Глушим болтливые сторонние логгеры.
-    for noisy in ("httpx", "openai", "urllib3", "sqlalchemy.engine"):
+    # Глушим болтливые сторонние логгеры (иначе лог тонет в DEBUG транспорта).
+    for noisy in ("httpx", "httpcore", "openai", "urllib3", "sqlalchemy.engine",
+                  "pydot", "pydot.core", "pydot.dot_parser", "langchain",
+                  "langchain_gigachat", "gigachat", "matplotlib", "PIL"):
         logging.getLogger(noisy).setLevel(logging.WARNING)
 
     _CONFIGURED = True

@@ -1,27 +1,6 @@
 [
   {
     "left": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_epk_consolidation",
-    "right": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task",
-    "pairs": [
-      {
-        "left_col": "gosb_id",
-        "right_col": "gosb_id",
-        "overlap": 49
-      },
-      {
-        "left_col": "inn",
-        "right_col": "inn",
-        "overlap": 73
-      },
-      {
-        "left_col": "tb_id",
-        "right_col": "tb_id",
-        "overlap": 9
-      }
-    ]
-  },
-  {
-    "left": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_epk_consolidation",
     "right": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dim_gosb",
     "pairs": [
       {
@@ -88,34 +67,18 @@
     ]
   },
   {
-    "left": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task",
-    "right": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dim_gosb",
-    "pairs": [
-      {
-        "left_col": "gosb_id",
-        "right_col": "old_gosb_id",
-        "overlap": 52
-      },
-      {
-        "left_col": "tb_id",
-        "right_col": "tb_id",
-        "overlap": 9
-      }
-    ]
-  },
-  {
-    "left": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task",
-    "right": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_fact_outflow",
+    "left": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_epk_consolidation",
+    "right": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task",
     "pairs": [
       {
         "left_col": "gosb_id",
         "right_col": "gosb_id",
-        "overlap": 50
+        "overlap": 49
       },
       {
         "left_col": "inn",
         "right_col": "inn",
-        "overlap": 77
+        "overlap": 73
       },
       {
         "left_col": "tb_id",
@@ -137,6 +100,43 @@
         "left_col": "old_gosb_id",
         "right_col": "gosb_id",
         "overlap": 51
+      },
+      {
+        "left_col": "tb_id",
+        "right_col": "tb_id",
+        "overlap": 9
+      }
+    ]
+  },
+  {
+    "left": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dim_gosb",
+    "right": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task",
+    "pairs": [
+      {
+        "left_col": "old_gosb_id",
+        "right_col": "gosb_id",
+        "overlap": 52
+      },
+      {
+        "left_col": "tb_id",
+        "right_col": "tb_id",
+        "overlap": 9
+      }
+    ]
+  },
+  {
+    "left": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_fact_outflow",
+    "right": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task",
+    "pairs": [
+      {
+        "left_col": "gosb_id",
+        "right_col": "gosb_id",
+        "overlap": 50
+      },
+      {
+        "left_col": "inn",
+        "right_col": "inn",
+        "overlap": 77
       },
       {
         "left_col": "tb_id",

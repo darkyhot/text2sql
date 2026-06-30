@@ -268,6 +268,21 @@ class MetadataRefresh:
         self._persist(tables, attrs, jc)
         return {"status": "added", "fqn": fqn, "columns": len(ar), "pk": pk}
 
+    def remove_table(self, schema: str, table: str) -> dict[str, Any]:
+        """Удалить таблицу из манифеста и метаданных (tables_list, attr_list, join-граф)."""
+        fqn = f"{schema}.{table}"
+        tables_all = self._read_csv("tables_list.csv")
+        present = any(r["schema_name"] == schema and r["table_name"] == table for r in tables_all)
+        if not present:
+            return {"status": "absent", "fqn": fqn}
+        tables = [r for r in tables_all if not (r["schema_name"] == schema and r["table_name"] == table)]
+        attrs = [r for r in self._read_csv("attr_list.csv")
+                 if not (r["schema_name"] == schema and r["table_name"] == table)]
+        jc = self._build_join_candidates(attrs, self._pk_map(attrs))
+        self._persist(tables, attrs, jc)
+        logger.info("metadata: таблица %s удалена из манифеста", fqn)
+        return {"status": "removed", "fqn": fqn}
+
     def _read_csv(self, name: str) -> list[dict]:
         path = self.data_dir / name
         if not path.exists():

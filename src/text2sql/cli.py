@@ -12,6 +12,7 @@ import time
 from typing import Callable
 
 from .catalog.refresh import MetadataRefresh
+from .db.adapter import KERBEROS_MESSAGE, is_kerberos_auth_error
 from .db.connection import ConnectionConfig, load_connection, save_connection
 from .graph.agent import Agent, Turn
 from .logging_setup import setup_logging
@@ -33,11 +34,13 @@ HELP_TEXT = """
   /help               — показать этот список
   /config_db_conn     — настроить подключение к БД (user_id, host, port, database)
   /model              — выбрать модель LLM (Gigachat-3-Ultra / Gigachat-2-Max)
+  /table_list         — показать таблицы (schema.table) из метаданных
   /add_table s.t      — добавить таблицу schema.table в манифест и собрать метаданные
+  /remove_table s.t   — удалить таблицу schema.table из метаданных
   /refresh_metadata   — пересобрать метаданные по манифесту tables_list.csv
   /reset              — сбросить контекст (новая сессия)
-  /clear              — очистить вывод ячейки
-  /exit               — завершить работу
+  /clear              — очистить вывод консоли
+  /exit               — завершить работу агента
 
 Любой ввод без `/` обрабатывается как запрос к агенту.
 В ответ на план: `ok` — выполнить; любой другой текст — правка плана.
@@ -114,6 +117,28 @@ class CLI:
         else:
             print(f"✗ Не удалось собрать метаданные {res['fqn']}: {res.get('error')}")
 
+    def _remove_table(self, ref: str) -> None:
+        if "." not in ref:
+            print("Формат: /remove_table schema.table")
+            return
+        schema, table = ref.split(".", 1)
+        logger.info("CLI: /remove_table %s.%s", schema, table)
+        res = MetadataRefresh(self.agent.db).remove_table(schema, table)
+        if res["status"] == "removed":
+            self.agent.reload_catalog()
+            print(f"✓ Таблица {res['fqn']} удалена из метаданных.")
+        else:
+            print(f"✗ Таблица {res['fqn']} не найдена в метаданных.")
+
+    def _table_list(self) -> None:
+        tables = sorted(self.agent.catalog.all_tables(), key=lambda t: t.fqn)
+        if not tables:
+            print("Метаданные пусты. Добавьте таблицу: /add_table schema.table")
+            return
+        print(f"\nТаблицы в метаданных ({len(tables)}):")
+        for t in tables:
+            print(f"  {t.fqn}  [{t.role}/{t.grain}]  — {t.description}")
+
     def _reset(self) -> None:
         self.agent = Agent()
         print("✓ Контекст сброшен. Новая сессия.")
@@ -148,7 +173,10 @@ class CLI:
         try:
             self.agent.db.test_connection()
         except Exception as exc:  # noqa: BLE001
-            print(f"⚠ Конфиг сохранён, но подключиться не удалось: {exc}")
+            if is_kerberos_auth_error(exc):
+                print(f"⚠ Конфиг сохранён. {KERBEROS_MESSAGE}")
+            else:
+                print(f"⚠ Конфиг сохранён, но подключиться не удалось: {exc}")
             return
         print(f"✓ Подключение настроено и проверено: {cfg.summary()}")
         print("  Подсказка: выполните /refresh_metadata, чтобы пересобрать метаданные из этой БД.")
@@ -252,6 +280,8 @@ class CLI:
                     self._config_db_conn()
                 elif cmd == "/model":
                     self._model()
+                elif cmd == "/table_list":
+                    self._table_list()
                 elif cmd == "/add_table":
                     if not self.agent.db.is_configured:
                         print("Не настроен коннект к БД, выполните /config_db_conn")
@@ -259,6 +289,11 @@ class CLI:
                         print("Формат: /add_table schema.table")
                     else:
                         self._add_table(args[0])
+                elif cmd == "/remove_table":
+                    if not args:
+                        print("Формат: /remove_table schema.table")
+                    else:
+                        self._remove_table(args[0])
                 elif cmd in ("/refresh_metadata", "/refrash_metadata", "/refresh"):
                     if not self.agent.db.is_configured:
                         print("Не настроен коннект к БД, выполните /config_db_conn")
@@ -275,5 +310,9 @@ class CLI:
                 else:
                     self._process_query(user_input)
             except Exception as exc:  # noqa: BLE001  (REPL не должен падать)
-                logger.exception("CLI: необработанная ошибка на вводе %r", user_input)
-                print(f"⚠ Ошибка: {exc}\n  Подробности в логе: {self.log_file}")
+                if is_kerberos_auth_error(exc):
+                    logger.warning("CLI: ошибка Kerberos на вводе %r: %s", user_input, exc)
+                    print(f"⚠ {KERBEROS_MESSAGE}")
+                else:
+                    logger.exception("CLI: необработанная ошибка на вводе %r", user_input)
+                    print(f"⚠ Ошибка: {exc}\n  Подробности в логе: {self.log_file}")

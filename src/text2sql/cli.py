@@ -177,15 +177,9 @@ class CLI:
                 logger.exception("build_business_report failed")
                 print(f"✗ Не удалось построить отчёт: {exc}")
             return
-        print(f"✅ Отчёт готов (секций: {res['sections']}, графиков: {res['charts']}, строк: {res['rows']}):")
-        print(f"   HTML: {res['html_path']}")
-        print(f"   MD:   {res['md_path']}")
-        if _HAS_IPY:
-            try:
-                from IPython.display import HTML, display
-                display(HTML(open(res["html_path"], encoding="utf-8").read()))
-            except Exception:  # noqa: BLE001
-                pass
+        print(f"✅ Отчёт готов (секций: {res['sections']}, графиков: {res['charts']}, строк: {res['rows']:,}).".replace(",", " "))
+        print(f"   HTML (открыть в браузере): {res['html_path']}")
+        print(f"   MD:  {res['md_path']}")
 
     def _reset(self) -> None:
         self.agent = Agent()

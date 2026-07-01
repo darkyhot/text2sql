@@ -15,19 +15,47 @@ from .core import AnalysisResult, Roles
 logger = logging.getLogger(__name__)
 
 
+_METRIC_SYS = (
+    "Ты бизнес-аналитик. По ОПИСАНИЮ таблицы выбери ГЛАВНЫЕ количественные метрики "
+    "для бизнес-отчёта — те, что отражают суть таблицы. Пример: таблица про отток → "
+    "главная метрика это кол-во/сумма оттока, а НЕ технические/расчётные/промежуточные "
+    "поля. Если таблица — витрина разных метрик, верни несколько (2-4) самых значимых, "
+    "по важности. Верни JSON: {\"metrics\":[имена_колонок по важности]}"
+)
+
+
+def select_primary_metrics(llm, table_desc: str, roles: Roles) -> list[str]:
+    """LLM ранжирует метрики по смыслу таблицы (описания колонок). Возвращает
+    переупорядоченный список: главные впереди."""
+    if len(roles.metrics) <= 1:
+        return roles.metrics
+    lst = "\n".join(f"- {m}: {roles.meta.get(m, {}).get('desc', '')}" for m in roles.metrics)
+    user = f"Таблица: {table_desc}\nМетрики (колонка: описание):\n{lst}\n\nВыбери главные по важности."
+    try:
+        out = llm.complete_json(_METRIC_SYS, user, max_tokens=800, node="report_metrics")
+        chosen = [m for m in out.get("metrics", []) if m in roles.metrics]
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("report: выбор главной метрики не удался: %s", exc)
+        chosen = []
+    if not chosen:
+        return roles.metrics
+    return chosen + [m for m in roles.metrics if m not in chosen]
+
+
 def candidate_specs(roles: Roles) -> list[dict]:
     dims = roles.dimensions[:4]
-    mets = roles.metrics[:4]
+    mets = roles.metrics[:4]                # уже переупорядочены select_primary_metrics
     date = roles.dates[0] if roles.dates else None
     specs: list[dict] = []
-    for m in mets[:2]:
+    for m in mets[:3]:                      # динамика — по топ-3 метрикам (для витрин метрик)
+        if date:
+            specs.append({"kind": "trend", "metric": m, "date": date})
+    for m in mets[:2]:                      # тяжёлые разрезы — по топ-2 главным метрикам
         for d in dims[:3]:
             specs.append({"kind": "top_n", "dim": d, "metric": m})
         if dims:
             specs.append({"kind": "concentration", "dim": dims[0], "metric": m})
-        if date:
-            specs.append({"kind": "trend", "metric": m, "date": date})
-            if dims:
+            if date:
                 specs.append({"kind": "period_compare", "dim": dims[0], "metric": m, "date": date})
     for f in roles.flags[:3]:
         if dims:

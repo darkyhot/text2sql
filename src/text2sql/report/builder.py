@@ -20,7 +20,8 @@ def _load(db, schema: str, table: str, where: str | None) -> pd.DataFrame:
     sql = f'SELECT * FROM "{schema}"."{table}"'
     if where:
         sql += f" WHERE {where}"
-    res = db.run_export(sql)          # один запрос к БД, дальше только pandas
+    # все строки из запроса (ограничение — через --where), дальше только pandas
+    res = db.run_export(sql, enforce_limit=False)
     df = pd.DataFrame(res.rows, columns=res.columns)
     # numeric приходит Decimal (object) → приводим к числам, текст не трогаем
     for c in df.columns:
@@ -59,6 +60,10 @@ def build_business_report(db, catalog, llm, fqn: str, *, where: str | None = Non
                 fqn, len(df), roles.dimensions[:5], roles.metrics[:5], roles.dates, roles.flags[:5])
     if not roles.metrics:
         raise ValueError("В таблице не найдено числовых метрик для бизнес-аналитики.")
+
+    progress("определяю главные метрики…")
+    roles.metrics = plan.select_primary_metrics(llm, table_desc, roles)  # главные впереди
+    logger.info("report %s: главные метрики=%s", fqn, roles.metrics[:4])
 
     progress("выбираю интересные разрезы…")
     specs = plan.candidate_specs(roles)

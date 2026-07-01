@@ -225,15 +225,18 @@ class DbAdapter:
                           "rowcount": result.rowcount, "truncated": truncated})
         return result
 
-    def run_export(self, sql: str) -> QueryResult:
-        """Финальная выгрузка: полный результат (без probe-LIMIT, без cost-потолка),
-        ограничен export_max_rows + statement_timeout."""
+    def run_export(self, sql: str, *, enforce_limit: bool = True) -> QueryResult:
+        """Финальная выгрузка: полный результат (без probe-LIMIT, без cost-потолка).
+        enforce_limit=True — до export_max_rows (для выгрузки last_query.csv);
+        enforce_limit=False — ВСЕ строки (для бизнес-отчёта: ограничение через --where),
+        защита только statement_timeout."""
         self._validate(sql)
         cap = int(self.cfg.export_max_rows)
-        wrapped = self._apply_limit(sql, cap)
+        wrapped = self._apply_limit(sql, cap) if enforce_limit else sql
         with self.get_engine().connect() as conn:
+            conn.execute(text(f"SET statement_timeout = {int(self.cfg.export_timeout_ms)}"))
             columns, rows = self._rows(conn, wrapped)
-        truncated = len(rows) >= cap
+        truncated = enforce_limit and len(rows) >= cap
         result = QueryResult(columns=columns, rows=rows, truncated=truncated)
         if self._tracer:
             self._tracer({"kind": "export", "sql": sql, "rowcount": result.rowcount, "truncated": truncated})

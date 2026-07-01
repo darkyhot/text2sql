@@ -42,6 +42,56 @@ def select_primary_metrics(llm, table_desc: str, roles: Roles) -> list[str]:
     return chosen + [m for m in roles.metrics if m not in chosen]
 
 
+_PROFILE_SYS = (
+    "Ты профилируешь таблицу для БИЗНЕС-отчёта. Каждой колонке назначь РОЛЬ:\n"
+    "- metric — числовая мера для агрегации (суммы, количества, деньги, проценты, потенциал);\n"
+    "- dimension — категориальный разрез с НЕБОЛЬШИМ числом значений (сегмент, тип, статус, "
+    "код источника, регион, категория);\n"
+    "- entity — бизнес-сущность для рейтингов ТОП (клиент, ИНН, компания, ФИО сотрудника/"
+    "руководителя; обычно высокая кардинальность);\n"
+    "- date — дата для анализа динамики;\n"
+    "- flag — булев признак да/нет;\n"
+    "- ignore — тех.поля и id БЕЗ бизнес-смысла, системные метки времени (*_dttm, inserted/"
+    "modified/updated), логины, служебные коды, большие свободные тексты (комментарии/анкеты) — "
+    "их НЕ анализируем.\n"
+    "Правила: если в таблице есть И id, И НАЗВАНИЕ ОДНОГО объекта (gosb_id и gosb_name) — "
+    "выбери НАЗВАНИЕ (dimension/entity), а парный id → ignore (не дублируем). НО если у "
+    "территориального id (tb_id, gosb_id, region_id) НЕТ парной колонки-названия в этой "
+    "таблице — это ВАЖНЫЙ разрез (идентификатор территории/ГОСБ/ТБ), помечай его dimension. "
+    "Отчётную дату (report_dt) укажи как primary_date, а не дату создания/открытия счёта. "
+    "primary_metrics — 1-4 ГЛАВНЫЕ метрики по сути таблицы.\n"
+    'Верни JSON: {"roles":{"колонка":"роль"}, "primary_date":"колонка"|null, '
+    '"primary_metrics":["по важности"]}'
+)
+
+
+def build_roles_llm(llm, table_desc: str, df, meta: dict[str, dict]):
+    """LLM-first профилирование колонок отчёта (роли + главная дата + главные метрики).
+    Возвращает Roles или None (тогда builder падёт на regex-fallback core.profile)."""
+    facts = core.column_facts(df, meta)
+    lines = []
+    for f in facts:
+        ex = ", ".join(f["samples"][:4])
+        lines.append(f"- {f['col']} | {f['dtype']} | уник={f['card']} | пусто={f['null_pct']}% | "
+                     f"{f['desc']} | примеры: {ex}")
+    user = (f"Таблица: {table_desc}\nКолонки [имя | тип | уник | пусто | описание | примеры]:\n"
+            + "\n".join(lines) + "\n\nНазначь роль каждой колонке.")
+    try:
+        out = llm.complete_json(_PROFILE_SYS, user, max_tokens=8000, node="report_profile")
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("report: LLM-профайлер не сработал (%s) — regex-fallback", exc)
+        return None
+    assignment = {k: str(v).strip().lower() for k, v in (out.get("roles") or {}).items()}
+    if not assignment:
+        return None
+    primary_date = out.get("primary_date") or None
+    primary_metrics = [m for m in (out.get("primary_metrics") or []) if isinstance(m, str)]
+    roles = core.roles_from_assignment(df, meta, assignment, primary_date, primary_metrics)
+    logger.info("report LLM-профиль: metrics=%s dims=%s entities=%s dates=%s flags=%s",
+                roles.metrics[:4], roles.dimensions[:5], roles.entities, roles.dates[:2], roles.flags[:4])
+    return roles if roles.metrics else None
+
+
 def candidate_specs(roles: Roles) -> list[dict]:
     dims = roles.dimensions[:4]
     mets = roles.metrics[:4]                # уже переупорядочены select_primary_metrics

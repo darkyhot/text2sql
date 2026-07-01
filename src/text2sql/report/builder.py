@@ -70,14 +70,16 @@ def build_business_report(db, catalog, llm, fqn: str, *, where: str | None = Non
     if df.empty:
         raise ValueError("По заданному фильтру нет данных.")
     table_desc, meta = _meta_for(catalog, fqn)
-    roles = core.profile(df, meta)
-    logger.info("report %s: строк=%d dims=%s metrics=%s dates=%s flags=%s",
-                fqn, len(df), roles.dimensions[:5], roles.metrics[:5], roles.dates, roles.flags[:5])
+
+    progress("профилирую колонки (роли, главные метрики)…")
+    # LLM-first профилирование (роли колонок по смыслу); regex-эвристика — фолбэк
+    roles = plan.build_roles_llm(llm, table_desc, df, meta) or core.profile(df, meta)
+    logger.info("report %s: строк=%d dims=%s metrics=%s dates=%s flags=%s entities=%s",
+                fqn, len(df), roles.dimensions[:5], roles.metrics[:5], roles.dates[:2],
+                roles.flags[:4], roles.entities[:3])
     if not roles.metrics:
         raise ValueError("В таблице не найдено числовых метрик для бизнес-аналитики.")
 
-    progress("определяю главные метрики…")
-    roles.metrics = plan.select_primary_metrics(llm, table_desc, roles)  # главные впереди
     # явный фокус: колонки, названные пользователем, поднимаем в начало (попадут в кандидаты)
     if focus:
         fl = focus.lower()

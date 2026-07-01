@@ -74,8 +74,52 @@ def agg_for(metric: str) -> str:
     return "mean" if _MEAN_RE.search(metric) else "sum"
 
 
+def column_facts(df: pd.DataFrame, meta: dict[str, dict]) -> list[dict]:
+    """Факты о колонках (детерминированно) — вход для LLM-профайлера. Не решение,
+    а данные: имя, тип, кардинальность, доля пустых, примеры значений, описание."""
+    n = len(df)
+    facts: list[dict] = []
+    for col in df.columns:
+        s = df[col]
+        samples = [str(v)[:40] for v in s.dropna().unique()[:5]]
+        facts.append({
+            "col": col,
+            "dtype": str(s.dtype),
+            "card": int(s.nunique(dropna=True)),
+            "null_pct": round(float(s.isna().mean() * 100), 1) if n else 0.0,
+            "samples": samples,
+            "desc": str(meta.get(col, {}).get("desc", "")),
+        })
+    return facts
+
+
+def roles_from_assignment(df: pd.DataFrame, meta: dict[str, dict], assignment: dict[str, str],
+                          primary_date: str | None, primary_metrics: list[str]) -> Roles:
+    """Собрать Roles из ролей, назначенных LLM (метрика/разрез/сущность/дата/флаг/ignore)."""
+    r = Roles(meta=meta)
+    for col in df.columns:
+        role = assignment.get(col, "ignore")
+        nun = int(df[col].nunique(dropna=True))
+        if role == "metric":
+            r.metrics.append(col)
+        elif role == "dimension":
+            r.dimensions.append(col); r.card[col] = nun
+        elif role == "entity":
+            r.entities.append(col); r.card[col] = nun
+        elif role == "date":
+            r.dates.append(col)
+        elif role == "flag":
+            r.flags.append(col)
+    # порядок: главные метрики впереди, отчётная дата впереди
+    order_m = [m for m in primary_metrics if m in r.metrics] + [m for m in r.metrics if m not in primary_metrics]
+    r.metrics = order_m
+    if primary_date in r.dates:
+        r.dates = [primary_date] + [d for d in r.dates if d != primary_date]
+    return r
+
+
 def profile(df: pd.DataFrame, meta: dict[str, dict]) -> Roles:
-    """Определить роли колонок для бизнес-анализа (метадата + pandas)."""
+    """FALLBACK: роли колонок по эвристикам (метадата + pandas), если LLM недоступен."""
     r = Roles(meta=meta)
     n = len(df)
     for col in df.columns:

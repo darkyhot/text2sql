@@ -119,6 +119,14 @@ def normalize_plan(plan: StructuredPlan) -> StructuredPlan:
        иначе СУБД падает с GroupingError. Добавляем их в group_by.
     2. Измерения из GROUP BY должны быть видимы в SELECT — добавляем как проекции,
        чтобы пользователь видел разрезы, а не голые агрегаты."""
+    # 0. Убрать вырождение «сколько X»: projection/group_by, совпадающие с агрегируемой
+    #    колонкой (напр. SELECT task_code, COUNT(DISTINCT task_code) GROUP BY task_code
+    #    → должно быть просто COUNT(DISTINCT task_code)).
+    metric_cols = {m.column for m in plan.metrics if m.agg != "none" and m.column and m.column != "*"}
+    if metric_cols:
+        plan.projections = [p for p in plan.projections if p.column not in metric_cols]
+        plan.group_by = [c for c in plan.group_by if c not in metric_cols]
+
     has_agg = any(m.agg != "none" for m in plan.metrics)
     if has_agg:
         for p in plan.projections:

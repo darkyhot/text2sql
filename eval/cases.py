@@ -127,6 +127,6 @@ CASES = [
         # при неоднозначности выбираем вариант с sale_funnel_task (task_subtype);
         # _ambiguity_pick_for ниже выберет по содержимому, индекс — запасной.
         "ambiguity_pick": 0,
-        "checks": [chk_q3_correct_interpretation, chk_q3_feb_date],
+        "checks": [chk_q3_correct_interpretation, chk_q3_feb_date, chk_single_row],
     },
 ]

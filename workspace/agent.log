@@ -89,3 +89,30 @@ GROUP BY "f"."report_dt", "g"."old_gosb_name"
 2026-07-01 13:02:28,888 [INFO] text2sql.catalog.refresh: metadata: собрана s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_payroll_m (строк сэмпла=6000, колонок=35, pk=['acc_num', 'enrollment_type', 'report_dt'])
 2026-07-01 13:02:28,906 [INFO] text2sql.db.adapter: metadata_sample s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_company_holding_metric: strategy=sort_random est=2352 n=100000 timeout_ms=300000
 2026-07-01 13:02:29,036 [INFO] text2sql.catalog.refresh: metadata: собрана s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_company_holding_metric (строк сэмпла=4000, колонок=33, pk=['report_dt', 'level_id', 'org_id'])
+2026-07-01 18:11:46,536 [INFO] text2sql.logging_setup: Логирование инициализировано → /home/darky/text2sql/workspace/agent.log
+2026-07-01 18:11:47,021 [INFO] text2sql.graph.nodes: node scope: вопрос='Сколько всего есть тб и госб' правок=0
+2026-07-01 18:12:17,503 [INFO] text2sql.graph.nodes: ПЛАН показан пользователю:
+Намерение: Подсчитать количество уникальных ТБ (tb_id) и количество уникальных ГОСБ (new_gosb_id) в справочнике.
+Таблицы: s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dim_gosb (g)
+Метрики: уникальных(g.tb_id), уникальных(g.new_gosb_id)
+Гранула результата: Количество уникальных ТБ и уникальных новых ГОСБ по всем записям таблицы (без фильтров по времени или другим условиям).
+Предположения: Под 'тб' понимается уникальный идентификатор ТБ (tb_id).; Под 'госб' понимается наиболее актуальный и уникальный идентификатор ГОСБ (new_gosb_id) согласно правилу выбора колонки для подсчёта количества сущностей.
+⚠ Неоднозначности: Возможна двойная интерпретация 'госб': можно было бы использовать old_gosb_id (46.67% уникальности). Выбран new_gosb_id (100% уникальности) как более актуальный.
+-- SQL --
+SELECT COUNT(DISTINCT g.tb_id) AS count_tb, COUNT(DISTINCT g.new_gosb_id) AS count_gosb
+FROM s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dim_gosb AS g
+-- заметки: []
+2026-07-01 18:12:17,506 [INFO] text2sql.graph.nodes: ПЛАН показан пользователю:
+Намерение: Подсчитать количество уникальных ТБ (tb_id) и количество уникальных ГОСБ (new_gosb_id) в справочнике.
+Таблицы: s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dim_gosb (g)
+Метрики: уникальных(g.tb_id), уникальных(g.new_gosb_id)
+Гранула результата: Количество уникальных ТБ и уникальных новых ГОСБ по всем записям таблицы (без фильтров по времени или другим условиям).
+Предположения: Под 'тб' понимается уникальный идентификатор ТБ (tb_id).; Под 'госб' понимается наиболее актуальный и уникальный идентификатор ГОСБ (new_gosb_id) согласно правилу выбора колонки для подсчёта количества сущностей.
+⚠ Неоднозначности: Возможна двойная интерпретация 'госб': можно было бы использовать old_gosb_id (46.67% уникальности). Выбран new_gosb_id (100% уникальности) как более актуальный.
+-- SQL --
+SELECT COUNT(DISTINCT g.tb_id) AS count_tb, COUNT(DISTINCT g.new_gosb_id) AS count_gosb
+FROM s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dim_gosb AS g
+-- заметки: []
+2026-07-01 18:12:17,580 [INFO] text2sql.graph.nodes: node execute: sql=SELECT COUNT(DISTINCT "g"."tb_id") AS "count_tb", COUNT(DISTINCT "g"."new_gosb_id") AS "count_gosb"
+FROM "s_grnplm_ld_salesntwrk_pcap_sn_uzp"."uzp_dim_gosb" AS "g"
+2026-07-01 18:12:17,587 [INFO] text2sql.graph.nodes: РЕЗУЛЬТАТ: строк=1, колонки=['count_tb', 'count_gosb'], csv=/home/darky/text2sql/workspace/last_query.csv | первые строки: [{'count_tb': 12, 'count_gosb': 60}]

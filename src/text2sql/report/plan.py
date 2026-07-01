@@ -53,13 +53,16 @@ def candidate_specs(roles: Roles) -> list[dict]:
     for m in mets[:2]:                      # тяжёлые разрезы — по топ-2 главным метрикам
         for d in dims[:3]:
             specs.append({"kind": "top_n", "dim": d, "metric": m})
-        if dims:
-            specs.append({"kind": "concentration", "dim": dims[0], "metric": m})
-            if date:
-                specs.append({"kind": "period_compare", "dim": dims[0], "metric": m, "date": date})
+        # концентрация (Парето) — ТОЛЬКО для многокатегорийных разрезов (>15),
+        # иначе она дублирует ТОП-N (как было для segment_name)
+        conc_dim = next((d for d in dims if roles.card.get(d, 0) > 15), None)
+        if conc_dim:
+            specs.append({"kind": "concentration", "dim": conc_dim, "metric": m})
+        if date and dims:
+            specs.append({"kind": "period_compare", "dim": dims[0], "metric": m, "date": date})
     for f in roles.flags[:3]:
-        if dims:
-            specs.append({"kind": "flag_breakdown", "flag": f, "dim": dims[0]})
+        for d in dims[:2]:                  # доля флага по 1-2 разрезам (в т.ч. по коду источника)
+            specs.append({"kind": "flag_breakdown", "flag": f, "dim": d})
     # сущности (ФИО/ИНН/компания) — только рейтинги ТОП-N
     for e in roles.entities[:3]:
         specs.append({"kind": "top_n_count", "dim": e})

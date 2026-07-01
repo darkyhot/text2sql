@@ -29,8 +29,8 @@ def detect_all(df: pd.DataFrame, roles: Roles, assets) -> list[AnalysisResult]:
     entity = roles.entities[0] if roles.entities else None
     metric = roles.metrics[0] if roles.metrics else None
     if date and entity:
-        for det in (seasonality, repeat_churn, new_and_gone):
-            try:
+        for det in (seasonality, repeat_churn):   # new_and_gone убран: для event-таблиц
+            try:                                   # («ушедшие клиенты») «новые» вводят в заблуждение
                 r = det(df, date, entity, assets)
                 if r:
                     out.append(r)

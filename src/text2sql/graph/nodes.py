@@ -179,21 +179,33 @@ class Nodes:
         plan = StructuredPlan(**state["plan"])
         if not plan.joins:
             return Command(goto="present", update={})
-        notes = self._annotate_joins(plan)
-        if any(j.fanout_safe is False for j in plan.joins):
+        notes = self._verify_fix_joins(plan)
+        # если что-то всё ещё небезопасно/невалидно — последняя попытка LLM-фикса
+        if any((j.fanout_safe is False) for j in plan.joins):
             plan = self._fix_joins(state, plan)
-            notes += self._annotate_joins(plan)
+            notes += self._verify_fix_joins(plan)
         self._trace({"kind": "node", "node": "join_advisor",
                      "joins": [(j.left_alias, j.right_alias, j.classification, j.fanout_safe) for j in plan.joins]})
         return Command(goto="present", update={"plan": plan.model_dump(), "notes": notes})
 
-    def _annotate_joins(self, plan: StructuredPlan) -> list[str]:
+    def _verify_fix_joins(self, plan: StructuredPlan) -> list[str]:
+        """Проверить каждый join (типы + fan-out). Если небезопасен/невалиден —
+        ДЕТЕРМИНИРОВАННО подобрать ключ из join-графа + PK справочника (не полагаясь
+        на LLM), затем перепроверить."""
         notes: list[str] = []
         for j in plan.joins:
             lt, rt = plan.table_by_alias(j.left_alias), plan.table_by_alias(j.right_alias)
             if not lt or not rt:
                 continue
             v = self.tools.check_join(lt.ref, rt.ref, [tuple(p) for p in j.on])
+            if not v.ok:
+                suggested = self.tools.suggest_join(lt.ref, rt.ref)
+                if suggested and [tuple(p) for p in j.on] != suggested:
+                    j.on = [list(p) for p in suggested]
+                    v2 = self.tools.check_join(lt.ref, rt.ref, suggested)
+                    if v2.ok:
+                        notes.append(f"Ключ join автоматически исправлен на {j.on} (по overlap + PK справочника).")
+                        v = v2
             j.classification, j.fanout_safe = v.classification, v.fanout_safe
             notes.append(v.note)
         return notes
@@ -223,6 +235,10 @@ class Nodes:
         nl = render_nl(plan)
         sql_preview = render_sql_plain(plan)   # читаемый SQL для аналитика
         issues = validate_plan(plan)
+        # логируем то, что показываем пользователю (чтобы не слать с экрана)
+        logger.info("ПЛАН показан пользователю:\n%s\n-- SQL --\n%s\n-- заметки: %s%s",
+                    nl, sql_preview, state.get("notes", []),
+                    ("\n-- проблемы: " + str(issues)) if issues else "")
         decision = interrupt({"type": "approve_plan", "plan_nl": nl, "sql": sql_preview,
                               "issues": issues, "notes": state.get("notes", [])})
         text = str(decision).strip()
@@ -263,6 +279,8 @@ class Nodes:
         path = self.workspace / "last_query.csv"
         self._write_csv(path, res.columns, res.rows)
         self._trace({"kind": "node", "node": "execute", "rowcount": res.rowcount, "csv": str(path)})
+        logger.info("РЕЗУЛЬТАТ: строк=%d, колонки=%s, csv=%s | первые строки: %s",
+                    res.rowcount, res.columns, path, res.rows[:3])
         return Command(goto="__end__", update={"status": "done",
                        "result": {"csv": str(path), "rowcount": res.rowcount,
                                   "columns": res.columns, "truncated": res.truncated}})

@@ -19,10 +19,28 @@ class JoinVerdict:
     on: list[tuple[str, str]]
     left_unique: bool
     right_unique: bool
-    classification: str          # "1:1" | "N:1" | "1:N" | "N:M"
+    classification: str          # "1:1" | "N:1" | "1:N" | "N:M" | "INVALID"
     fanout_safe: bool            # ключ уникален хотя бы на одной стороне
     note: str                    # человекочитаемое объяснение
     dup_example: dict | None = None
+    type_ok: bool = True         # все пары ключа совместимы по типу
+
+    @property
+    def ok(self) -> bool:
+        return self.fanout_safe and self.type_ok
+
+
+def _type_family(dtype: str) -> str:
+    d = (dtype or "").lower()
+    if any(x in d for x in ("int", "numeric", "decimal", "double", "real", "float", "serial")):
+        return "num"
+    if any(x in d for x in ("date", "timestamp", "time")):
+        return "date"
+    if any(x in d for x in ("char", "text")):
+        return "text"
+    if "bool" in d:
+        return "bool"
+    return d
 
 
 class Toolbox:
@@ -113,6 +131,18 @@ class Toolbox:
         """
         left_cols = [l for l, _ in on]
         right_cols = [r for _, r in on]
+
+        # 0) типовая совместимость пар (дата=число и т.п. — невалидный join)
+        bad_types = [(lc, rc) for lc, rc in on
+                     if self._col_family(left_fqn, lc) != self._col_family(right_fqn, rc)]
+        if bad_types:
+            note = (f"Join НЕВАЛИДЕН: несовместимые типы в ключе {bad_types} "
+                    f"(напр. дата = число). Нужен другой маппинг колонок.")
+            v = JoinVerdict(on, False, False, "INVALID", False, note, None, type_ok=False)
+            self._trace({"kind": "tool", "tool": "check_join", "left": left_fqn, "right": right_fqn,
+                         "on": on, "classification": "INVALID", "fanout_safe": False})
+            return v
+
         left_uniq, left_dup = self.key_unique(left_fqn, left_cols)
         right_uniq, right_dup = self.key_unique(right_fqn, right_cols)
 
@@ -142,3 +172,50 @@ class Toolbox:
         self._trace({"tool": "check_join", "left": left_fqn, "right": right_fqn,
                      "on": on, "classification": cls, "fanout_safe": safe})
         return verdict
+
+    # --- типы колонок ---
+    def _col_family(self, fqn: str, col: str) -> str:
+        t = self.catalog.get(fqn)
+        if t:
+            cm = next((c for c in t.columns if c.name == col), None)
+            if cm:
+                return _type_family(cm.dtype)
+        return "?"
+
+    # --- детерминированный подбор ключа join (из join-кандидатов + PK справочника) ---
+    def suggest_join(self, left_fqn: str, right_fqn: str) -> list[tuple[str, str]]:
+        """Построить корректный ключ join: покрыть ПОЛНЫЙ составной PK справочной
+        стороны, маппинг колонок — по максимальному overlap значений (join-граф),
+        только типово-совместимые пары. Возвращает пары (left_col, right_col) или []."""
+        # пары-кандидаты в ориентации (left_fqn_col, right_fqn_col)
+        cands: list[tuple[str, str, int]] = []
+        for jc in self.catalog.join_candidates:
+            if jc["left"] == left_fqn and jc["right"] == right_fqn:
+                cands += [(p["left_col"], p["right_col"], p["overlap"]) for p in jc["pairs"]]
+            elif jc["left"] == right_fqn and jc["right"] == left_fqn:
+                cands += [(p["right_col"], p["left_col"], p["overlap"]) for p in jc["pairs"]]
+        if not cands:
+            return []
+        lt, rt = self.catalog.get(left_fqn), self.catalog.get(right_fqn)
+        if not lt or not rt:
+            return []
+        # справочная сторона = reference-роль; иначе — та, чей PK покрываем
+        if rt.role == "reference" and rt.pk_hypothesis:
+            dim_side, dim_pk = "right", rt.pk_hypothesis
+        elif lt.role == "reference" and lt.pk_hypothesis:
+            dim_side, dim_pk = "left", lt.pk_hypothesis
+        else:
+            dim_side, dim_pk = ("right", rt.pk_hypothesis) if rt.pk_hypothesis else ("left", lt.pk_hypothesis)
+        if not dim_pk:
+            return []
+        on: list[tuple[str, str]] = []
+        for pk_col in dim_pk:
+            matches = [(lc, rc, ov) for lc, rc, ov in cands
+                       if (rc == pk_col if dim_side == "right" else lc == pk_col)
+                       and self._col_family(left_fqn, lc) == self._col_family(right_fqn, rc)]
+            if not matches:
+                return []                       # PK не покрывается — не рискуем
+            lc, rc, _ = max(matches, key=lambda x: x[2])
+            on.append((lc, rc))
+        self._trace({"tool": "suggest_join", "left": left_fqn, "right": right_fqn, "on": on})
+        return on

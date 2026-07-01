@@ -6,6 +6,7 @@ from __future__ import annotations
 import base64
 import html as _html
 import logging
+import re
 from pathlib import Path
 
 import pandas as pd
@@ -16,8 +17,22 @@ from . import core, patterns, plan
 logger = logging.getLogger(__name__)
 
 
-def _load(db, schema: str, table: str, where: str | None) -> pd.DataFrame:
-    sql = f'SELECT * FROM "{schema}"."{table}"'
+# большие свободные тексты (varchar 4000) — не грузим: тяжёлые и не нужны для аналитики
+_BIGTEXT_RE = re.compile(r"(_text$|_comment$|questionnaire|infopovod|anketa|_note$|_notes$|old_epk_id)", re.I)
+
+
+def _load_columns(catalog, fqn: str) -> list[str] | None:
+    t = catalog.get(fqn)
+    if not t:
+        return None
+    cols = [c.name for c in t.columns
+            if c.semantic_class != "free_text" and not _BIGTEXT_RE.search(c.name)]
+    return cols or None
+
+
+def _load(db, schema: str, table: str, where: str | None, columns: list[str] | None) -> pd.DataFrame:
+    proj = ", ".join(f'"{c}"' for c in columns) if columns else "*"
+    sql = f'SELECT {proj} FROM "{schema}"."{table}"'
     if where:
         sql += f" WHERE {where}"
     # все строки из запроса (ограничение — через --where), дальше только pandas
@@ -51,7 +66,7 @@ def build_business_report(db, catalog, llm, fqn: str, *, where: str | None = Non
     assets = out_dir / "report_assets" / table   # своя папка на таблицу (не перетирает)
 
     progress("загружаю данные…")
-    df = _load(db, schema, table, where)
+    df = _load(db, schema, table, where, _load_columns(catalog, fqn))
     if df.empty:
         raise ValueError("По заданному фильтру нет данных.")
     table_desc, meta = _meta_for(catalog, fqn)
@@ -63,6 +78,13 @@ def build_business_report(db, catalog, llm, fqn: str, *, where: str | None = Non
 
     progress("определяю главные метрики…")
     roles.metrics = plan.select_primary_metrics(llm, table_desc, roles)  # главные впереди
+    # явный фокус: колонки, названные пользователем, поднимаем в начало (попадут в кандидаты)
+    if focus:
+        fl = focus.lower()
+        key = lambda c: 0 if c.lower() in fl else 1
+        roles.dimensions.sort(key=key)
+        roles.entities.sort(key=key)
+        roles.metrics.sort(key=key)
     logger.info("report %s: главные метрики=%s", fqn, roles.metrics[:4])
 
     progress("выбираю интересные разрезы…")

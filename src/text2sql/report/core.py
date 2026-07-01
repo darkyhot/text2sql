@@ -27,16 +27,36 @@ _ID_RE = re.compile(r"(^|_)(id|code|key|inn|kpp|ogrn|okato|oktmo|saphr|epk|num)(
 
 @dataclass
 class Roles:
-    dimensions: list[str] = field(default_factory=list)   # читаемые разрезы (*_name, сегменты)
+    dimensions: list[str] = field(default_factory=list)   # читаемые разрезы (*_name, коды, сегменты)
     metrics: list[str] = field(default_factory=list)      # числовые меры
-    dates: list[str] = field(default_factory=list)        # даты для динамики
+    dates: list[str] = field(default_factory=list)        # даты для динамики (report_dt впереди)
     flags: list[str] = field(default_factory=list)        # булевы признаки
     entities: list[str] = field(default_factory=list)     # высококард. сущности (ФИО/ИНН/компания) — только ТОП-N
+    card: dict[str, int] = field(default_factory=dict)    # кардинальность разрезов/сущностей
     meta: dict[str, dict] = field(default_factory=dict)   # {col: {desc, unique_perc}}
 
 
 # Сущности для рейтингов (высокая кардинальность — только ТОП, без Парето/долей)
 _ENTITY_RE = re.compile(r"(_fio$|^inn$|_inn$|company_name|client|manager|employee|holder_name)", re.I)
+_NAME_RE = re.compile(r"(fio|name)$", re.I)
+
+
+def _concept(col: str) -> str:
+    """Ключ сущности без id/name-суффикса: manager_saphr_id и manager_fio → 'manager'."""
+    return re.sub(r"(_saphr_id|_id|_fio|_name|_code)$", "", col, flags=re.I)
+
+
+def _dedup_id_name(cols: list[str]) -> list[str]:
+    """Из пар id↔name (gosb_id/gosb_name, manager_saphr_id/manager_fio) оставить
+    читаемую (name/fio), убрать числовой дубль."""
+    groups: dict[str, list[str]] = {}
+    for c in cols:
+        groups.setdefault(_concept(c), []).append(c)
+    out: list[str] = []
+    for members in groups.values():
+        named = [m for m in members if _NAME_RE.search(m)]
+        out.append(named[0] if named else members[0])
+    return out
 
 
 @dataclass
@@ -65,21 +85,32 @@ def profile(df: pd.DataFrame, meta: dict[str, dict]) -> Roles:
         dtype = str(s.dtype)
         nun = s.nunique(dropna=True)
         uniq_ratio = (nun / n) if n else 0
+        if sclass == "free_text":               # большие свободные тексты не анализируем
+            continue
+        is_text = not (pd.api.types.is_numeric_dtype(s) or pd.api.types.is_bool_dtype(s)
+                       or pd.api.types.is_datetime64_any_dtype(s))
+        low = col.lower()
         if pd.api.types.is_bool_dtype(s) or sclass == "flag":
             r.flags.append(col)
-        elif pd.api.types.is_datetime64_any_dtype(s) or sclass == "date" or col.endswith("_dt"):
-            if not col.endswith("dttm"):        # системные timestamp не берём в динамику
-                r.dates.append(col)
-        elif _ENTITY_RE.search(col) and nun > 10 and "author" not in col.lower():
+        elif (pd.api.types.is_datetime64_any_dtype(s) or sclass == "date" or col.endswith("_dt")) \
+                and not col.endswith("dttm"):    # системные *_dttm в динамику не берём
+            r.dates.append(col)
+        elif _ENTITY_RE.search(col) and nun > 10 and "author" not in low:
             # сущность (ФИО/ИНН/компания) — для рейтингов ТОП-N
-            r.entities.append(col)
+            r.entities.append(col); r.card[col] = nun
         elif pd.api.types.is_numeric_dtype(s) and not _ID_RE.search(col) and _METRIC_RE.search(col):
             r.metrics.append(col)
-        elif (sclass in ("enum_like", "label") or dtype == "object") and not _ID_RE.search(col):
-            # читаемый разрез: невысокая кардинальность, желательно *_name
+        elif is_text and "author" not in low and "login" not in low:
+            # читаемый разрез — ТЕКСТОВЫЕ колонки (в т.ч. коды типа src_task_as_code),
+            # невысокая кардинальность. Числовые id сюда НЕ попадают.
             if 1 < nun <= max(60, n * 0.2) and uniq_ratio < 0.5:
-                r.dimensions.append(col)
-    # приоритет разрезов: *_name / *_type / сегмент — впереди
+                r.dimensions.append(col); r.card[col] = nun
+    # report-дата — впереди (ось времени именно отчётная, не acc_open_dt/agrmnt_dt)
+    r.dates.sort(key=lambda c: (0 if re.search(r"report", c, re.I) else 1, c))
+    # убрать дубли id↔name (оставить читаемую версию)
+    r.dimensions = _dedup_id_name(r.dimensions)
+    r.entities = _dedup_id_name(r.entities)
+    # приоритет разрезов: читаемые *_name / *_type / сегмент / регион — впереди кодов
     r.dimensions.sort(key=lambda c: (0 if re.search(r"(name|type|segment|сегмент|отрасл|регион|region|категор|category)", c, re.I) else 1, c))
     r.metrics.sort(key=lambda c: (0 if re.search(r"(outflow|отток|amt|amount|fot|qty)", c, re.I) else 1, c))
     return r
@@ -184,11 +215,20 @@ def concentration(df, dim, metric, assets) -> AnalysisResult:
     cum = g.cumsum() / total
     n_for_80 = int((cum <= 0.8).sum()) + 1
     pct_for_80 = round(n_for_80 / len(g) * 100, 1)
-    head = g.head(10).reset_index()
-    fig, ax = plt.subplots(figsize=(8, max(3, 0.45 * len(head))))
-    sns.barplot(data=head, y=dim, x=metric, ax=ax, color="#C0504D")
-    ax.set_title(f"Концентрация: {metric} по {dim}")
+    head = g.head(15).reset_index()
+    head[dim] = head[dim].astype(str)
+    cum_head = (head[metric].cumsum() / total * 100)
+    # Парето: столбцы (вклад) + накопительная доля % (вторичная ось) — визуально
+    # отличается от простого ТОП-N
+    fig, ax = plt.subplots(figsize=(9, 4.5))
+    sns.barplot(data=head, x=dim, y=metric, ax=ax, color="#C0504D")
+    ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha="right", fontsize=8)
     ax.set_xlabel(""); ax.set_ylabel("")
+    ax2 = ax.twinx()
+    ax2.plot(range(len(head)), cum_head.values, color="#1f3b6e", marker="o", lw=1.5)
+    ax2.axhline(80, color="gray", ls="--", lw=1)
+    ax2.set_ylim(0, 105); ax2.set_ylabel("накопительно, %")
+    ax.set_title(f"Парето: концентрация {metric} по «{dim}»")
     chart = _save(fig, assets, f"conc_{dim}_{metric}")
     facts = {"n_for_80pct": n_for_80, "pct_categories_for_80": pct_for_80,
              "total_categories": int(len(g)), "top_share_pct": round(float(g.iloc[0] / total * 100), 1),

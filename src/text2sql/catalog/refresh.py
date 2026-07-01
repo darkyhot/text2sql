@@ -140,6 +140,33 @@ class MetadataRefresh:
         self._tbl_seed = _read_seed(self.data_dir / "table_description_few_shots.yaml", "tables", "table_name")
         self._grain_seed = self._load_grain_seed()
         self._pk_seed = self._load_pk_seed()
+        # Кураторские русские описания из существующих CSV имеют приоритет над few-shots
+        # (там актуальные описания всех таблиц, в т.ч. подтянутые с прода из view-схемы).
+        self._merge_desc_seed_from_csv()
+
+    def _merge_desc_seed_from_csv(self) -> None:
+        attr_path = self.data_dir / "attr_list.csv"
+        if attr_path.exists():
+            try:
+                df = pd.read_csv(attr_path).fillna("")
+                for r in df.itertuples(index=False):
+                    desc = str(getattr(r, "description", "")).strip()
+                    name = str(r.column_name).strip().lower()
+                    if desc and desc != _humanize(name):
+                        self._col_seed[name] = desc
+            except Exception:  # noqa: BLE001
+                pass
+        tbl_path = self.data_dir / "tables_list.csv"
+        if tbl_path.exists():
+            try:
+                df = pd.read_csv(tbl_path).fillna("")
+                for r in df.itertuples(index=False):
+                    desc = str(getattr(r, "description", "")).strip()
+                    name = str(r.table_name).strip().lower()
+                    if desc and desc != _humanize(name):
+                        self._tbl_seed[name] = desc
+            except Exception:  # noqa: BLE001
+                pass
 
     def _load_grain_seed(self) -> dict[str, str]:
         path = self.data_dir / "tables_list.csv"

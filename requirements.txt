@@ -7,5 +7,9 @@ pydantic>=2
 rank-bm25
 pyyaml
 python-dotenv
+# Бизнес-отчёт (/build_business_report)
+matplotlib
+seaborn
+tabulate
 # Прод: бэкенд GigaChat (на локальном DeepSeek-контуре не требуется)
 langchain-gigachat

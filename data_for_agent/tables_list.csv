@@ -1,5 +1,7 @@
 schema_name,table_name,description,grain,role
 s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_data_epk_consolidation,Данные по атрибутам ЕПК организаций,client,fact
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,Воронка продаж по всем задачам УЗП,task,fact
 s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dim_gosb,Справочник ТБ и ГОСБ,organization,reference
 s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_fact_outflow,Информация по фактическим оттокам для УЗП,event,event
-s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,Воронка продаж по всем задачам УЗП,task,fact
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_data_payroll_m,ЗП ведомости (месяц),,fact
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_company_holding_metric,"Витрина данных с метриками по оттоку, ФОТ и потенциалу сотрудников для AI-агента ""Key clients""",,fact

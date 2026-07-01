@@ -7,3 +7,5 @@ config_runtime.json
 workspace/*.csv
 traces/*.jsonl
 .ipynb_checkpoints/
+workspace/report_assets/
+workspace/*.md

@@ -1,487 +1,1196 @@
 [
   {
     "left": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_epk_consolidation",
+    "right": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task",
+    "pairs": [
+      {
+        "left_col": "inn",
+        "right_col": "inn",
+        "overlap": 282
+      },
+      {
+        "left_col": "tb_id",
+        "right_col": "tb_id",
+        "overlap": 12
+      },
+      {
+        "left_col": "gosb_id",
+        "right_col": "gosb_id",
+        "overlap": 28
+      }
+    ]
+  },
+  {
+    "left": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_epk_consolidation",
     "right": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dim_gosb",
     "pairs": [
       {
         "left_col": "client_type_id",
-        "right_col": "old_gosb_id",
-        "overlap": 3
+        "right_col": "tb_id",
+        "overlap": 6
       },
       {
         "left_col": "client_type_id",
-        "right_col": "tb_id",
+        "right_col": "old_gosb_id",
         "overlap": 1
-      },
-      {
-        "left_col": "epk_gosb_id",
-        "right_col": "old_gosb_id",
-        "overlap": 2
-      },
-      {
-        "left_col": "epk_gosb_id",
-        "right_col": "tb_id",
-        "overlap": 5
-      },
-      {
-        "left_col": "gosb_id",
-        "right_col": "old_gosb_id",
-        "overlap": 29
-      },
-      {
-        "left_col": "gosb_method_id",
-        "right_col": "old_gosb_id",
-        "overlap": 5
-      },
-      {
-        "left_col": "gosb_method_id",
-        "right_col": "tb_id",
-        "overlap": 2
-      },
-      {
-        "left_col": "head_holding_epk_id",
-        "right_col": "old_gosb_id",
-        "overlap": 2
-      },
-      {
-        "left_col": "holding_epk_id",
-        "right_col": "old_gosb_id",
-        "overlap": 5
-      },
-      {
-        "left_col": "holding_epk_id",
-        "right_col": "tb_id",
-        "overlap": 1
-      },
-      {
-        "left_col": "importance_lvl_id",
-        "right_col": "old_gosb_id",
-        "overlap": 4
-      },
-      {
-        "left_col": "importance_lvl_id",
-        "right_col": "tb_id",
-        "overlap": 3
-      },
-      {
-        "left_col": "industry_id",
-        "right_col": "old_gosb_id",
-        "overlap": 4
       },
       {
         "left_col": "industry_id",
         "right_col": "tb_id",
-        "overlap": 2
-      },
-      {
-        "left_col": "km_gosb_id",
-        "right_col": "old_gosb_id",
-        "overlap": 4
-      },
-      {
-        "left_col": "km_gosb_id",
-        "right_col": "tb_id",
-        "overlap": 2
-      },
-      {
-        "left_col": "kpp",
-        "right_col": "old_gosb_id",
-        "overlap": 6
-      },
-      {
-        "left_col": "kpp",
-        "right_col": "tb_id",
-        "overlap": 3
-      },
-      {
-        "left_col": "kpp_gosb_id",
-        "right_col": "old_gosb_id",
         "overlap": 5
-      },
-      {
-        "left_col": "kpp_gosb_id",
-        "right_col": "tb_id",
-        "overlap": 2
-      },
-      {
-        "left_col": "last_deal_gosb_id",
-        "right_col": "old_gosb_id",
-        "overlap": 3
-      },
-      {
-        "left_col": "last_deal_gosb_id",
-        "right_col": "tb_id",
-        "overlap": 1
-      },
-      {
-        "left_col": "last_mzp_activity_gosb_id",
-        "right_col": "old_gosb_id",
-        "overlap": 5
-      },
-      {
-        "left_col": "last_mzp_activity_gosb_id",
-        "right_col": "tb_id",
-        "overlap": 2
-      },
-      {
-        "left_col": "ogrn",
-        "right_col": "old_gosb_id",
-        "overlap": 6
-      },
-      {
-        "left_col": "ogrn",
-        "right_col": "tb_id",
-        "overlap": 2
-      },
-      {
-        "left_col": "okato",
-        "right_col": "old_gosb_id",
-        "overlap": 5
-      },
-      {
-        "left_col": "okato",
-        "right_col": "tb_id",
-        "overlap": 2
-      },
-      {
-        "left_col": "okato_gosb_id",
-        "right_col": "old_gosb_id",
-        "overlap": 6
-      },
-      {
-        "left_col": "okato_gosb_id",
-        "right_col": "tb_id",
-        "overlap": 3
-      },
-      {
-        "left_col": "oktmo",
-        "right_col": "old_gosb_id",
-        "overlap": 4
-      },
-      {
-        "left_col": "oktmo",
-        "right_col": "tb_id",
-        "overlap": 3
-      },
-      {
-        "left_col": "oktmo_gosb_id",
-        "right_col": "old_gosb_id",
-        "overlap": 3
-      },
-      {
-        "left_col": "oktmo_gosb_id",
-        "right_col": "tb_id",
-        "overlap": 1
-      },
-      {
-        "left_col": "payroll_gosb_id",
-        "right_col": "old_gosb_id",
-        "overlap": 5
-      },
-      {
-        "left_col": "payroll_gosb_id",
-        "right_col": "tb_id",
-        "overlap": 2
-      },
-      {
-        "left_col": "priority_id",
-        "right_col": "old_gosb_id",
-        "overlap": 6
-      },
-      {
-        "left_col": "priority_id",
-        "right_col": "tb_id",
-        "overlap": 2
-      },
-      {
-        "left_col": "report_id",
-        "right_col": "old_gosb_id",
-        "overlap": 4
-      },
-      {
-        "left_col": "report_id",
-        "right_col": "tb_id",
-        "overlap": 2
-      },
-      {
-        "left_col": "segment_id",
-        "right_col": "old_gosb_id",
-        "overlap": 10
-      },
-      {
-        "left_col": "segment_id",
-        "right_col": "tb_id",
-        "overlap": 1
-      },
-      {
-        "left_col": "status_id",
-        "right_col": "old_gosb_id",
-        "overlap": 2
-      },
-      {
-        "left_col": "tb_id",
-        "right_col": "tb_id",
-        "overlap": 12
-      }
-    ]
-  },
-  {
-    "left": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_epk_consolidation",
-    "right": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_fact_outflow",
-    "pairs": [
-      {
-        "left_col": "client_type_id",
-        "right_col": "gosb_id",
-        "overlap": 3
-      },
-      {
-        "left_col": "epk_gosb_id",
-        "right_col": "gosb_id",
-        "overlap": 2
-      },
-      {
-        "left_col": "gosb_id",
-        "right_col": "gosb_id",
-        "overlap": 29
-      },
-      {
-        "left_col": "gosb_method_id",
-        "right_col": "gosb_id",
-        "overlap": 5
-      },
-      {
-        "left_col": "head_holding_epk_id",
-        "right_col": "gosb_id",
-        "overlap": 2
-      },
-      {
-        "left_col": "holding_epk_id",
-        "right_col": "gosb_id",
-        "overlap": 5
-      },
-      {
-        "left_col": "importance_lvl_id",
-        "right_col": "gosb_id",
-        "overlap": 4
       },
       {
         "left_col": "industry_id",
-        "right_col": "gosb_id",
-        "overlap": 4
-      },
-      {
-        "left_col": "inn",
-        "right_col": "inn",
-        "overlap": 200
-      },
-      {
-        "left_col": "km_gosb_id",
-        "right_col": "gosb_id",
-        "overlap": 4
+        "right_col": "old_gosb_id",
+        "overlap": 1
       },
       {
         "left_col": "kpp",
-        "right_col": "gosb_id",
-        "overlap": 6
-      },
-      {
-        "left_col": "kpp_gosb_id",
-        "right_col": "gosb_id",
-        "overlap": 5
-      },
-      {
-        "left_col": "last_deal_gosb_id",
-        "right_col": "gosb_id",
-        "overlap": 3
-      },
-      {
-        "left_col": "last_mzp_activity_gosb_id",
-        "right_col": "gosb_id",
-        "overlap": 5
+        "right_col": "tb_id",
+        "overlap": 7
       },
       {
         "left_col": "ogrn",
-        "right_col": "gosb_id",
+        "right_col": "tb_id",
         "overlap": 6
       },
       {
         "left_col": "okato",
-        "right_col": "gosb_id",
-        "overlap": 5
-      },
-      {
-        "left_col": "okato_gosb_id",
-        "right_col": "gosb_id",
+        "right_col": "tb_id",
         "overlap": 6
       },
       {
         "left_col": "oktmo",
-        "right_col": "gosb_id",
-        "overlap": 4
-      },
-      {
-        "left_col": "oktmo_gosb_id",
-        "right_col": "gosb_id",
-        "overlap": 3
-      },
-      {
-        "left_col": "payroll_gosb_id",
-        "right_col": "gosb_id",
-        "overlap": 5
-      },
-      {
-        "left_col": "priority_id",
-        "right_col": "gosb_id",
-        "overlap": 6
-      },
-      {
-        "left_col": "report_id",
-        "right_col": "gosb_id",
-        "overlap": 4
-      },
-      {
-        "left_col": "segment_id",
-        "right_col": "gosb_id",
-        "overlap": 10
-      },
-      {
-        "left_col": "status_id",
-        "right_col": "gosb_id",
-        "overlap": 2
-      },
-      {
-        "left_col": "tb_id",
         "right_col": "tb_id",
-        "overlap": 12
-      }
-    ]
-  },
-  {
-    "left": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_epk_consolidation",
-    "right": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task",
-    "pairs": [
-      {
-        "left_col": "gosb_id",
-        "right_col": "gosb_id",
-        "overlap": 29
-      },
-      {
-        "left_col": "inn",
-        "right_col": "inn",
-        "overlap": 200
-      },
-      {
-        "left_col": "tb_id",
-        "right_col": "tb_id",
-        "overlap": 12
-      }
-    ]
-  },
-  {
-    "left": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dim_gosb",
-    "right": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_fact_outflow",
-    "pairs": [
-      {
-        "left_col": "old_gosb_id",
-        "right_col": "gosb_id",
-        "overlap": 29
-      },
-      {
-        "left_col": "old_gosb_id",
-        "right_col": "saphr_id",
-        "overlap": 6
-      },
-      {
-        "left_col": "tb_id",
-        "right_col": "saphr_id",
-        "overlap": 4
-      },
-      {
-        "left_col": "tb_id",
-        "right_col": "tb_id",
-        "overlap": 12
-      }
-    ]
-  },
-  {
-    "left": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dim_gosb",
-    "right": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task",
-    "pairs": [
-      {
-        "left_col": "old_gosb_id",
-        "right_col": "emp_post_id",
-        "overlap": 6
-      },
-      {
-        "left_col": "old_gosb_id",
-        "right_col": "gosb_id",
-        "overlap": 29
-      },
-      {
-        "left_col": "old_gosb_id",
-        "right_col": "isu_struct_saphr_id",
-        "overlap": 6
-      },
-      {
-        "left_col": "old_gosb_id",
-        "right_col": "manager_saphr_id",
         "overlap": 9
       },
       {
-        "left_col": "tb_id",
-        "right_col": "emp_post_id",
-        "overlap": 3
+        "left_col": "segment_id",
+        "right_col": "tb_id",
+        "overlap": 6
       },
       {
-        "left_col": "tb_id",
-        "right_col": "isu_struct_saphr_id",
-        "overlap": 3
+        "left_col": "segment_id",
+        "right_col": "old_gosb_id",
+        "overlap": 1
       },
       {
-        "left_col": "tb_id",
-        "right_col": "manager_saphr_id",
-        "overlap": 2
+        "left_col": "priority_id",
+        "right_col": "tb_id",
+        "overlap": 6
+      },
+      {
+        "left_col": "holding_epk_id",
+        "right_col": "tb_id",
+        "overlap": 7
+      },
+      {
+        "left_col": "head_holding_epk_id",
+        "right_col": "tb_id",
+        "overlap": 8
+      },
+      {
+        "left_col": "importance_lvl_id",
+        "right_col": "tb_id",
+        "overlap": 8
+      },
+      {
+        "left_col": "importance_lvl_id",
+        "right_col": "old_gosb_id",
+        "overlap": 1
       },
       {
         "left_col": "tb_id",
         "right_col": "tb_id",
         "overlap": 12
+      },
+      {
+        "left_col": "gosb_id",
+        "right_col": "old_gosb_id",
+        "overlap": 28
+      },
+      {
+        "left_col": "oktmo_gosb_id",
+        "right_col": "tb_id",
+        "overlap": 8
+      },
+      {
+        "left_col": "okato_gosb_id",
+        "right_col": "tb_id",
+        "overlap": 5
+      },
+      {
+        "left_col": "okato_gosb_id",
+        "right_col": "old_gosb_id",
+        "overlap": 1
+      },
+      {
+        "left_col": "epk_gosb_id",
+        "right_col": "tb_id",
+        "overlap": 5
+      },
+      {
+        "left_col": "epk_gosb_id",
+        "right_col": "old_gosb_id",
+        "overlap": 1
+      },
+      {
+        "left_col": "payroll_gosb_id",
+        "right_col": "tb_id",
+        "overlap": 6
+      },
+      {
+        "left_col": "km_gosb_id",
+        "right_col": "tb_id",
+        "overlap": 6
+      },
+      {
+        "left_col": "km_gosb_id",
+        "right_col": "old_gosb_id",
+        "overlap": 1
+      },
+      {
+        "left_col": "last_mzp_activity_gosb_id",
+        "right_col": "tb_id",
+        "overlap": 7
+      },
+      {
+        "left_col": "last_mzp_activity_gosb_id",
+        "right_col": "old_gosb_id",
+        "overlap": 1
+      },
+      {
+        "left_col": "last_deal_gosb_id",
+        "right_col": "tb_id",
+        "overlap": 7
+      },
+      {
+        "left_col": "kpp_gosb_id",
+        "right_col": "tb_id",
+        "overlap": 6
+      },
+      {
+        "left_col": "gosb_method_id",
+        "right_col": "tb_id",
+        "overlap": 8
+      },
+      {
+        "left_col": "gosb_method_id",
+        "right_col": "old_gosb_id",
+        "overlap": 1
+      },
+      {
+        "left_col": "status_id",
+        "right_col": "tb_id",
+        "overlap": 9
+      },
+      {
+        "left_col": "report_id",
+        "right_col": "tb_id",
+        "overlap": 6
+      },
+      {
+        "left_col": "report_id",
+        "right_col": "old_gosb_id",
+        "overlap": 1
+      }
+    ]
+  },
+  {
+    "left": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_epk_consolidation",
+    "right": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_fact_outflow",
+    "pairs": [
+      {
+        "left_col": "client_type_id",
+        "right_col": "gosb_id",
+        "overlap": 1
+      },
+      {
+        "left_col": "industry_id",
+        "right_col": "gosb_id",
+        "overlap": 1
+      },
+      {
+        "left_col": "inn",
+        "right_col": "inn",
+        "overlap": 282
+      },
+      {
+        "left_col": "segment_id",
+        "right_col": "gosb_id",
+        "overlap": 1
+      },
+      {
+        "left_col": "importance_lvl_id",
+        "right_col": "gosb_id",
+        "overlap": 1
+      },
+      {
+        "left_col": "tb_id",
+        "right_col": "tb_id",
+        "overlap": 12
+      },
+      {
+        "left_col": "gosb_id",
+        "right_col": "gosb_id",
+        "overlap": 28
+      },
+      {
+        "left_col": "okato_gosb_id",
+        "right_col": "gosb_id",
+        "overlap": 1
+      },
+      {
+        "left_col": "epk_gosb_id",
+        "right_col": "gosb_id",
+        "overlap": 1
+      },
+      {
+        "left_col": "km_gosb_id",
+        "right_col": "gosb_id",
+        "overlap": 1
+      },
+      {
+        "left_col": "last_mzp_activity_gosb_id",
+        "right_col": "gosb_id",
+        "overlap": 1
+      },
+      {
+        "left_col": "gosb_method_id",
+        "right_col": "gosb_id",
+        "overlap": 1
+      },
+      {
+        "left_col": "report_id",
+        "right_col": "gosb_id",
+        "overlap": 1
+      }
+    ]
+  },
+  {
+    "left": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_epk_consolidation",
+    "right": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_payroll_m",
+    "pairs": [
+      {
+        "left_col": "client_type_id",
+        "right_col": "enrollment_type",
+        "overlap": 547
+      },
+      {
+        "left_col": "industry_id",
+        "right_col": "enrollment_type",
+        "overlap": 535
+      },
+      {
+        "left_col": "kpp",
+        "right_col": "enrollment_type",
+        "overlap": 563
+      },
+      {
+        "left_col": "ogrn",
+        "right_col": "enrollment_type",
+        "overlap": 557
+      },
+      {
+        "left_col": "okato",
+        "right_col": "enrollment_type",
+        "overlap": 548
+      },
+      {
+        "left_col": "oktmo",
+        "right_col": "enrollment_type",
+        "overlap": 554
+      },
+      {
+        "left_col": "segment_id",
+        "right_col": "enrollment_type",
+        "overlap": 553
+      },
+      {
+        "left_col": "priority_id",
+        "right_col": "enrollment_type",
+        "overlap": 555
+      },
+      {
+        "left_col": "holding_epk_id",
+        "right_col": "enrollment_type",
+        "overlap": 551
+      },
+      {
+        "left_col": "head_holding_epk_id",
+        "right_col": "enrollment_type",
+        "overlap": 546
+      },
+      {
+        "left_col": "importance_lvl_id",
+        "right_col": "enrollment_type",
+        "overlap": 548
+      },
+      {
+        "left_col": "tb_id",
+        "right_col": "enrollment_type",
+        "overlap": 12
+      },
+      {
+        "left_col": "tb_id",
+        "right_col": "tb_id",
+        "overlap": 12
+      },
+      {
+        "left_col": "gosb_id",
+        "right_col": "enrollment_type",
+        "overlap": 1
+      },
+      {
+        "left_col": "gosb_id",
+        "right_col": "gosb_id",
+        "overlap": 28
+      },
+      {
+        "left_col": "oktmo_gosb_id",
+        "right_col": "enrollment_type",
+        "overlap": 562
+      },
+      {
+        "left_col": "okato_gosb_id",
+        "right_col": "enrollment_type",
+        "overlap": 556
+      },
+      {
+        "left_col": "epk_gosb_id",
+        "right_col": "enrollment_type",
+        "overlap": 546
+      },
+      {
+        "left_col": "payroll_gosb_id",
+        "right_col": "enrollment_type",
+        "overlap": 556
+      },
+      {
+        "left_col": "km_gosb_id",
+        "right_col": "enrollment_type",
+        "overlap": 541
+      },
+      {
+        "left_col": "last_mzp_activity_gosb_id",
+        "right_col": "enrollment_type",
+        "overlap": 563
+      },
+      {
+        "left_col": "last_deal_gosb_id",
+        "right_col": "enrollment_type",
+        "overlap": 548
+      },
+      {
+        "left_col": "kpp_gosb_id",
+        "right_col": "enrollment_type",
+        "overlap": 560
+      },
+      {
+        "left_col": "gosb_method_id",
+        "right_col": "enrollment_type",
+        "overlap": 554
+      },
+      {
+        "left_col": "status_id",
+        "right_col": "enrollment_type",
+        "overlap": 550
+      },
+      {
+        "left_col": "report_id",
+        "right_col": "enrollment_type",
+        "overlap": 550
+      },
+      {
+        "left_col": "report_id",
+        "right_col": "report_id",
+        "overlap": 548
+      }
+    ]
+  },
+  {
+    "left": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_epk_consolidation",
+    "right": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_company_holding_metric",
+    "pairs": [
+      {
+        "left_col": "client_type_id",
+        "right_col": "level_id",
+        "overlap": 532
+      },
+      {
+        "left_col": "industry_id",
+        "right_col": "level_id",
+        "overlap": 523
+      },
+      {
+        "left_col": "kpp",
+        "right_col": "level_id",
+        "overlap": 552
+      },
+      {
+        "left_col": "ogrn",
+        "right_col": "level_id",
+        "overlap": 545
+      },
+      {
+        "left_col": "okato",
+        "right_col": "level_id",
+        "overlap": 533
+      },
+      {
+        "left_col": "oktmo",
+        "right_col": "level_id",
+        "overlap": 541
+      },
+      {
+        "left_col": "segment_id",
+        "right_col": "level_id",
+        "overlap": 540
+      },
+      {
+        "left_col": "priority_id",
+        "right_col": "level_id",
+        "overlap": 540
+      },
+      {
+        "left_col": "holding_epk_id",
+        "right_col": "level_id",
+        "overlap": 540
+      },
+      {
+        "left_col": "head_holding_epk_id",
+        "right_col": "level_id",
+        "overlap": 530
+      },
+      {
+        "left_col": "importance_lvl_id",
+        "right_col": "level_id",
+        "overlap": 532
+      },
+      {
+        "left_col": "tb_id",
+        "right_col": "level_id",
+        "overlap": 12
+      },
+      {
+        "left_col": "gosb_id",
+        "right_col": "level_id",
+        "overlap": 1
+      },
+      {
+        "left_col": "oktmo_gosb_id",
+        "right_col": "level_id",
+        "overlap": 548
+      },
+      {
+        "left_col": "okato_gosb_id",
+        "right_col": "level_id",
+        "overlap": 541
+      },
+      {
+        "left_col": "epk_gosb_id",
+        "right_col": "level_id",
+        "overlap": 534
+      },
+      {
+        "left_col": "payroll_gosb_id",
+        "right_col": "level_id",
+        "overlap": 541
+      },
+      {
+        "left_col": "km_gosb_id",
+        "right_col": "level_id",
+        "overlap": 528
+      },
+      {
+        "left_col": "last_mzp_activity_gosb_id",
+        "right_col": "level_id",
+        "overlap": 552
+      },
+      {
+        "left_col": "last_deal_gosb_id",
+        "right_col": "level_id",
+        "overlap": 534
+      },
+      {
+        "left_col": "kpp_gosb_id",
+        "right_col": "level_id",
+        "overlap": 542
+      },
+      {
+        "left_col": "gosb_method_id",
+        "right_col": "level_id",
+        "overlap": 541
+      },
+      {
+        "left_col": "status_id",
+        "right_col": "level_id",
+        "overlap": 542
+      },
+      {
+        "left_col": "report_id",
+        "right_col": "level_id",
+        "overlap": 535
+      }
+    ]
+  },
+  {
+    "left": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task",
+    "right": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dim_gosb",
+    "pairs": [
+      {
+        "left_col": "tb_id",
+        "right_col": "tb_id",
+        "overlap": 12
+      },
+      {
+        "left_col": "gosb_id",
+        "right_col": "old_gosb_id",
+        "overlap": 28
+      },
+      {
+        "left_col": "saphr_gosb_id",
+        "right_col": "tb_id",
+        "overlap": 11
+      },
+      {
+        "left_col": "saphr_gosb_id",
+        "right_col": "old_gosb_id",
+        "overlap": 1
+      },
+      {
+        "left_col": "manager_saphr_id",
+        "right_col": "tb_id",
+        "overlap": 11
+      },
+      {
+        "left_col": "manager_saphr_id",
+        "right_col": "old_gosb_id",
+        "overlap": 1
+      },
+      {
+        "left_col": "isu_struct_saphr_id",
+        "right_col": "tb_id",
+        "overlap": 12
+      },
+      {
+        "left_col": "isu_struct_saphr_id",
+        "right_col": "old_gosb_id",
+        "overlap": 1
+      },
+      {
+        "left_col": "task_struct_saphr_id",
+        "right_col": "tb_id",
+        "overlap": 12
+      },
+      {
+        "left_col": "task_struct_saphr_id",
+        "right_col": "old_gosb_id",
+        "overlap": 1
+      },
+      {
+        "left_col": "emp_post_id",
+        "right_col": "tb_id",
+        "overlap": 12
+      },
+      {
+        "left_col": "emp_post_id",
+        "right_col": "old_gosb_id",
+        "overlap": 1
+      }
+    ]
+  },
+  {
+    "left": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task",
+    "right": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_fact_outflow",
+    "pairs": [
+      {
+        "left_col": "tb_id",
+        "right_col": "tb_id",
+        "overlap": 12
+      },
+      {
+        "left_col": "gosb_id",
+        "right_col": "gosb_id",
+        "overlap": 28
+      },
+      {
+        "left_col": "saphr_gosb_id",
+        "right_col": "gosb_id",
+        "overlap": 1
+      },
+      {
+        "left_col": "manager_saphr_id",
+        "right_col": "gosb_id",
+        "overlap": 1
+      },
+      {
+        "left_col": "isu_struct_saphr_id",
+        "right_col": "gosb_id",
+        "overlap": 1
+      },
+      {
+        "left_col": "task_struct_saphr_id",
+        "right_col": "gosb_id",
+        "overlap": 1
+      },
+      {
+        "left_col": "emp_post_id",
+        "right_col": "gosb_id",
+        "overlap": 1
+      },
+      {
+        "left_col": "inn",
+        "right_col": "inn",
+        "overlap": 300
+      }
+    ]
+  },
+  {
+    "left": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task",
+    "right": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_payroll_m",
+    "pairs": [
+      {
+        "left_col": "tb_id",
+        "right_col": "enrollment_type",
+        "overlap": 12
+      },
+      {
+        "left_col": "tb_id",
+        "right_col": "tb_id",
+        "overlap": 12
+      },
+      {
+        "left_col": "gosb_id",
+        "right_col": "enrollment_type",
+        "overlap": 1
+      },
+      {
+        "left_col": "gosb_id",
+        "right_col": "gosb_id",
+        "overlap": 28
+      },
+      {
+        "left_col": "saphr_gosb_id",
+        "right_col": "enrollment_type",
+        "overlap": 977
+      },
+      {
+        "left_col": "manager_saphr_id",
+        "right_col": "enrollment_type",
+        "overlap": 978
+      },
+      {
+        "left_col": "isu_struct_saphr_id",
+        "right_col": "enrollment_type",
+        "overlap": 981
+      },
+      {
+        "left_col": "task_struct_saphr_id",
+        "right_col": "enrollment_type",
+        "overlap": 982
+      },
+      {
+        "left_col": "emp_post_id",
+        "right_col": "enrollment_type",
+        "overlap": 979
+      }
+    ]
+  },
+  {
+    "left": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task",
+    "right": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_company_holding_metric",
+    "pairs": [
+      {
+        "left_col": "tb_id",
+        "right_col": "level_id",
+        "overlap": 12
+      },
+      {
+        "left_col": "gosb_id",
+        "right_col": "level_id",
+        "overlap": 1
+      },
+      {
+        "left_col": "saphr_gosb_id",
+        "right_col": "level_id",
+        "overlap": 953
+      },
+      {
+        "left_col": "manager_saphr_id",
+        "right_col": "level_id",
+        "overlap": 954
+      },
+      {
+        "left_col": "isu_struct_saphr_id",
+        "right_col": "level_id",
+        "overlap": 957
+      },
+      {
+        "left_col": "task_struct_saphr_id",
+        "right_col": "level_id",
+        "overlap": 959
+      },
+      {
+        "left_col": "emp_post_id",
+        "right_col": "level_id",
+        "overlap": 956
+      }
+    ]
+  },
+  {
+    "left": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dim_gosb",
+    "right": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_fact_outflow",
+    "pairs": [
+      {
+        "left_col": "tb_id",
+        "right_col": "tb_id",
+        "overlap": 12
+      },
+      {
+        "left_col": "tb_id",
+        "right_col": "saphr_id",
+        "overlap": 12
+      },
+      {
+        "left_col": "old_gosb_id",
+        "right_col": "gosb_id",
+        "overlap": 28
+      },
+      {
+        "left_col": "old_gosb_id",
+        "right_col": "saphr_id",
+        "overlap": 1
+      }
+    ]
+  },
+  {
+    "left": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dim_gosb",
+    "right": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_payroll_m",
+    "pairs": [
+      {
+        "left_col": "tb_id",
+        "right_col": "acc_subtype",
+        "overlap": 11
+      },
+      {
+        "left_col": "tb_id",
+        "right_col": "acc_type",
+        "overlap": 12
+      },
+      {
+        "left_col": "tb_id",
+        "right_col": "actual_client_tid",
+        "overlap": 12
+      },
+      {
+        "left_col": "tb_id",
+        "right_col": "client_category",
+        "overlap": 11
+      },
+      {
+        "left_col": "tb_id",
+        "right_col": "document_info_sha1",
+        "overlap": 12
+      },
+      {
+        "left_col": "tb_id",
+        "right_col": "enrollment_type",
+        "overlap": 12
+      },
+      {
+        "left_col": "tb_id",
+        "right_col": "epk_id",
+        "overlap": 12
+      },
+      {
+        "left_col": "tb_id",
+        "right_col": "sys_gosb_id",
+        "overlap": 12
+      },
+      {
+        "left_col": "tb_id",
+        "right_col": "sys_osb_id",
+        "overlap": 12
+      },
+      {
+        "left_col": "tb_id",
+        "right_col": "tb_id",
+        "overlap": 12
+      },
+      {
+        "left_col": "tb_id",
+        "right_col": "sys_tb_id",
+        "overlap": 12
+      },
+      {
+        "left_col": "tb_id",
+        "right_col": "untb",
+        "overlap": 12
+      },
+      {
+        "left_col": "tb_id",
+        "right_col": "vsp_id",
+        "overlap": 12
+      },
+      {
+        "left_col": "tb_id",
+        "right_col": "sys_vsp_id",
+        "overlap": 12
+      },
+      {
+        "left_col": "tb_id",
+        "right_col": "report_id",
+        "overlap": 12
+      },
+      {
+        "left_col": "old_gosb_id",
+        "right_col": "acc_subtype",
+        "overlap": 1
+      },
+      {
+        "left_col": "old_gosb_id",
+        "right_col": "acc_type",
+        "overlap": 1
+      },
+      {
+        "left_col": "old_gosb_id",
+        "right_col": "actual_client_tid",
+        "overlap": 1
+      },
+      {
+        "left_col": "old_gosb_id",
+        "right_col": "client_category",
+        "overlap": 1
+      },
+      {
+        "left_col": "old_gosb_id",
+        "right_col": "document_info_sha1",
+        "overlap": 1
+      },
+      {
+        "left_col": "old_gosb_id",
+        "right_col": "enrollment_type",
+        "overlap": 1
+      },
+      {
+        "left_col": "old_gosb_id",
+        "right_col": "epk_id",
+        "overlap": 1
+      },
+      {
+        "left_col": "old_gosb_id",
+        "right_col": "gosb_id",
+        "overlap": 28
+      },
+      {
+        "left_col": "old_gosb_id",
+        "right_col": "sys_gosb_id",
+        "overlap": 1
+      },
+      {
+        "left_col": "old_gosb_id",
+        "right_col": "sys_osb_id",
+        "overlap": 1
+      },
+      {
+        "left_col": "old_gosb_id",
+        "right_col": "sys_tb_id",
+        "overlap": 1
+      },
+      {
+        "left_col": "old_gosb_id",
+        "right_col": "untb",
+        "overlap": 1
+      },
+      {
+        "left_col": "old_gosb_id",
+        "right_col": "vsp_id",
+        "overlap": 1
+      },
+      {
+        "left_col": "old_gosb_id",
+        "right_col": "sys_vsp_id",
+        "overlap": 1
+      },
+      {
+        "left_col": "old_gosb_id",
+        "right_col": "report_id",
+        "overlap": 1
+      },
+      {
+        "left_col": "isu_branch_id",
+        "right_col": "enrollment_type",
+        "overlap": 42
+      },
+      {
+        "left_col": "web_gosb_id",
+        "right_col": "enrollment_type",
+        "overlap": 47
+      },
+      {
+        "left_col": "pirs_gosb_id",
+        "right_col": "enrollment_type",
+        "overlap": 44
+      },
+      {
+        "left_col": "region_id",
+        "right_col": "enrollment_type",
+        "overlap": 47
+      }
+    ]
+  },
+  {
+    "left": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dim_gosb",
+    "right": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_company_holding_metric",
+    "pairs": [
+      {
+        "left_col": "tb_id",
+        "right_col": "level_id",
+        "overlap": 12
+      },
+      {
+        "left_col": "old_gosb_id",
+        "right_col": "level_id",
+        "overlap": 1
+      },
+      {
+        "left_col": "isu_branch_id",
+        "right_col": "level_id",
+        "overlap": 41
+      },
+      {
+        "left_col": "web_gosb_id",
+        "right_col": "level_id",
+        "overlap": 46
+      },
+      {
+        "left_col": "pirs_gosb_id",
+        "right_col": "level_id",
+        "overlap": 43
+      },
+      {
+        "left_col": "region_id",
+        "right_col": "level_id",
+        "overlap": 47
       }
     ]
   },
   {
     "left": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_fact_outflow",
-    "right": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task",
+    "right": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_payroll_m",
     "pairs": [
       {
-        "left_col": "gosb_id",
-        "right_col": "emp_post_id",
-        "overlap": 6
+        "left_col": "report_dt",
+        "right_col": "report_dt",
+        "overlap": 538
       },
       {
-        "left_col": "gosb_id",
-        "right_col": "gosb_id",
-        "overlap": 29
-      },
-      {
-        "left_col": "gosb_id",
-        "right_col": "isu_struct_saphr_id",
-        "overlap": 6
-      },
-      {
-        "left_col": "gosb_id",
-        "right_col": "manager_saphr_id",
-        "overlap": 9
-      },
-      {
-        "left_col": "inn",
-        "right_col": "inn",
-        "overlap": 200
+        "left_col": "tb_id",
+        "right_col": "enrollment_type",
+        "overlap": 12
       },
       {
         "left_col": "tb_id",
         "right_col": "tb_id",
         "overlap": 12
+      },
+      {
+        "left_col": "gosb_id",
+        "right_col": "acc_subtype",
+        "overlap": 1
+      },
+      {
+        "left_col": "gosb_id",
+        "right_col": "acc_type",
+        "overlap": 1
+      },
+      {
+        "left_col": "gosb_id",
+        "right_col": "actual_client_tid",
+        "overlap": 1
+      },
+      {
+        "left_col": "gosb_id",
+        "right_col": "client_category",
+        "overlap": 1
+      },
+      {
+        "left_col": "gosb_id",
+        "right_col": "document_info_sha1",
+        "overlap": 1
+      },
+      {
+        "left_col": "gosb_id",
+        "right_col": "enrollment_type",
+        "overlap": 1
+      },
+      {
+        "left_col": "gosb_id",
+        "right_col": "epk_id",
+        "overlap": 1
+      },
+      {
+        "left_col": "gosb_id",
+        "right_col": "gosb_id",
+        "overlap": 28
+      },
+      {
+        "left_col": "gosb_id",
+        "right_col": "sys_gosb_id",
+        "overlap": 1
+      },
+      {
+        "left_col": "gosb_id",
+        "right_col": "sys_osb_id",
+        "overlap": 1
+      },
+      {
+        "left_col": "gosb_id",
+        "right_col": "sys_tb_id",
+        "overlap": 1
+      },
+      {
+        "left_col": "gosb_id",
+        "right_col": "untb",
+        "overlap": 1
+      },
+      {
+        "left_col": "gosb_id",
+        "right_col": "vsp_id",
+        "overlap": 1
+      },
+      {
+        "left_col": "gosb_id",
+        "right_col": "sys_vsp_id",
+        "overlap": 1
+      },
+      {
+        "left_col": "gosb_id",
+        "right_col": "report_id",
+        "overlap": 1
+      },
+      {
+        "left_col": "saphr_id",
+        "right_col": "enrollment_type",
+        "overlap": 983
+      }
+    ]
+  },
+  {
+    "left": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_fact_outflow",
+    "right": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_company_holding_metric",
+    "pairs": [
+      {
+        "left_col": "report_dt",
+        "right_col": "report_dt",
+        "overlap": 537
+      },
+      {
+        "left_col": "tb_id",
+        "right_col": "level_id",
+        "overlap": 12
+      },
+      {
+        "left_col": "gosb_id",
+        "right_col": "level_id",
+        "overlap": 1
+      },
+      {
+        "left_col": "saphr_id",
+        "right_col": "level_id",
+        "overlap": 960
+      }
+    ]
+  },
+  {
+    "left": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_data_payroll_m",
+    "right": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_company_holding_metric",
+    "pairs": [
+      {
+        "left_col": "acc_subtype",
+        "right_col": "level_id",
+        "overlap": 973
+      },
+      {
+        "left_col": "acc_type",
+        "right_col": "level_id",
+        "overlap": 973
+      },
+      {
+        "left_col": "actual_client_tid",
+        "right_col": "level_id",
+        "overlap": 973
+      },
+      {
+        "left_col": "client_category",
+        "right_col": "level_id",
+        "overlap": 974
+      },
+      {
+        "left_col": "document_info_sha1",
+        "right_col": "level_id",
+        "overlap": 974
+      },
+      {
+        "left_col": "enrollment_type",
+        "right_col": "level_id",
+        "overlap": 976
+      },
+      {
+        "left_col": "epk_id",
+        "right_col": "level_id",
+        "overlap": 976
+      },
+      {
+        "left_col": "gosb_id",
+        "right_col": "level_id",
+        "overlap": 1
+      },
+      {
+        "left_col": "sys_gosb_id",
+        "right_col": "level_id",
+        "overlap": 975
+      },
+      {
+        "left_col": "sys_osb_id",
+        "right_col": "level_id",
+        "overlap": 974
+      },
+      {
+        "left_col": "report_dt",
+        "right_col": "report_dt",
+        "overlap": 540
+      },
+      {
+        "left_col": "tb_id",
+        "right_col": "level_id",
+        "overlap": 12
+      },
+      {
+        "left_col": "sys_tb_id",
+        "right_col": "level_id",
+        "overlap": 974
+      },
+      {
+        "left_col": "untb",
+        "right_col": "level_id",
+        "overlap": 973
+      },
+      {
+        "left_col": "vsp_id",
+        "right_col": "level_id",
+        "overlap": 973
+      },
+      {
+        "left_col": "sys_vsp_id",
+        "right_col": "level_id",
+        "overlap": 975
+      },
+      {
+        "left_col": "report_id",
+        "right_col": "level_id",
+        "overlap": 971
       }
     ]
   }

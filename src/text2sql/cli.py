@@ -38,6 +38,11 @@ HELP_TEXT = """
   /add_table s.t      — добавить таблицу schema.table в манифест и собрать метаданные
   /remove_table s.t   — удалить таблицу schema.table из метаданных
   /refresh_metadata   — пересобрать метаданные по манифесту tables_list.csv
+  /build_business_report schema.table [фокус текстом] [--where <SQL>]
+                      — бизнес-аналитика таблицы → workspace/business_report.md (+графики)
+                        фокус ПЕРЕД --where; --where идёт до конца строки. Примеры:
+                        /build_business_report ...uzp_dwh_fact_outflow --where report_dt >= '2026-01-01'
+                        /build_business_report ...uzp_dwh_sale_funnel_task аналитика по закрытию задач сотрудниками --where report_dt >= '2026-01-01'
   /reset              — сбросить контекст (новая сессия)
   /clear              — очистить вывод консоли
   /exit               — завершить работу агента
@@ -138,6 +143,49 @@ class CLI:
         print(f"\nТаблицы в метаданных ({len(tables)}):")
         for t in tables:
             print(f"  {t.fqn}  [{t.role}/{t.grain}]  — {t.description}")
+
+    @staticmethod
+    def _parse_report_args(rest: str) -> tuple[str, str | None, str]:
+        """<table> [фокус] [--where <sql до конца>]. Фокус — между таблицей и --where."""
+        where = None
+        left = rest
+        if "--where" in rest:
+            left, w = rest.split("--where", 1)
+            where = w.strip() or None
+        parts = left.split()
+        table = parts[0] if parts else ""
+        focus = " ".join(parts[1:]).strip()
+        return table, where, focus
+
+    def _build_business_report(self, rest: str) -> None:
+        from .report.builder import build_business_report
+        table, where, focus = self._parse_report_args(rest)
+        if "." not in table:
+            print("Формат: /build_business_report schema.table [фокус] [--where <SQL>]")
+            return
+        if not self.agent.catalog.get(table):
+            print(f"✗ Таблица {table} не найдена в метаданных. Сначала /add_table {table}.")
+            return
+        logger.info("CLI: /build_business_report %s where=%r focus=%r", table, where, focus)
+        try:
+            res = build_business_report(self.agent.db, self.agent.catalog, self.agent.llm,
+                                        table, where=where, focus=focus, progress=self._status)
+        except Exception as exc:  # noqa: BLE001
+            if is_kerberos_auth_error(exc):
+                print(f"⚠ {KERBEROS_MESSAGE}")
+            else:
+                logger.exception("build_business_report failed")
+                print(f"✗ Не удалось построить отчёт: {exc}")
+            return
+        print(f"✅ Отчёт готов (секций: {res['sections']}, графиков: {res['charts']}, строк: {res['rows']}):")
+        print(f"   HTML: {res['html_path']}")
+        print(f"   MD:   {res['md_path']}")
+        if _HAS_IPY:
+            try:
+                from IPython.display import HTML, display
+                display(HTML(open(res["html_path"], encoding="utf-8").read()))
+            except Exception:  # noqa: BLE001
+                pass
 
     def _reset(self) -> None:
         self.agent = Agent()
@@ -299,6 +347,12 @@ class CLI:
                         print("Формат: /remove_table schema.table")
                     else:
                         self._remove_table(args[0])
+                elif cmd == "/build_business_report":
+                    if not self.agent.db.is_configured:
+                        print("Не настроен коннект к БД, выполните /config_db_conn")
+                    else:
+                        # сырой остаток строки — сохранить пробелы/кавычки в --where
+                        self._build_business_report(user_input.split(None, 1)[1] if len(user_input.split(None, 1)) > 1 else "")
                 elif cmd in ("/refresh_metadata", "/refrash_metadata", "/refresh"):
                     if not self.agent.db.is_configured:
                         print("Не настроен коннект к БД, выполните /config_db_conn")

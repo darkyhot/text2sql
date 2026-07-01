@@ -11,14 +11,18 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from text2sql.catalog.refresh import MetadataRefresh
 from text2sql.db.adapter import make_adapter
+from text2sql.llm.client import LLMClient
 from text2sql.logging_setup import setup_logging
 from text2sql.trace import Tracer
 
 
 def main() -> None:
     setup_logging()
-    db = make_adapter(tracer=Tracer("refresh"))
-    res = MetadataRefresh(db).refresh_manifest(progress_callback=lambda m: print(f"  …{m}"))
+    tracer = Tracer("refresh")
+    db = make_adapter(tracer=tracer)
+    # llm — для генерации русских описаний колонок без комментария/сида
+    res = MetadataRefresh(db, llm=LLMClient(tracer=tracer)).refresh_manifest(
+        progress_callback=lambda m: print(f"  …{m}"))
     print(f"Таблиц: {res['tables']} | колонок: {res['columns']} | join-кандидатов: {res['join_candidates']}")
     if res["failed"]:
         print("Пропущены:")

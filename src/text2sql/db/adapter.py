@@ -296,6 +296,32 @@ class DbAdapter:
             res = conn.execute(text(sql), {"schema": schema, "table": table})
             return [dict(m) for m in res.mappings()]
 
+    def read_comments(self, schema: str, table: str) -> tuple[str, dict[str, str]]:
+        """Комментарии таблицы и колонок из pg-каталога (pg_description). Читается
+        из каталога напрямую — видно даже без GRANT на сам объект (нужно для
+        view-схемы с описаниями на проде). Возвращает (comment_таблицы, {колонка: comment})."""
+        tbl_sql = (
+            "SELECT obj_description(c.oid) AS d FROM pg_class c "
+            "JOIN pg_namespace n ON n.oid = c.relnamespace "
+            "WHERE n.nspname = :schema AND c.relname = :table"
+        )
+        col_sql = (
+            "SELECT a.attname AS name, d.description AS d FROM pg_class c "
+            "JOIN pg_namespace n ON n.oid = c.relnamespace "
+            "JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum > 0 AND NOT a.attisdropped "
+            "LEFT JOIN pg_description d ON d.objoid = c.oid AND d.objsubid = a.attnum "
+            "WHERE n.nspname = :schema AND c.relname = :table"
+        )
+        params = {"schema": schema, "table": table}
+        try:
+            with self.get_engine().connect() as conn:
+                tc = conn.execute(text(tbl_sql), params).scalar()
+                cols = {r["name"]: (r["d"] or "") for r in conn.execute(text(col_sql), params).mappings()}
+        except Exception as exc:  # noqa: BLE001
+            logger.info("read_comments(%s.%s) не удалось: %s", schema, table, exc)
+            return "", {}
+        return (str(tc or "").strip()), {k: str(v or "").strip() for k, v in cols.items()}
+
     def list_user_tables(self, schema_like: str = "%") -> list[tuple[str, str]]:
         sql = (
             "SELECT table_schema, table_name FROM information_schema.tables "

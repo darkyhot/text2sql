@@ -92,7 +92,7 @@ class CLI:
     # ---------- команды ----------
     def _refresh_metadata(self) -> None:
         logger.info("CLI: /refresh_metadata (по манифесту tables_list.csv)")
-        res = MetadataRefresh(self.agent.db).refresh_manifest(progress_callback=self._status)
+        res = MetadataRefresh(self.agent.db, llm=self.agent.llm).refresh_manifest(progress_callback=self._status)
         self.agent.reload_catalog()
         print(f"✓ Метаданные пересобраны по манифесту: таблиц {res['tables']}, "
               f"колонок {res['columns']}, join-кандидатов {res['join_candidates']}.")
@@ -108,7 +108,7 @@ class CLI:
         schema, table = ref.split(".", 1)
         logger.info("CLI: /add_table %s.%s", schema, table)
         self._status(f"добавляю и собираю метаданные: {schema}.{table}…")
-        res = MetadataRefresh(self.agent.db).add_table(schema, table)
+        res = MetadataRefresh(self.agent.db, llm=self.agent.llm).add_table(schema, table)
         if res["status"] == "added":
             self.agent.reload_catalog()
             print(f"✓ Таблица {res['fqn']} добавлена в манифест. Колонок: {res['columns']}, PK-гипотеза: {res['pk']}.")

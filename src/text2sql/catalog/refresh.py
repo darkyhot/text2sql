@@ -168,11 +168,76 @@ class MetadataRefresh:
                 seed.setdefault(f"{r.schema_name}.{r.table_name}", []).append(str(r.column_name))
         return seed
 
-    def _describe_column(self, name: str) -> str:
-        return self._col_seed.get(name.lower()) or _humanize(name)
+    @staticmethod
+    def _comments_schema(schema: str) -> str:
+        """View-redirect: для *_ld_..._sn_uzp описания-комментарии живут в
+        *_as_..._sn_view (как в исходном проекте). Иначе — та же схема."""
+        if "_ld_" in schema and schema.endswith("_sn_uzp"):
+            return schema.replace("_ld_", "_as_")[: -len("_sn_uzp")] + "_sn_view"
+        return schema
 
-    def _describe_table(self, table: str) -> str:
-        return self._tbl_seed.get(table.lower()) or _humanize(table)
+    def _read_comments(self, schema: str, table: str) -> tuple[str, dict[str, str]]:
+        """Комментарии с view-redirect: сначала пробуем view-схему, потом свою."""
+        redirect = self._comments_schema(schema)
+        if redirect != schema:
+            tc, cc = self.db.read_comments(redirect, table)
+            if tc or any(cc.values()):
+                return tc, cc
+        return self.db.read_comments(schema, table)
+
+    def _describe_columns(self, schema: str, table: str, cols: list[str],
+                          comments: dict[str, str]) -> dict[str, str]:
+        """Описание каждой колонки: comment(view) → few-shot сид → LLM(рус) → humanize."""
+        out: dict[str, str] = {}
+        to_generate: list[str] = []
+        for name in cols:
+            desc = comments.get(name) or self._col_seed.get(name.lower())
+            if desc:
+                out[name] = desc
+            else:
+                to_generate.append(name)
+        if to_generate and self.llm is not None:
+            out.update(self._llm_column_descriptions(schema, table, to_generate))
+            to_generate = [c for c in to_generate if c not in out]
+        for name in to_generate:
+            out[name] = _humanize(name)  # последний фолбэк
+        return out
+
+    def _llm_column_descriptions(self, schema: str, table: str, cols: list[str]) -> dict[str, str]:
+        system = (
+            "Ты senior аналитик DWH. Кратко опиши ПО-РУССКИ смысл каждого атрибута БД "
+            "по его имени. Одна строка на атрибут, тот же порядок, без нумерации и лишних "
+            "слов. Аббревиатуры не расшифровывай."
+        )
+        user = (f"Схема: {schema}\nТаблица: {table}\nАтрибуты (по одному на строку):\n"
+                + "\n".join(f"- {c}" for c in cols))
+        try:
+            text_out = self.llm.complete(system, user, max_tokens=2000, node="meta_cols").text
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("LLM-описания колонок %s.%s не сгенерированы: %s", schema, table, exc)
+            return {}
+        lines = [ln.strip(" -\t").strip() for ln in text_out.splitlines() if ln.strip()]
+        out: dict[str, str] = {}
+        for i, c in enumerate(cols):
+            if i < len(lines) and lines[i]:
+                out[c] = lines[i]
+        return out
+
+    def _describe_table(self, schema: str, table: str, table_comment: str) -> str:
+        desc = table_comment or self._tbl_seed.get(table.lower())
+        if desc:
+            return desc
+        if self.llm is not None:
+            try:
+                system = ("Ты senior аналитик DWH. Дай КОРОТКОЕ описание таблицы ПО-РУССКИ "
+                          "(1-2 предложения) по её имени. Без лишних слов.")
+                out = self.llm.complete(system, f"Схема: {schema}\nТаблица: {table}",
+                                        max_tokens=300, node="meta_table").text.strip()
+                if out:
+                    return out
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("LLM-описание таблицы %s.%s не сгенерировано: %s", schema, table, exc)
+        return _humanize(table)
 
     def _role(self, grain: str, class_counts: dict[str, int]) -> str:
         if grain in ("organization", "reference") or class_counts.get("label", 0) >= class_counts.get("metric", 0) * 2 + 1 and class_counts.get("metric", 0) == 0:
@@ -186,6 +251,9 @@ class MetadataRefresh:
         с таймаутом per_table_timeout_ms. Может бросить исключение (таймаут/ошибка)."""
         fqn = f"{schema}.{table}"
         cols_meta = self.db.introspect_columns(schema, table)
+        # Описания: комментарий из view-схемы → few-shot сид → LLM(рус) → humanize.
+        table_comment, col_comments = self._read_comments(schema, table)
+        col_desc = self._describe_columns(schema, table, [c["column_name"] for c in cols_meta], col_comments)
         sample = self.db.metadata_sample(schema, table, self.sample_n,
                                          timeout_ms=self.per_table_timeout_ms)
         df = pd.DataFrame(sample.rows, columns=sample.columns) if sample.rows else \
@@ -209,14 +277,14 @@ class MetadataRefresh:
             attr_rows.append({
                 "schema_name": schema, "table_name": table, "column_name": name,
                 "dType": dtype, "is_not_null": cm["is_nullable"] == "NO",
-                "description": self._describe_column(name), "is_primary_key": name in pk,
+                "description": col_desc.get(name) or _humanize(name), "is_primary_key": name in pk,
                 "not_null_perc": nn_perc, "unique_perc": uniq_perc,
                 "sample_values": _sample_values(df[name]) if name in df.columns else "",
                 "semantic_class": sclass,
             })
         grain = self._grain_seed.get(table.lower(), "")
         table_row = {"schema_name": schema, "table_name": table,
-                     "description": self._describe_table(table), "grain": grain,
+                     "description": self._describe_table(schema, table, table_comment), "grain": grain,
                      "role": self._role(grain, class_counts)}
         logger.info("metadata: собрана %s (строк сэмпла=%d, колонок=%d, pk=%s)", fqn, n, len(attr_rows), pk)
         return table_row, attr_rows, pk

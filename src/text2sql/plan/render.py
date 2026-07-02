@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import re
 from datetime import date, datetime
 from typing import Any
 
@@ -13,14 +14,26 @@ _AGG_SQL = {
     "count": "COUNT", "sum": "SUM", "avg": "AVG", "min": "MIN", "max": "MAX",
 }
 
+# Признак ВЫРАЖЕНИЯ (а не простого идентификатора alias.col): скобки, операторы,
+# cast, пробел, CASE/ключевые слова. Такое рендерим ВЕРБАТИМ (не квотим по точкам),
+# т.к. это date_trunc(...), a/b, CASE WHEN…, SUM(...)/… и т.п. Идентификаторы в
+# схеме — lowercase snake_case, кавычки им не нужны. Безопасность — read-only guard
+# адаптера (только SELECT, без ;/DML) + EXPLAIN + апрув человека.
+_EXPR_RE = re.compile(r"[()+*/]|\s|::|\bcase\b|\bwhen\b|\bdistinct\b|\bover\b|\bfilter\b", re.I)
+
+
+def _is_expr(s: str) -> bool:
+    return bool(_EXPR_RE.search(s or ""))
+
 
 def _q(db: DbAdapter, dotted: str) -> str:
-    """'alias.col' или 'col' → корректно закавыченный идентификатор."""
-    dotted = dotted.strip()
+    """'alias.col' → закавыченный идентификатор; ВЫРАЖЕНИЕ → как есть."""
+    dotted = (dotted or "").strip()
     if dotted == "*":
         return "*"
-    parts = dotted.split(".")
-    return ".".join(db.quote_ident(p) for p in parts)
+    if _is_expr(dotted):
+        return dotted
+    return ".".join(db.quote_ident(p) for p in dotted.split("."))
 
 
 def _lit(value: Any) -> str:
@@ -68,6 +81,19 @@ def _filter_sql(db: DbAdapter, f: Filter) -> str:
     return f"{col} {f.op} {_lit(f.value)}"
 
 
+def _source_sql(db: DbAdapter, tref) -> str:
+    """FROM/JOIN-источник: обычная таблица или ДЕДУПЛИЦИРОВАННАЯ (DISTINCT ON) —
+    свежая строка на ключ, для join к справочнику с историей."""
+    tbl = db.qualified(*tref.ref.split(".", 1))
+    a = db.quote_ident(tref.alias)
+    d = getattr(tref, "dedup", None)
+    if d and d.by and d.order_by:
+        by = ", ".join(db.quote_ident(c) for c in d.by)
+        order = f"{by}, {db.quote_ident(d.order_by)} {'DESC' if d.desc else 'ASC'}"
+        return f"(SELECT DISTINCT ON ({by}) * FROM {tbl} ORDER BY {order}) AS {a}"
+    return f"{tbl} AS {a}"
+
+
 def render_sql(plan: StructuredPlan, db: DbAdapter) -> str:
     if not plan.tables:
         raise ValueError("План без таблиц — нечего рендерить.")
@@ -79,25 +105,26 @@ def render_sql(plan: StructuredPlan, db: DbAdapter) -> str:
         select_items = ["*"]
 
     base = plan.tables[0]
-    base_tbl = db.qualified(*base.ref.split(".", 1))
-    lines = [f"SELECT {', '.join(select_items)}", f"FROM {base_tbl} AS {db.quote_ident(base.alias)}"]
+    lines = [f"SELECT {', '.join(select_items)}", f"FROM {_source_sql(db, base)}"]
 
     for j in plan.joins:
         rt = plan.table_by_alias(j.right_alias)
         if rt is None:
             raise ValueError(f"Join ссылается на неизвестный alias {j.right_alias}")
-        rtbl = db.qualified(*rt.ref.split(".", 1))
         conds = " AND ".join(
             f"{db.quote_ident(j.left_alias)}.{db.quote_ident(lc)} = "
             f"{db.quote_ident(j.right_alias)}.{db.quote_ident(rc)}"
             for lc, rc in j.on
         )
-        lines.append(f"INNER JOIN {rtbl} AS {db.quote_ident(j.right_alias)} ON {conds}")
+        kw = "LEFT JOIN" if getattr(j, "join_type", "inner") == "left" else "INNER JOIN"
+        lines.append(f"{kw} {_source_sql(db, rt)} ON {conds}")
 
     if plan.filters:
         lines.append("WHERE " + " AND ".join(_filter_sql(db, f) for f in plan.filters))
     if plan.group_by:
         lines.append("GROUP BY " + ", ".join(_q(db, c) for c in plan.group_by))
+    if plan.having:
+        lines.append("HAVING " + " AND ".join(_filter_sql(db, f) for f in plan.having))
     if plan.order_by:
         lines.append("ORDER BY " + ", ".join(_orderby_sql(db, c) for c in plan.order_by))
     if plan.limit is not None:
@@ -169,6 +196,10 @@ def render_nl(plan: StructuredPlan) -> str:
         out.append(f"Намерение: {plan.intent}")
     tbls = ", ".join(f"{t.ref} ({t.alias})" for t in plan.tables)
     out.append(f"Таблицы: {tbls}")
+    for t in plan.tables:
+        if getattr(t, "dedup", None) and t.dedup.by:
+            out.append(f"Дедупликация {t.alias}: свежая строка на {', '.join(t.dedup.by)} "
+                       f"(по {t.dedup.order_by} ↓) — чтобы join не размножил строки")
     for j in plan.joins:
         on = " и ".join(f"{j.left_alias}.{lc}={j.right_alias}.{rc}" for lc, rc in j.on)
         safe = "" if j.fanout_safe is None else (

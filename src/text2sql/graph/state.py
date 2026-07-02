@@ -17,6 +17,8 @@ class AgentState(TypedDict, total=False):
 
     facts: dict[str, Any]              # describe_table выбранных таблиц + заметки
     plan: dict[str, Any] | None        # StructuredPlan.model_dump()
+    raw_sql: str                       # прямой SQL (окна/подзапросы/множества — вне SPJA)
+    raw_meta: dict[str, Any]           # {intent, note} для raw-режима
     plan_nl: str                       # человекочитаемый рендер (то, что окают)
 
     sql: str                           # исполняемый SQL (с кавычками идентификаторов)

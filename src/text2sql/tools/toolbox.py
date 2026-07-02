@@ -182,6 +182,41 @@ class Toolbox:
                 return _type_family(cm.dtype)
         return "?"
 
+    def _oriented_pairs(self, left_fqn: str, right_fqn: str) -> list[tuple[str, str, int]]:
+        cands: list[tuple[str, str, int]] = []
+        for jc in self.catalog.join_candidates:
+            if jc["left"] == left_fqn and jc["right"] == right_fqn:
+                cands += [(p["left_col"], p["right_col"], p["overlap"]) for p in jc["pairs"]]
+            elif jc["left"] == right_fqn and jc["right"] == left_fqn:
+                cands += [(p["right_col"], p["left_col"], p["overlap"]) for p in jc["pairs"]]
+        return cands
+
+    def best_join_pair(self, left_fqn: str, right_fqn: str) -> tuple[str, str] | None:
+        """Лучшая (по overlap) типово-совместимая пара колонок для join. Для случая,
+        когда PK справочника не покрыть (join по неуникальному атрибуту, напр. inn)."""
+        typed = [(lc, rc, ov) for lc, rc, ov in self._oriented_pairs(left_fqn, right_fqn)
+                 if self._col_family(left_fqn, lc) == self._col_family(right_fqn, rc)]
+        if not typed:
+            return None
+        lc, rc, _ = max(typed, key=lambda x: x[2])
+        return (lc, rc)
+
+    def recency_col(self, fqn: str) -> str | None:
+        """Колонка актуальности для дедупликации (свежая карточка): дата создания/
+        обновления. Предпочитаем create/карточка, затем любой *_dttm/timestamp."""
+        t = self.catalog.get(fqn)
+        if not t:
+            return None
+        ts = [c for c in t.columns if "timestamp" in c.dtype.lower() or c.dtype.lower() == "date"]
+        for pat in ("create", "карточк", "созда", "open", "откр"):
+            for c in ts:
+                if pat in c.name.lower() or pat in (c.description or "").lower():
+                    return c.name
+        for c in ts:
+            if c.name.lower().endswith("dttm"):
+                return c.name
+        return ts[0].name if ts else None
+
     # --- детерминированный подбор ключа join (из join-кандидатов + PK справочника) ---
     def suggest_join(self, left_fqn: str, right_fqn: str) -> list[tuple[str, str]]:
         """Построить корректный ключ join: покрыть ПОЛНЫЙ составной PK справочной

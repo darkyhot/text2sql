@@ -12,7 +12,7 @@ from pathlib import Path
 import pandas as pd
 
 from ..config import PATHS
-from . import core, patterns, plan
+from . import core, metrics, mining, patterns, plan
 
 logger = logging.getLogger(__name__)
 
@@ -79,37 +79,55 @@ def build_business_report(db, catalog, llm, fqn: str, *, where: str | None = Non
                 roles.flags[:4], roles.entities[:3])
     if not roles.metrics:
         raise ValueError("В таблице не найдено числовых метрик для бизнес-аналитики.")
+    # страховка: явные сущности-люди/клиенты (*_fio, inn, company) — в drill-кандидаты,
+    # даже если LLM-профайлер их не отметил (для дрилла «кто внутри горячего среза»)
+    for c in df.columns:
+        if (c not in roles.entities and c not in roles.dimensions
+                and core._ENTITY_RE.search(c) and df[c].nunique(dropna=True) > 10):
+            roles.entities.append(c); roles.card[c] = int(df[c].nunique(dropna=True))
+    roles.entities = core._dedup_id_name(roles.entities)
 
-    # явный фокус: колонки, названные пользователем, поднимаем в начало (попадут в кандидаты)
+    # явный фокус: колонки, названные пользователем, поднимаем в начало
+    focus_dims: list[str] = []
     if focus:
         fl = focus.lower()
         key = lambda c: 0 if c.lower() in fl else 1
         roles.dimensions.sort(key=key)
         roles.entities.sort(key=key)
         roles.metrics.sort(key=key)
+        focus_dims = [d for d in roles.dimensions if d.lower() in fl]
     logger.info("report %s: главные метрики=%s", fqn, roles.metrics[:4])
 
-    progress("выбираю интересные разрезы…")
-    specs = plan.candidate_specs(roles)
-    chosen, angle = plan.select_specs(llm, table_desc, focus, specs)
+    progress("вывожу производные показатели (закрытие, просрочка, срок, деньги)…")
+    behav_defs = metrics.build_behaviors_llm(llm, table_desc, df, meta)
+    measures = metrics.build_derived(df, behav_defs, meta)
+    metrics.money_from_metrics(df, meta, measures, roles.metrics)   # деньги — только уверенно
+    if not measures:
+        raise ValueError("Не удалось определить показатели для аналитики.")
+    date = roles.dates[0] if roles.dates else None
 
-    progress("считаю аналитику и строю графики…")
-    results = [core.kpi(df, roles)]
-    for s in chosen:
-        r = plan.run_spec(s, df, assets)
-        if r and (r.chart or r.facts.get("note") is None):
-            results.append(r)
+    progress("считаю обзорные разрезы и динамику…")
+    results = [mining.headline_kpi(df, measures)]
+    results += mining.overview(df, measures, roles.dimensions, date, assets)
 
-    progress("ищу закономерности и аномалии…")
-    pattern_results = patterns.detect_all(df, roles, assets)
-    results += pattern_results
+    progress("кручу разрезы: ищу аномалии, концентрацию, перекос деньги/количество…")
+    findings = mining.mine(df, measures, roles.dimensions, roles.entities, assets,
+                           focus_dims=focus_dims or None)
+    mined_results = [mining.finding_to_result(f) for f in findings]
+    section_of = {mining.finding_to_result(f).key: mining.section_for(f) for f in findings}
+    results += mined_results
+
+    progress("ищу закономерности во времени…")
+    results += patterns.detect_all(df, roles, assets)
 
     progress("пишу выводы бизнес-языком…")
     summary, attention = plan.narrate(llm, table_desc, focus, [r for r in results if r.key != "kpi"])
+    angle = ""
 
     out_dir.mkdir(parents=True, exist_ok=True)
     ctx = dict(table_desc=table_desc, fqn=fqn, table=table, where=where, focus=focus,
-               angle=angle, nrows=len(df), summary=summary, attention=attention, results=results)
+               angle=angle, nrows=len(df), summary=summary, attention=attention,
+               results=results, section_of=section_of)
     # имена с префиксом таблицы — отчёты не перетирают друг друга
     md_path = out_dir / f"{table}_business_report.md"
     html_path = out_dir / f"{table}_business_report.html"
@@ -118,6 +136,39 @@ def build_business_report(db, catalog, llm, fqn: str, *, where: str | None = Non
     return {"md_path": str(md_path), "html_path": str(html_path),
             "sections": len(results), "rows": len(df),
             "charts": sum(1 for r in results if r.chart)}
+
+
+# порядок и заголовки тематических разделов
+_SECTION_ORDER = [
+    "📈 Обзор по показателям",
+    "💰 Где сосредоточены деньги и объёмы",
+    "⚖️ Ценность важнее количества",
+    "🚨 Аномальные срезы",
+    "🔍 Закономерности во времени",
+]
+
+
+def _section_of_result(r, section_of: dict) -> str:
+    if r.kind == "overview":
+        return "📈 Обзор по показателям"
+    if r.kind == "pattern":
+        return "🔍 Закономерности во времени"
+    if r.kind == "mined":
+        return section_of.get(r.key, "🚨 Аномальные срезы")
+    return "📈 Обзор по показателям"
+
+
+def _grouped(results, section_of: dict) -> list[tuple[str, list]]:
+    buckets: dict[str, list] = {}
+    for r in results:
+        if r.key == "kpi" or r.facts.get("note"):
+            continue
+        buckets.setdefault(_section_of_result(r, section_of), []).append(r)
+    ordered = [(h, buckets[h]) for h in _SECTION_ORDER if buckets.get(h)]
+    for h, rs in buckets.items():          # неучтённые (на всякий) — в конец
+        if h not in _SECTION_ORDER:
+            ordered.append((h, rs))
+    return ordered
 
 
 def _rel_chart(table: str, chart: str | None) -> str:
@@ -131,7 +182,8 @@ def _img_b64(chart: str | None) -> str:
     return f"data:image/png;base64,{data}"
 
 
-def _assemble_md(table_desc, fqn, table, where, focus, angle, nrows, summary, attention, results) -> str:
+def _assemble_md(table_desc, fqn, table, where, focus, angle, nrows, summary, attention,
+                 results, section_of) -> str:
     L: list[str] = [f"# Бизнес-отчёт: {table_desc}"]
     if angle:
         L.append(f"_{angle}_\n")
@@ -150,23 +202,18 @@ def _assemble_md(table_desc, fqn, table, where, focus, angle, nrows, summary, at
         if r.key == "kpi":
             L.append("## 📊 Ключевые цифры\n" + r.table_md + "\n")
             break
-    pattern_hdr = False
-    for r in results:
-        if r.key == "kpi" or r.facts.get("note"):
-            continue
-        if r.kind == "pattern":
-            if not pattern_hdr:
-                L.append("## 🔍 Закономерности и аномалии\n")
-                pattern_hdr = True
+    for header, rs in _grouped(results, section_of):
+        L.append(f"## {header}\n")
+        for r in rs:
             L.append(f"### {r.title}")
-        else:
-            L.append(f"## {r.title}")
-        if r.insight:
-            L.append(r.insight + "\n")
-        if r.chart:
-            L.append(f"![{r.title}]({_rel_chart(table, r.chart)})\n")
-        if r.table_md:
-            L.append("<details><summary>Таблица</summary>\n\n" + r.table_md + "\n\n</details>\n")
+            if r.facts.get("_line"):
+                L.append(r.facts["_line"] + "\n")
+            if r.insight:
+                L.append("💡 " + r.insight + "\n")
+            if r.chart:
+                L.append(f"![{r.title}]({_rel_chart(table, r.chart)})\n")
+            if r.table_md:
+                L.append(r.table_md + "\n")
     if attention:
         L.append("## ⚠️ На что обратить внимание")
         L += [f"- {a}" for a in attention]
@@ -189,6 +236,7 @@ box-shadow:0 1px 3px rgba(16,42,67,.05)}
 .summary{background:#eef4ff;border-color:#c9dbff}
 .attention{background:#fff7ed;border-color:#fdd9a8}
 .insight{font-size:15px;margin:0 0 12px}
+.factline{font-size:14px;margin:0 0 8px;color:#243b53}
 img{max-width:100%;border-radius:8px;margin:6px 0}
 table{border-collapse:collapse;width:100%;font-size:13px;margin-top:8px}
 th,td{border:1px solid #e3e8ef;padding:6px 10px;text-align:left}
@@ -212,7 +260,30 @@ def _md_table_to_html(md: str) -> str:
     return f"<table><thead><tr>{th}</tr></thead><tbody>{trs}</tbody></table>"
 
 
-def _assemble_html(table_desc, fqn, table, where, focus, angle, nrows, summary, attention, results) -> str:
+def _md_inline_to_html(text: str) -> str:
+    """Экранирует текст и превращает **жирный** в <strong> (для строк с числами)."""
+    out, i, bold = [], 0, False
+    esc = _html.escape(text)
+    for part in esc.split("**"):
+        out.append(part if not bold else f"<strong>{part}</strong>")
+        bold = not bold
+    return "".join(out)
+
+
+def _md_block_to_html(md: str) -> str:
+    """Блок: ведущие текстовые строки → <p>, таблица (|…|) → <table>."""
+    text = [ln for ln in md.strip().splitlines() if ln.strip() and not ln.strip().startswith("|")]
+    parts = []
+    if text:
+        parts.append("<p>" + _html.escape(" ".join(text)) + "</p>")
+    tbl = _md_table_to_html(md)
+    if tbl:
+        parts.append(tbl)
+    return "".join(parts)
+
+
+def _assemble_html(table_desc, fqn, table, where, focus, angle, nrows, summary, attention,
+                   results, section_of) -> str:
     H = [f"<!doctype html><html lang='ru'><head><meta charset='utf-8'>",
          f"<title>Бизнес-отчёт: {_html.escape(table)}</title><style>{_HTML_CSS}</style></head><body>"]
     H.append(f"<h1>📈 Бизнес-отчёт: {_html.escape(table_desc)}</h1>")
@@ -234,24 +305,22 @@ def _assemble_html(table_desc, fqn, table, where, focus, angle, nrows, summary, 
             H.append("<h2>📊 Ключевые цифры</h2><div class='card kpi'>"
                      + _md_table_to_html(r.table_md) + "</div>")
             break
-    pattern_hdr = False
-    for r in results:
-        if r.key == "kpi" or r.facts.get("note"):
-            continue
-        if r.kind == "pattern" and not pattern_hdr:
-            H.append("<h2>🔍 Закономерности и аномалии</h2>")
-            pattern_hdr = True
-        tag = "h3" if r.kind == "pattern" else "h2"
-        cls = "card pattern-card" if r.kind == "pattern" else "card"
-        H.append(f"<{tag}>{_html.escape(r.title)}</{tag}><div class='{cls}'>")
-        if r.insight:
-            H.append(f"<p class='insight'>{_html.escape(r.insight)}</p>")
-        img = _img_b64(r.chart)
-        if img:
-            H.append(f"<img src='{img}' alt='{_html.escape(r.title)}'>")
-        if r.table_md:
-            H.append("<details><summary>Таблица с числами</summary>" + _md_table_to_html(r.table_md) + "</details>")
-        H.append("</div>")
+    for header, rs in _grouped(results, section_of):
+        anomaly = header.startswith("🚨") or header.startswith("⚖️")
+        H.append(f"<h2>{_html.escape(header)}</h2>")
+        for r in rs:
+            cls = "card pattern-card" if anomaly else "card"
+            H.append(f"<h3>{_html.escape(r.title)}</h3><div class='{cls}'>")
+            if r.facts.get("_line"):
+                H.append(f"<p class='factline'>{_md_inline_to_html(r.facts['_line'])}</p>")
+            if r.insight:
+                H.append(f"<p class='insight'>💡 {_html.escape(r.insight)}</p>")
+            img = _img_b64(r.chart)
+            if img:
+                H.append(f"<img src='{img}' alt='{_html.escape(r.title)}'>")
+            if r.table_md:
+                H.append(_md_block_to_html(r.table_md))
+            H.append("</div>")
     if attention:
         H.append("<div class='card attention'><h2 style='border:none;margin-top:0'>⚠️ На что обратить внимание</h2><ul>")
         H += [f"<li>{_html.escape(a)}</li>" for a in attention]

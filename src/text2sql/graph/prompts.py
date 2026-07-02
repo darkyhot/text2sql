@@ -46,7 +46,14 @@ PLAN_SYS = (
     "факта на колонки справочника бери ТОЛЬКО из join-кандидатов — по максимальному "
     "overlap значений. НЕ выбирай колонку по «новизне/актуальности» (для join важен "
     "overlap, а не тип идентификатора: gosb_id факта чаще ложится на old_gosb_id, "
-    "если у него больший overlap). НЕ соединяй колонки разных типов (дата ≠ число).\n"
+    "если у него больший overlap). НЕ соединяй колонки разных типов (дата ≠ число) "
+    "и НЕ выдумывай несуществующие колонки.\n"
+    "- Если join-ключ НЕ уникален в справочной/атрибутивной таблице (в ней несколько "
+    "строк на ключ — история, напр. epk по inn), НЕ делай прямой join (размножит строки). "
+    "Вместо этого пометь этот источник как dedup: by = колонки join на стороне этого "
+    "источника, order_by = колонка АКТУАЛЬНОСТИ (дата создания/обновления карточки, "
+    "напр. epk_create_dttm), desc=true — возьмём СВЕЖУЮ строку на ключ. Тогда join к "
+    "дедуплицированному источнику не множит строки.\n"
     "- Для агрегатов укажи metrics и group_by; неагрегированные колонки в SELECT "
     "обязаны быть в group_by.\n"
     "- Период по дате задавай ПОЛУОТКРЫТЫМ интервалом двумя фильтрами: "
@@ -67,15 +74,37 @@ PLAN_SYS = (
     "где есть лишь общее 'Отток'. Значение бери ПОЛНЫМ из формулировки вопроса, не усекай "
     "('%фактический отток%', а не '%отток%'). НЕ выдумывай значения и не переводи на английский. "
     "Если подходящего значения нет ни в одной колонке — добавь в ambiguities, не выдумывай условие.\n"
+    "- ВЫРАЖЕНИЯ разрешены в projections.column, group_by и metrics.column: "
+    "date_trunc('month', alias.col) — группировка по месяцам/кварталам; арифметика "
+    "alias.a / NULLIF(alias.b,0) — доли/средние на единицу; CASE WHEN … THEN … — "
+    "условные значения. Для МЕТРИКИ-выражения (напр. доля/ratio) ставь agg='none', а в "
+    "column — полное выражение с агрегатами: 'AVG(CASE WHEN alias.flag THEN 1 ELSE 0 END)' "
+    "или 'SUM(alias.a)/NULLIF(SUM(alias.b),0)'. Группируя по выражению, положи ТО ЖЕ "
+    "выражение и в group_by.\n"
+    "- HAVING: фильтр по АГРЕГАТУ (напр. sum>5000) клади в having (НЕ в filters/WHERE): "
+    "having.column = агрегатное выражение 'SUM(alias.col)'.\n"
+    "- LEFT JOIN: join_type='left' если нужно включить строки без пары (напр. все ГОСБ, "
+    "даже без оттока). По умолчанию 'inner'.\n"
     "Схема ответа (StructuredPlan):\n"
     '{"intent":str,'
-    '"tables":[{"ref":fqn,"alias":str}],'
-    '"joins":[{"left_alias":str,"right_alias":str,"on":[[lcol,rcol]]}],'
-    '"projections":[{"column":"alias.col"}],'
-    '"metrics":[{"agg":"count|count_distinct|sum|avg|min|max|none","column":"alias.col|*","alias":str}],'
+    '"tables":[{"ref":fqn,"alias":str,"dedup":null|{"by":[col],"order_by":col,"desc":true}}],'
+    '"joins":[{"left_alias":str,"right_alias":str,"on":[[lcol,rcol]],"join_type":"inner|left"}],'
+    '"projections":[{"column":"alias.col ИЛИ выражение","alias":str}],'
+    '"metrics":[{"agg":"count|count_distinct|sum|avg|min|max|none","column":"alias.col|*|выражение","alias":str}],'
     '"filters":[{"column":"alias.col","op":str,"value":any,"value2":any}],'
-    '"group_by":["alias.col"],"order_by":["alias.col"],"limit":int|null,'
-    '"grain_note":str,"assumptions":[str],"ambiguities":[str]}'
+    '"having":[{"column":"SUM(alias.col)","op":str,"value":any}],'
+    '"group_by":["alias.col или выражение"],"order_by":["alias.col или alias метрики"],"limit":int|null,'
+    '"grain_note":str,"assumptions":[str],"ambiguities":[str]}\n'
+    "ЕСЛИ запрос требует ОКОННЫХ функций (SUM() OVER, RANK, LAG — доля от общего, ранг, "
+    "изменение к прошлому периоду), коррелированных ПОДЗАПРОСОВ, полу-/анти-join "
+    "(есть/нет в другой таблице через IN/NOT IN (SELECT…) или EXCEPT), UNION — структурой "
+    "это НЕ выразить. Тогда верни ВМЕСТО плана прямой SQL: "
+    '{"raw_sql":"<полный read-only SELECT или WITH…>","intent":str,"note":"почему прямой SQL"}. '
+    "В raw_sql используй ТОЧНЫЕ полные имена таблиц и колонок как перечислены ниже "
+    "(schema.table целиком, напр. s_grnplm_..._sn_uzp.uzp_dwh_sale_funnel_task — НЕ "
+    "сокращай до sale_funnel_task). Соблюдай: не размножай строки (дедуп справочников "
+    "через DISTINCT ON), полуоткрытые интервалы дат, ТОЛЬКО SELECT (без ; и DML). "
+    "Предпочитай СТРУКТУРИРОВАННЫЙ план; raw_sql — только когда иначе никак."
 )
 
 
@@ -101,6 +130,29 @@ def plan_user(question: str, corrections: list[str], tables: list[TableMeta],
             lines.append(f"- {jc['left']} ↔ {jc['right']}: {pairs}")
     lines.append("\nПострой план. Помни про запрет размножения строк.")
     return "\n".join(lines)
+
+
+# ---------- COUNT-ID CORRECTOR (какой идентификатор считать) ----------
+
+COUNT_ID_SYS = (
+    "Ты выбираешь ПРАВИЛЬНЫЙ идентификатор для подсчёта количества уникальных "
+    "сущностей (COUNT DISTINCT). Правила приоритета:\n"
+    "1) Если в ВОПРОСЕ пользователь ЯВНО назвал конкретный идентификатор/колонку "
+    "(напр. «по old_gosb_id», «по старому номеру») — используй ИМЕННО его.\n"
+    "2) Иначе бери АКТУАЛЬНЫЙ/ТЕКУЩИЙ идентификатор сущности (напр. «новый номер»), "
+    "а НЕ исторический/устаревший/технический/производный.\n"
+    'Верни JSON {"column":"имя_колонки"} — ровно одну из предложенных колонок.'
+)
+
+
+def count_id_user(question: str, current: str, candidates: list) -> str:
+    lines = "\n".join(
+        f"- {c.name} | {c.description} | уникальность={c.unique_perc:g}%" for c in candidates
+    )
+    return (f"Вопрос пользователя: {question}\n"
+            f"Сейчас в плане считаем COUNT(DISTINCT {current}).\n"
+            f"Колонки-идентификаторы этой сущности:\n{lines}\n\n"
+            "Какую колонку использовать для подсчёта?")
 
 
 # ---------- JOIN FIX ----------

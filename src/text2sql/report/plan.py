@@ -213,26 +213,40 @@ def run_spec(spec: dict, df, assets: Path) -> AnalysisResult | None:
 _NARRATE_SYS = (
     "Ты пишешь бизнес-отчёт простым языком для руководителя (не аналитика). "
     "По цифрам каждой секции дай КОРОТКИЙ вывод: 1-2 предложения, по-русски, "
-    "конкретно и полезно. ЗАПРЕЩЕНО: математический жаргон (дисперсия, z-score, "
-    "корреляция, стандартное отклонение), вода и пересказ чисел без смысла. "
-    "Сделай акцент на том, что ИНТЕРЕСНО и что с этим ДЕЛАТЬ. "
+    "конкретно и полезно. Отклонения объясняй в РАЗАХ и ДОЛЯХ («вдвое хуже среднего», "
+    "«даёт 40% всех потерь»), а НЕ в статжаргоне. Где есть и деньги, и количество — "
+    "подчёркивай ДЕНЬГИ как главный эффект, но упоминай и людей/штуки. Для аномальных "
+    "срезов и перекосов деньги/количество делай акцент, что с этим ДЕЛАТЬ (куда смотреть). "
+    "ЗАПРЕЩЕНО: математический жаргон (дисперсия, z-score, корреляция, стандартное "
+    "отклонение, квантиль), вода и пересказ чисел без смысла. "
+    "Ключи секций (facts._kind): rate_dev — срез отклоняется от среднего; interaction — "
+    "аномальное СОЧЕТАНИЕ двух разрезов (сильнее, чем ждали); money_conc — концентрация "
+    "значимости; value_mismatch — мал по количеству, но крупный по деньгам/объёму. "
+    "ВАЖНО: называй показатель «деньгами»/«рублями»/«₽» ТОЛЬКО если facts.is_money=true. "
+    "Если is_money отсутствует/false — это НЕ деньги (люди, штуки, потенциал): пиши в "
+    "единицах показателя (weight_name), без знака рубля. "
     "Верни JSON: {\"summary\":[3-5 пунктов главного], "
     "\"insights\":{\"<ключ секции>\":\"вывод\"}, \"attention\":[1-3 пункта на что обратить внимание]}"
 )
 
 
 def narrate(llm, table_desc: str, focus: str, results: list[AnalysisResult]) -> tuple[list[str], list[str]]:
-    sections = [{"key": r.key, "title": r.title, "facts": r.facts} for r in results if r.facts]
+    # короткие id (s0, s1…) — надёжнее длинных ключей для слабых моделей
+    rich = [r for r in results if r.facts]
+    ids = {f"s{i}": r for i, r in enumerate(rich)}
+    sections = [{"id": sid, "title": r.title, "facts": {k: v for k, v in r.facts.items() if k != "_line"}}
+                for sid, r in ids.items()]
     user = (f"Таблица: {table_desc}\nФокус: {focus or '(общий обзор)'}\n\n"
-            f"Секции с посчитанными цифрами:\n{sections}")
+            f"Секции (id, что посчитано):\n{sections}\n\n"
+            "В insights ключами используй id секций (s0, s1, …).")
     try:
-        out = llm.complete_json(_NARRATE_SYS, user, max_tokens=3000, node="report_narrate")
+        out = llm.complete_json(_NARRATE_SYS, user, max_tokens=3500, node="report_narrate")
     except Exception as exc:  # noqa: BLE001
         logger.warning("report: нарратив не сгенерирован: %s", exc)
         return [], []
     insights = out.get("insights", {}) or {}
-    for r in results:
-        r.insight = str(insights.get(r.key, "")).strip()
+    for sid, r in ids.items():
+        r.insight = str(insights.get(sid, "")).strip()
     summary = [str(x).strip() for x in (out.get("summary") or []) if str(x).strip()]
     attention = [str(x).strip() for x in (out.get("attention") or []) if str(x).strip()]
     return summary, attention

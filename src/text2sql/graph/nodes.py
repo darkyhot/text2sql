@@ -5,6 +5,7 @@ human-in-the-loop — interrupt()."""
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any
 
 from langgraph.types import Command, interrupt
@@ -22,6 +23,18 @@ from .state import AgentState
 
 MAX_CORRECTIONS = 6
 _OK_WORDS = {"ok", "ок", "да", "окей", "go", "поехали", "выполняй", "согласен", ""}
+
+
+def _concept_id(name: str) -> str:
+    """Сущность идентификатора: токен перед _id. new_gosb_id/old_gosb_id → 'gosb'."""
+    parts = name.lower().split("_")
+    return parts[-2] if len(parts) >= 2 and parts[-1] == "id" else name.lower()
+
+
+def _is_id_col(cm) -> bool:
+    n = cm.name.lower()
+    return (cm.semantic_class in ("join_key", "identifier") or n.endswith("_id")
+            or n in ("inn", "kpp", "ogrn"))
 
 
 def _is_texty(dtype: str) -> bool:
@@ -111,14 +124,59 @@ class Nodes:
         jc = self.catalog.join_candidates_for([t.fqn for t in tables])
         raw = self.llm.complete_json(prompts.PLAN_SYS, prompts.plan_user(q, corrections, tables, jc),
                                      max_tokens=3500, node="plan_build")
+        # RAW-SQL люк: сложные конструкции (окна/подзапросы/множества) вне SPJA
+        raw_sql = str(raw.get("raw_sql") or "").strip()
+        if raw_sql:
+            logger.info("node plan_build: RAW-SQL режим")
+            return Command(goto="present", update={
+                "raw_sql": raw_sql, "plan": None,
+                "raw_meta": {"intent": str(raw.get("intent", "")), "note": str(raw.get("note", ""))},
+                "facts": {"join_candidates": jc}, "status": "planning"})
         try:
             plan = normalize_plan(StructuredPlan(**raw))
         except Exception as exc:  # noqa: BLE001
             logger.warning("node plan_build: план не распарсился: %s | raw=%s", exc, raw)
             return Command(goto="__end__", update={"status": "error",
                            "notes": [f"План не распарсился: {exc}"]})
+        corr_notes = self._correct_count_ids(plan, q)   # выбор идентификатора для COUNT DISTINCT
         self._trace({"kind": "node", "node": "plan_build", "plan": plan.model_dump()})
-        return Command(goto="resolve_values", update={"plan": plan.model_dump(), "facts": {"join_candidates": jc}})
+        return Command(goto="resolve_values", update={"plan": plan.model_dump(), "raw_sql": "",
+                       "notes": corr_notes, "facts": {"join_candidates": jc}})
+
+    def _correct_count_ids(self, plan: StructuredPlan, question: str) -> list[str]:
+        """Выбор ПРАВИЛЬНОГО идентификатора для COUNT DISTINCT сущности — решает LLM
+        с учётом ВОПРОСА (уважает явный «по old_gosb_id») и описаний колонок.
+        Вызывается только при реальной неоднозначности (≥2 id-колонки одной сущности),
+        поэтому LLM-вызов редок. По умолчанию — актуальный id, не исторический/технический."""
+        notes: list[str] = []
+        for m in plan.metrics:
+            if m.agg not in ("count", "count_distinct") or not m.column or m.column.endswith("*"):
+                continue
+            alias = m.column.split(".", 1)[0] if "." in m.column else (plan.tables[0].alias if plan.tables else None)
+            col = m.column.split(".")[-1]
+            tref = plan.table_by_alias(alias) if alias else None
+            tmeta = self.catalog.get(tref.ref) if tref else None
+            if not tmeta or not next((c for c in tmeta.columns if c.name == col), None):
+                continue
+            # кандидаты той же сущности (для группировки — эвристика; выбор делает LLM)
+            concept = _concept_id(col)
+            cands = [c for c in tmeta.columns if _concept_id(c.name) == concept and _is_id_col(c)]
+            if len(cands) < 2:            # выбора нет — LLM не зовём
+                continue
+            try:
+                out = self.llm.complete_json(prompts.COUNT_ID_SYS,
+                                             prompts.count_id_user(question, col, cands),
+                                             max_tokens=1500, node="count_id")
+                chosen = str(out.get("column", "")).strip()
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("count-id корректор: LLM не ответил (%s)", exc)
+                continue
+            chosen = next((c.name for c in cands if c.name == chosen), None)
+            if chosen and chosen != col:
+                m.column = f"{alias}.{chosen}" if alias else chosen
+                notes.append(f"Для подсчёта выбран идентификатор {chosen} (вместо {col}).")
+                logger.info("count-id корректор: %s → %s", col, chosen)
+        return notes
 
     # ---------- RESOLVE VALUES (живой резолв текстовых фильтров) ----------
     def resolve_values(self, state: AgentState) -> Command:
@@ -197,18 +255,62 @@ class Nodes:
             lt, rt = plan.table_by_alias(j.left_alias), plan.table_by_alias(j.right_alias)
             if not lt or not rt:
                 continue
+            right_cols = {rc for _, rc in j.on}
+            left_cols = {lc for lc, _ in j.on}
+            # 1) источник уже дедуплицирован по ключам join → N:1 гарантированно
+            if rt.dedup and rt.dedup.by and set(rt.dedup.by) <= right_cols:
+                j.classification, j.fanout_safe = "N:1", True
+                notes.append(f"Источник {rt.alias} дедуплицирован по {rt.dedup.by} → join N:1 (без размножения).")
+                continue
+            if lt.dedup and lt.dedup.by and set(lt.dedup.by) <= left_cols:
+                j.classification, j.fanout_safe = "N:1", True
+                notes.append(f"Источник {lt.alias} дедуплицирован по {lt.dedup.by} → join N:1.")
+                continue
             v = self.tools.check_join(lt.ref, rt.ref, [tuple(p) for p in j.on])
             if not v.ok:
+                # 2) детерминированный подбор ключа (покрыть PK справочника)
                 suggested = self.tools.suggest_join(lt.ref, rt.ref)
                 if suggested and [tuple(p) for p in j.on] != suggested:
-                    j.on = [list(p) for p in suggested]
                     v2 = self.tools.check_join(lt.ref, rt.ref, suggested)
                     if v2.ok:
-                        notes.append(f"Ключ join автоматически исправлен на {j.on} (по overlap + PK справочника).")
+                        j.on = [list(p) for p in suggested]
+                        notes.append(f"Ключ join исправлен на {j.on} (overlap + PK справочника).")
                         v = v2
+                # 3) не вышло (join по неуникальному атрибуту справочника) → авто-dedup:
+                #    свежая строка справочника на ключ (по дате актуальности)
+                if not v.ok:
+                    fixed = self._auto_dedup(j, lt, rt)
+                    if fixed:
+                        j.classification, j.fanout_safe = "N:1", True
+                        notes.append(fixed)
+                        continue
             j.classification, j.fanout_safe = v.classification, v.fanout_safe
             notes.append(v.note)
         return notes
+
+    def _auto_dedup(self, j, lt, rt) -> str | None:
+        """Фолбэк: join к справочнику по неуникальному атрибуту (напр. inn) — вместо
+        размножения дедуплицируем справочную сторону по ключу (свежая карточка)."""
+        best = self.tools.best_join_pair(lt.ref, rt.ref)
+        if not best:
+            return None
+        lc, rc = best
+        lmeta, rmeta = self.catalog.get(lt.ref), self.catalog.get(rt.ref)
+        # какую сторону дедупить: справочную (role reference), иначе правую
+        if rmeta and rmeta.role == "reference":
+            side, col = rt, rc
+        elif lmeta and lmeta.role == "reference":
+            side, col = lt, lc
+        else:
+            side, col = rt, rc
+        recency = self.tools.recency_col(side.ref)
+        if not recency:
+            return None
+        from ..plan.model import Dedup
+        j.on = [[lc, rc]]
+        side.dedup = Dedup(by=[col], order_by=recency, desc=True)
+        return (f"Справочник {side.alias} неуникален по «{col}» — беру СВЕЖУЮ строку "
+                f"на «{col}» (по {recency} ↓), join по {j.on}. Размножения строк не будет.")
 
     def _fix_joins(self, state: AgentState, plan: StructuredPlan) -> StructuredPlan:
         bad = next((j for j in plan.joins if j.fanout_safe is False), None)
@@ -231,10 +333,20 @@ class Nodes:
 
     # ---------- PRESENT (human-in-the-loop) ----------
     def present(self, state: AgentState) -> Command:
-        plan = StructuredPlan(**state["plan"])
-        nl = render_nl(plan)
-        sql_preview = render_sql_plain(plan)   # читаемый SQL для аналитика
-        issues = validate_plan(plan)
+        raw_sql = state.get("raw_sql")
+        if raw_sql:
+            rm = state.get("raw_meta", {})
+            nl = (f"Намерение: {rm.get('intent','')}\n"
+                  f"Режим: прямой SQL (сложный запрос — окна/подзапросы/множества).\n"
+                  f"{rm.get('note','')}")
+            issues: list[str] = []
+            nl_full, sql_preview = nl, raw_sql
+        else:
+            plan = StructuredPlan(**state["plan"])
+            nl_full = render_nl(plan)
+            sql_preview = render_sql_plain(plan)   # читаемый SQL для аналитика
+            issues = validate_plan(plan)
+        nl = nl_full
         # логируем то, что показываем пользователю (чтобы не слать с экрана)
         logger.info("ПЛАН показан пользователю:\n%s\n-- SQL --\n%s\n-- заметки: %s%s",
                     nl, sql_preview, state.get("notes", []),
@@ -248,23 +360,29 @@ class Nodes:
         if len(corrections) > MAX_CORRECTIONS:
             return Command(goto="__end__", update={"status": "error",
                            "notes": ["Слишком много итераций коррекции — остановка."]})
-        return Command(goto="plan_build", update={"corrections": corrections, "status": "planning"})
+        return Command(goto="plan_build", update={"corrections": corrections, "raw_sql": "",
+                       "status": "planning"})
 
     # ---------- SYNTH + VALIDATE + EXECUTE ----------
     def synth(self, state: AgentState) -> Command:
-        plan = StructuredPlan(**state["plan"])
-        try:
-            sql = render_sql(plan, self.db)
-        except Exception as exc:  # noqa: BLE001
-            return Command(goto="__end__", update={"status": "error", "notes": [f"Сборка SQL: {exc}"]})
-        issues = validate_plan(plan)
+        raw_sql = state.get("raw_sql")
+        if raw_sql:                          # RAW-режим: SQL уже готов, только валидируем
+            sql, sql_display, issues = raw_sql, raw_sql, []
+        else:
+            plan = StructuredPlan(**state["plan"])
+            try:
+                sql = render_sql(plan, self.db)
+            except Exception as exc:  # noqa: BLE001
+                return Command(goto="__end__", update={"status": "error", "notes": [f"Сборка SQL: {exc}"]})
+            sql_display = render_sql_plain(plan)
+            issues = validate_plan(plan)
         try:
             cost = self.db.explain_cost(sql)
         except Exception as exc:  # noqa: BLE001
             logger.warning("node synth: EXPLAIN не прошёл: %s | sql=%s", exc, sql)
             return Command(goto="__end__", update={"status": "error", "sql": sql,
                            "notes": [f"EXPLAIN не прошёл (вероятно ошибка в SQL): {exc}"]})
-        return Command(goto="execute", update={"sql": sql, "sql_display": render_sql_plain(plan),
+        return Command(goto="execute", update={"sql": sql, "sql_display": sql_display,
                        "validation": {"issues": issues, "explain_cost": cost}})
 
     def execute(self, state: AgentState) -> Command:

@@ -129,6 +129,74 @@ class Gen:
         return None
 
 
+# ---------- заложенные бизнес-сигналы (чтобы майнер отчёта находил реальное) ----------
+HOT_EMP = ["Волков Д.А.", "Морозов И.С.", "Соколова Е.В.", "Новиков А.П.", "Зайцева О.Н."]
+
+
+def _mk_dttm(base: dt.date, days: int = 0) -> dt.datetime:
+    d = dt.datetime(base.year, base.month, base.day, random.randint(8, 20), random.randint(0, 59))
+    return d + dt.timedelta(days=days)
+
+
+def inject_signals(table: str, row: dict) -> None:
+    """Правит строку, зашивая реалистичные закономерности:
+    воронка — горячий срез (Москва×Микро×Фактический отток: просрочка+низкий успех,
+    несколько «проблемных» сотрудников) и денежный перекос (Крупнейшие: мало задач,
+    огромный потенциал); отток — дорогой срез (мало людей × высокая ЗП) против
+    дешёвого массового. Меняет только существующие в строке колонки."""
+    def put(k, v):
+        if k in row:
+            row[k] = v
+
+    if table == "uzp_dwh_sale_funnel_task":
+        create = row.get("task_create_dt")
+        if not isinstance(create, dt.date):
+            create = rand_date()
+        put("task_create_dt", create)
+        plan = _mk_dttm(create, 7)
+        put("plan_close_task_dttm", plan)
+        r = random.random()
+        if r < 0.10:                       # горячий срез: просрочка, низкий успех
+            put("tb_name", "Московский банк"); put("gosb_name", "Свердловское ГОСБ № 7003")
+            put("segment_name", "Микро"); put("task_type", "Отток")
+            put("task_subtype", "Фактический отток"); put("task_category", "Задача")
+            put("is_task_closed", True); put("is_task_in_progress", False)
+            put("is_task_closed_success", random.random() < 0.15)
+            put("fact_close_task_dttm", plan + dt.timedelta(days=random.randint(5, 30)))  # просрочка
+            put("emp_fio", random.choice(HOT_EMP))
+            put("unrealized_deal_potential", random.randint(1000, 8000))
+        elif r < 0.13:                     # денежный перекос: мало задач, огромный потенциал
+            put("segment_name", "Крупнейшие"); put("task_type", "Привлечение")
+            put("unrealized_deal_potential", random.randint(40_000, 90_000))
+            put("is_task_closed", random.random() < 0.6)
+            put("is_task_closed_success", random.random() < 0.5)
+            put("fact_close_task_dttm", plan - dt.timedelta(days=random.randint(0, 3)))
+        else:                              # база: обычно в срок, успех ~55%
+            put("is_task_closed", random.random() < 0.7)
+            put("is_task_closed_success", random.random() < 0.55)
+            late = random.random() < 0.20
+            put("fact_close_task_dttm",
+                plan + dt.timedelta(days=random.randint(1, 10)) if late
+                else plan - dt.timedelta(days=random.randint(0, 4)))
+            put("unrealized_deal_potential", random.randint(0, 6000))
+
+    elif table == "uzp_dwh_fact_outflow":
+        r = random.random()
+        if r < 0.03:                       # дорогой: мало людей × очень высокая ЗП
+            put("outflow_qty", random.randint(3, 12))
+            put("m_avg_salary_amt", round(random.uniform(1_500_000, 3_000_000), 2))
+            put("segment_name", "Крупнейшие")
+        elif r < 0.10:                     # дешёвый массовый: много людей × низкая ЗП
+            put("outflow_qty", random.randint(200, 500))
+            put("m_avg_salary_amt", round(random.uniform(30_000, 45_000), 2))
+            put("segment_name", "Микро")
+        else:                              # база: обычные ЗП, сегменты БЕЗ спец-значений
+            put("outflow_qty", random.randint(10, 80))
+            put("m_avg_salary_amt", round(random.uniform(50_000, 90_000), 2))
+            put("segment_name", random.choice(["Средние", "Малые", "Клиенты машиностроения",
+                                               "Рег. госсектор", "SBI"]))
+
+
 def create_table(cur, table, cols):
     defs = []
     for c in cols:
@@ -164,6 +232,7 @@ def seed_table(cur, table, cols, gen, gosb, insert_fn):
             row["org_type"] = random.choice(ORG_TYPES)
         if "author_login" in row:
             row["author_login"] = random.choice(AUTHORS)
+        inject_signals(table, row)          # зашиваем реалистичные закономерности
         # уникальность PK
         if pk_cols:
             key = tuple(row[c] for c in pk_cols)

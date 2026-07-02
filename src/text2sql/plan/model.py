@@ -19,15 +19,26 @@ AggT = Literal["count", "count_distinct", "sum", "avg", "min", "max", "none"]
 OpT = Literal["=", "!=", ">", "<", ">=", "<=", "ILIKE", "BETWEEN", "IS TRUE", "IS FALSE", "IS NULL", "IN"]
 
 
+class Dedup(BaseModel):
+    """Дедупликация источника: оставить ОДНУ (свежую) строку на комбинацию `by`.
+    Нужна при join к справочной/атрибутивной таблице с историей (несколько строк
+    на ключ) — иначе join размножит строки. Рендерится как DISTINCT ON."""
+    by: list[str] = Field(default_factory=list)      # ключ дедупликации (= колонки join)
+    order_by: str = ""                                # колонка актуальности (дата карточки)
+    desc: bool = True                                 # свежая запись первой
+
+
 class TableRef(BaseModel):
     ref: str           # fully-qualified schema.table
     alias: str
+    dedup: Dedup | None = None
 
 
 class JoinSpec(BaseModel):
     left_alias: str
     right_alias: str
     on: list[tuple[str, str]]            # пары (колонка_слева, колонка_справа), без алиасов
+    join_type: str = "inner"             # inner | left (LEFT JOIN — включить строки без пары)
     classification: str = ""             # заполняется check_join: 1:1/N:1/1:N/N:M
     fanout_safe: bool | None = None
 
@@ -59,7 +70,8 @@ class StructuredPlan(BaseModel):
     projections: list[Projection] = Field(default_factory=list)
     metrics: list[Metric] = Field(default_factory=list)
     filters: list[Filter] = Field(default_factory=list)
-    group_by: list[str] = Field(default_factory=list)   # "alias.col"
+    having: list[Filter] = Field(default_factory=list)  # фильтры по агрегатам (HAVING)
+    group_by: list[str] = Field(default_factory=list)   # "alias.col" или выражение
     order_by: list[str] = Field(default_factory=list)
     limit: int | None = None
     grain_note: str = ""
@@ -73,7 +85,7 @@ class StructuredPlan(BaseModel):
         строки вместо объектов, разные формы join.on. Нормализуем всё здесь."""
         if not isinstance(data, dict):
             return data
-        list_fields = ("tables", "joins", "projections", "metrics", "filters",
+        list_fields = ("tables", "joins", "projections", "metrics", "filters", "having",
                        "group_by", "order_by", "assumptions", "ambiguities")
         for f in list_fields:
             if data.get(f) is None:
@@ -96,6 +108,19 @@ class StructuredPlan(BaseModel):
         for j in data.get("joins", []):
             if isinstance(j, dict) and "on" in j:
                 j["on"] = _normalize_on(j["on"])
+        # tables.dedup: пустой/битый dedup → None
+        for t in data.get("tables", []):
+            if isinstance(t, dict):
+                d = t.get("dedup")
+                if isinstance(d, dict):
+                    by = d.get("by") or []
+                    if isinstance(by, str):
+                        by = [by]
+                    d["by"] = [str(c).split(".")[-1] for c in by]
+                    if not d["by"] or not d.get("order_by"):
+                        t["dedup"] = None
+                elif d is not None and not isinstance(d, dict):
+                    t["dedup"] = None
         return data
 
     def table_by_alias(self, alias: str) -> TableRef | None:

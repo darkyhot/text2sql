@@ -108,6 +108,38 @@ def chk_q3_feb_date(turn, db):
     return ok, f"filters={[(f.get('column'), f.get('value')) for f in _filters(turn)]}"
 
 
+def chk_dedup_join(turn, db):
+    """Q4: join к неуникальному справочнику epk по inn должен идти через ДЕДУПЛИКАЦИЮ
+    (свежая карточка), а не размножать строки."""
+    tables = _plan(turn).get("tables", [])
+    deduped = any(t.get("dedup") and t["dedup"].get("by") for t in tables)
+    return deduped and _no_fanout(turn), \
+        f"dedup={[t.get('dedup') for t in tables if t.get('dedup')]} no_fanout={_no_fanout(turn)}"
+
+
+def _sql(turn):
+    return (turn.state.get("sql") or "").lower()
+
+
+def chk_month_bucket(turn, db):
+    s = _sql(turn)
+    return "date_trunc" in s, f"date_trunc in sql? sql={s[:120]}"
+
+
+def chk_having(turn, db):
+    return "having" in _sql(turn), f"having in sql? sql={_sql(turn)[:120]}"
+
+
+def chk_ratio_expr(turn, db):
+    s = _sql(turn)
+    return ("case when" in s or "/" in s), f"выражение-доля? sql={s[:140]}"
+
+
+def chk_window_or_raw(turn, db):
+    s = _sql(turn)
+    return bool(turn.state.get("raw_sql")) or "over" in s, f"raw={bool(turn.state.get('raw_sql'))} over={'over' in s}"
+
+
 CASES = [
     {
         "id": "Q1_count_tb_gosb",
@@ -128,5 +160,31 @@ CASES = [
         # _ambiguity_pick_for ниже выберет по содержимому, индекс — запасной.
         "ambiguity_pick": 0,
         "checks": [chk_q3_correct_interpretation, chk_q3_feb_date, chk_single_row],
+    },
+    {
+        "id": "Q4_outflow_by_segment_from_epk",
+        "question": ("Посчитай сумму оттока outflow_qty по дате report_dt и сегменту. "
+                     "Сегмент возьми из таблицы uzp_data_epk_consolidation по inn"),
+        "ambiguity_pick": 0,
+        "checks": [chk_dedup_join, chk_has_sum_metric],
+    },
+    # --- сложный SQL ---
+    {
+        "id": "Q5_outflow_by_month",
+        "question": "Сумма оттока outflow_qty по месяцам",
+        "ambiguity_pick": 0,
+        "checks": [chk_month_bucket],
+    },
+    {
+        "id": "Q6_gosb_having",
+        "question": "Покажи gosb_id где суммарный отток outflow_qty больше 5000",
+        "ambiguity_pick": 0,
+        "checks": [chk_having, chk_has_sum_metric],
+    },
+    {
+        "id": "Q7_share_of_total_window",
+        "question": "ТОП-5 gosb_id по сумме оттока outflow_qty и доля каждого от общего оттока",
+        "ambiguity_pick": 0,
+        "checks": [chk_window_or_raw],
     },
 ]

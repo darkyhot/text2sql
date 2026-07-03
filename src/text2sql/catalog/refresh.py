@@ -126,12 +126,17 @@ def _read_seed(path: Path, key: str, name_field: str) -> dict[str, str]:
 class MetadataRefresh:
     def __init__(self, db: DbAdapter, *, llm=None, data_dir: Path | None = None,
                  sample_n: int = 100_000, per_table_timeout_ms: int = 300_000,
-                 pk_source: str | None = None):
+                 pk_source: str | None = None, gen_samples: bool | None = None,
+                 sample_rows: int = 25):
         self.db = db
         self.llm = llm
         self.data_dir = data_dir or PATHS.data_dir
         self.sample_n = sample_n
         self.per_table_timeout_ms = per_table_timeout_ms  # 5 мин на таблицу
+        # Генерация СИНТЕТИЧЕСКИХ семплов в data_dir/samples/ (LLM, по мотивам реальных
+        # данных, но полностью фейковые и «явно сгенерированные»). Вкл по умолчанию при llm.
+        self.gen_samples = bool(llm) if gen_samples is None else gen_samples
+        self.sample_rows = sample_rows
         # Источник PK: "compute" — вычислять из сэмпла (прод, реальные данные);
         # "seed" — брать из кураторской метадаты (тест-контейнер с синтетикой, где
         # эвристика по сэмплу ненадёжна). По умолчанию из env PK_SOURCE, иначе compute.
@@ -273,6 +278,53 @@ class MetadataRefresh:
             return "event"
         return "fact"
 
+    _SAMPLE_SYS = (
+        "Ты генерируешь СИНТЕТИЧЕСКИЙ сэмпл таблицы для тестовой БД. Правила:\n"
+        "- Значения ПОЛНОСТЬЮ ВЫМЫШЛЕННЫЕ и ЯВНО сгенерированные, чтобы было видно, что это "
+        "синтетика: ФИО «Иванов Иван Иванович», «Петрова Мария Сергеевна»; ИНН «1234567890»; "
+        "компании «ООО Ромашка», «АО Пример»; коды «AAA-000123». НИКАКИХ реальных перс. данных.\n"
+        "- Сохрани СТРУКТУРУ по метаданным колонки: тип; долю пустых (null_perc — примерно "
+        "столько же значений сделай null); уникальность (PK-колонки — уникальны; низкоуникальные "
+        "категориальные — повторяй маленький набор значений); правдоподобные диапазоны чисел/дат.\n"
+        "- Ориентируйся на ОПИСАНИЕ колонки и примеры реальных значений (смысл/формат), но "
+        "значения придумывай свои.\n"
+        "- Даты — ISO (YYYY-MM-DD или 'YYYY-MM-DD HH:MM'). Булевы — true/false. Пусто — null.\n"
+        'Верни JSON: {"rows": [ {"колонка": значение, ...}, ... ]} РОВНО с указанными колонками.'
+    )
+
+    def generate_synthetic_sample(self, schema: str, table: str, attr_rows: list[dict],
+                                  df: pd.DataFrame):
+        """Синтетический сэмпл таблицы (LLM) → data_dir/samples/<schema>.<table>.csv.
+        Полностью фейковые «явно сгенерированные» данные, но с учётом типа/PK/доли null/
+        уникальности из метаданных. Не роняет рефреш при ошибке."""
+        if not (self.gen_samples and self.llm is not None):
+            return None
+        try:
+            spec = [{
+                "column": a["column_name"], "type": a["dType"], "pk": a["is_primary_key"],
+                "description": a["description"],
+                "null_perc": round(100.0 - float(a["not_null_perc"]), 1),
+                "unique_perc": a["unique_perc"],
+                "examples": [x for x in str(a["sample_values"]).split("|") if x][:5],
+            } for a in attr_rows]
+            user = (f"Таблица: {schema}.{table}\nСгенерируй {self.sample_rows} строк.\n"
+                    f"Колонки (метаданные):\n{json.dumps(spec, ensure_ascii=False)}")
+            out = self.llm.complete_json(self._SAMPLE_SYS, user, max_tokens=8000, node="meta_sample")
+            rows = out.get("rows") or []
+            if not rows:
+                return None
+            colnames = [a["column_name"] for a in attr_rows]
+            sdf = pd.DataFrame(rows).reindex(columns=colnames)   # порядок и полнота колонок
+            out_dir = self.data_dir / "samples"
+            out_dir.mkdir(parents=True, exist_ok=True)
+            path = out_dir / f"{schema}.{table}.csv"
+            sdf.to_csv(path, index=False)
+            logger.info("metadata: синтетический сэмпл %s → %s (%d строк)", table, path.name, len(sdf))
+            return path
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("metadata: сэмпл %s не сгенерирован: %s", table, exc)
+            return None
+
     def _collect_table(self, schema: str, table: str) -> tuple[dict, list[dict], list[str]]:
         """Собрать метаданные ОДНОЙ таблицы. Сэмпл — адаптивный (по размеру),
         с таймаутом per_table_timeout_ms. Может бросить исключение (таймаут/ошибка)."""
@@ -314,6 +366,7 @@ class MetadataRefresh:
                      "description": self._describe_table(schema, table, table_comment), "grain": grain,
                      "role": self._role(grain, class_counts)}
         logger.info("metadata: собрана %s (строк сэмпла=%d, колонок=%d, pk=%s)", fqn, n, len(attr_rows), pk)
+        self.generate_synthetic_sample(schema, table, attr_rows, df)   # синтетика в samples/
         return table_row, attr_rows, pk
 
     def manifest_tables(self) -> list[tuple[str, str]]:

@@ -123,37 +123,45 @@ def mine(df: pd.DataFrame, measures: list[Measure], dims: list[str], entities: l
     return findings
 
 
+def _has_value(df: pd.DataFrame, m: Measure) -> pd.Series:
+    """Строки, где числовая мера НЕСЁТ значение = не-null И не-ноль. Ноль для деловых
+    метрик (кол-во сделок/потенциал) означает «не применимо» (напр. task_category='Задача'
+    не несёт сделку), поэтому его тоже считаем «нет значения»."""
+    vals = pd.to_numeric(df[m.col], errors="coerce").fillna(0)
+    return vals != 0
+
+
 def _pop(df: pd.DataFrame, m: Measure) -> pd.DataFrame:
-    """Подмножество строк, где мера ЗАПОЛНЕНА (бизнес-скоуп): если у меры значимая доля
-    пустых, анализируем только там, где она есть (напр. потенциал — только Предложения)."""
-    if m is None or m.col not in df.columns:
+    """Подмножество строк, где мера ОСМЫСЛЕННА (бизнес-скоуп): если у меры значимая доля
+    строк без значения (null ИЛИ 0), анализируем только там, где она есть — напр. потенциал/
+    кол-во сделок только для 'Предложение', а не 'Задача'. Доли/сроки не режем (0 осмыслен)."""
+    if m is None or m.col not in df.columns or m.kind in ("rate", "duration"):
         return df
-    na = df[m.col].isna().mean()
-    return df[df[m.col].notna()] if na > 0.05 else df
+    has = _has_value(df, m)
+    return df[has] if (~has).mean() > 0.1 else df
 
 
 def scope_notes(df: pd.DataFrame, measures: list[Measure], dims: list[str],
                 labels: Labels | None = None) -> list[str]:
-    """Бизнес-скоуп показателей: если метрика заполнена ТОЛЬКО для части значений некой
-    категории (потенциал — только для Предложения), фиксируем это заметкой. Детерминированно,
-    без хардкода: категория «делит» метрику на пусто/заполнено."""
+    """Бизнес-скоуп показателей: если метрика ОСМЫСЛЕННА (не-null и не-ноль) только для
+    части значений некой категории (сделочные числа — только для 'Предложение', не 'Задача'),
+    фиксируем заметкой. Детерминированно, без хардкода: категория делит метрику на есть/нет."""
     notes: list[str] = []
     low_dims = [d for d in dims if d in df.columns and 2 <= df[d].nunique(dropna=True) <= 15]
     for m in measures:
         if m.kind not in ("money", "count", "value") or m.col not in df.columns:
             continue
-        na = df[m.col].isna().mean()
-        if na < 0.1:                          # заполнена почти везде — не условная
+        has = _has_value(df, m)
+        if has.mean() > 0.9:                  # значение почти везде — не условная
             continue
-        notnull = df[m.col].notna()
         for d in low_dims:
-            frac = notnull.groupby(df[d]).mean()
+            frac = has.groupby(df[d]).mean()
             populated = frac[frac >= 0.5].index.tolist()
             empty = frac[frac <= 0.05].index.tolist()
-            if populated and empty:           # категория делит на заполнено/пусто
+            if populated and empty:           # категория делит на есть/нет значения
                 vals = ", ".join(fmt_val(v) for v in populated[:4])
-                notes.append(f"«{m.label}» заполнен только для «{_ds(labels, d)}» = {vals} — "
-                             f"анализирую этот показатель только по ним.")
+                notes.append(f"«{m.label}» осмыслен только для «{_ds(labels, d)}» = {vals} "
+                             f"(в остальных — нет значения) — анализирую только по ним.")
                 break
     return notes
 

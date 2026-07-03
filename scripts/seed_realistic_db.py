@@ -155,10 +155,8 @@ def inject_signals(table: str, row: dict) -> None:
         put("task_create_dt", create)
         plan = _mk_dttm(create, 7)
         put("plan_close_task_dttm", plan)
-        # БИЗНЕС-ПРАВИЛО: поля про СДЕЛКУ заполнены только для task_category='Предложение';
-        # для 'Задача' — все сделочные поля (id/даты/кол-во/потенциал) пустые (NULL).
-        DEAL_COLS = ("deal_code", "deal_create_dttm", "plan_staff_deal_qty",
-                     "fact_staff_deal_qty", "unrealized_deal_potential")
+        # БИЗНЕС-ПРАВИЛО: сделка есть только у task_category='Предложение'; у 'Задача'
+        # счётные сделочные поля = 0, ссылки/потенциал = NULL (как на проде).
         is_offer = random.random() < 0.5
         put("task_category", "Предложение" if is_offer else "Задача")
         if is_offer:
@@ -167,8 +165,12 @@ def inject_signals(table: str, row: dict) -> None:
             put("fact_staff_deal_qty", random.randint(0, 20))
             put("unrealized_deal_potential", random.randint(0, 6000))
         else:
-            for k in DEAL_COLS:
-                put(k, None)
+            # 'Задача' не несёт сделку: как на проде — счётные поля 0, ссылки/потенциал NULL
+            put("plan_staff_deal_qty", 0)
+            put("fact_staff_deal_qty", 0)
+            put("deal_code", None)
+            put("deal_create_dttm", None)
+            put("unrealized_deal_potential", None)
         r = random.random()
         if r < 0.10:                       # горячий срез: просрочка, низкий успех
             put("tb_name", "Московский банк"); put("gosb_name", "Свердловское ГОСБ № 7003")

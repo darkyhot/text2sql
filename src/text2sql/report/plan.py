@@ -231,16 +231,21 @@ _NARRATE_SYS = (
 
 
 def narrate(llm, table_desc: str, focus: str, results: list[AnalysisResult]) -> tuple[list[str], list[str]]:
-    # короткие id (s0, s1…) — надёжнее длинных ключей для слабых моделей
-    rich = [r for r in results if r.facts]
+    # короткие id (s0, s1…) — надёжнее длинных ключей для слабых моделей.
+    # Ограничиваем число секций в промпте: у больших отчётов reasoning-модель иначе
+    # съедает бюджет и возвращает пустой ответ (нет summary → нет «Главного»).
+    rich = [r for r in results if r.facts][:20]
     ids = {f"s{i}": r for i, r in enumerate(rich)}
-    sections = [{"id": sid, "title": r.title, "facts": {k: v for k, v in r.facts.items() if k != "_line"}}
-                for sid, r in ids.items()]
+    # компактные факты: только осмысленные для вывода поля (без служебных _kind/_line)
+    def _slim(facts: dict) -> dict:
+        return {k: v for k, v in facts.items() if k not in ("_line", "_kind") and v not in (None, "")}
+    sections = [{"id": sid, "title": r.title, "facts": _slim(r.facts)} for sid, r in ids.items()]
     user = (f"Таблица: {table_desc}\nФокус: {focus or '(общий обзор)'}\n\n"
             f"Секции (id, что посчитано):\n{sections}\n\n"
             "В insights ключами используй id секций (s0, s1, …).")
     try:
-        out = llm.complete_json(_NARRATE_SYS, user, max_tokens=3500, node="report_narrate")
+        # reasoning-модели (DeepSeek) тратят бюджет на размышление — даём с запасом
+        out = llm.complete_json(_NARRATE_SYS, user, max_tokens=8000, node="report_narrate")
     except Exception as exc:  # noqa: BLE001
         logger.warning("report: нарратив не сгенерирован: %s", exc)
         return [], []

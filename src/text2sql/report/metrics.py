@@ -62,27 +62,44 @@ _BEHAV_SYS = (
     '"weight":"avg_salary","unit":"₽"}\n'
     "Правила: бери 3-8 самых полезных показателей по СМЫСЛУ таблицы. Не выдумывай колонки — "
     "используй только те, что перечислены. Если подходящих нет для типа — пропусти его.\n"
-    'Верни JSON: {"behaviors":[...]}'
+    "ОТДЕЛЬНО: record_count — нужно ли СЧИТАТЬ САМИ ЗАПИСИ как ключевую величину. Да, если "
+    "строка таблицы = бизнес-СУЩНОСТЬ (задача, событие, сделка, клиент, оттёкший) — тогда "
+    "«сколько их по разрезам» важно. Формат: {\"name\":\"Количество задач\",\"id_col\":\"task_code\"|null}. "
+    "Нет (null), если это ВИТРИНА разных метрик (строка = набор показателей, а не сущность).\n"
+    'Верни JSON: {"behaviors":[...], "record_count": {...}|null}'
 )
 
 
-def build_behaviors_llm(llm, table_desc: str, df: pd.DataFrame, meta: dict[str, dict]) -> list[dict]:
-    """LLM предлагает производные показатели (фокусный вызов). Возвращает список
-    определений (dict) — валидируются и строятся в build_derived."""
+def build_behaviors_llm(llm, table_desc: str, df: pd.DataFrame, meta: dict[str, dict]):
+    """LLM предлагает производные показатели + решает, считать ли записи как сущность.
+    Возвращает (behaviors: list[dict], record_count: dict|None)."""
     cols = []
     for c in df.columns:
         s = df[c]
         cols.append(f"- {c} | {s.dtype} | {meta.get(c, {}).get('desc', '')}")
     user = (f"Таблица: {table_desc}\nКолонки [имя | тип | описание]:\n" + "\n".join(cols)
-            + "\n\nПредложи производные бизнес-показатели.")
+            + "\n\nПредложи производные показатели и реши про record_count.")
     try:
         # reasoning-модели (DeepSeek) тратят бюджет на размышление — даём с запасом
         out = llm.complete_json(_BEHAV_SYS, user, max_tokens=6000, node="report_behaviors")
-        beh = out.get("behaviors") or []
     except Exception as exc:  # noqa: BLE001
         logger.warning("report: производные показатели не сгенерированы (%s)", exc)
-        return []
-    return [b for b in beh if isinstance(b, dict) and b.get("type")]
+        return [], None
+    beh = [b for b in (out.get("behaviors") or []) if isinstance(b, dict) and b.get("type")]
+    rec = out.get("record_count") if isinstance(out.get("record_count"), dict) else None
+    if rec and not str(rec.get("name") or "").strip():
+        rec = None
+    return beh, rec
+
+
+def record_count_measure(df: pd.DataFrame, rec: dict | None) -> Measure | None:
+    """Мера «Количество <сущностей>» = COUNT записей (по колонке-единице ROW_COL). Только
+    если LLM решил, что строки таблицы — бизнес-сущности (не витрина метрик)."""
+    if not rec:
+        return None
+    df[ROW_COL] = 1
+    name = str(rec.get("name") or "Количество записей").strip()
+    return Measure(name, ROW_COL, "sum", "count", "", label=name)
 
 
 def _has(df: pd.DataFrame, *cols: str) -> bool:

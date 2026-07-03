@@ -110,9 +110,13 @@ def build_business_report(db, catalog, llm, fqn: str, *, where: str | None = Non
     logger.info("report %s: главные метрики=%s", fqn, roles.metrics[:4])
 
     progress("вывожу производные показатели (закрытие, просрочка, срок, деньги)…")
-    behav_defs = metrics.build_behaviors_llm(llm, table_desc, df, meta)
+    behav_defs, rec = metrics.build_behaviors_llm(llm, table_desc, df, meta)
     measures = metrics.build_derived(df, behav_defs, meta)
     metrics.money_from_metrics(df, meta, measures, roles.metrics, lbls)   # деньги — только уверенно
+    count_m = metrics.record_count_measure(df, rec)     # «Количество задач» — если строка=сущность
+    if count_m:
+        measures.insert(0, count_m)                     # основная сущность — вперёд
+        logger.info("report %s: считаем записи как сущность: %s", fqn, count_m.label)
     if not measures:
         raise ValueError("Не удалось определить показатели для аналитики.")
     date = roles.dates[0] if roles.dates else None
@@ -120,6 +124,10 @@ def build_business_report(db, catalog, llm, fqn: str, *, where: str | None = Non
 
     progress("считаю обзорные разрезы и динамику…")
     results = [mining.headline_kpi(df, measures)]
+    # фокус-раздел: разложить запрос пользователя в конкретные разбивки и ответить ими
+    if focus:
+        reqs = plan.focus_plan_llm(llm, focus, measures, roles.dimensions, lbls)
+        results += mining.focus_answer(df, reqs, measures, assets, lbls)
     results += mining.overview(df, measures, roles.dimensions, date, assets, lbls)
 
     progress("кручу разрезы: ищу аномалии, концентрацию, перекос деньги/количество…")
@@ -156,6 +164,7 @@ def build_business_report(db, catalog, llm, fqn: str, *, where: str | None = Non
 
 # порядок и заголовки тематических разделов
 _SECTION_ORDER = [
+    "🎯 Ответ на ваш запрос",
     "📈 Обзор по показателям",
     "💰 Где сосредоточены деньги и объёмы",
     "⚖️ Ценность важнее количества",
@@ -166,6 +175,8 @@ _SECTION_ORDER = [
 
 
 def _section_of_result(r, section_of: dict) -> str:
+    if r.kind == "focus":
+        return "🎯 Ответ на ваш запрос"
     if r.kind == "overview":
         return "📈 Обзор по показателям"
     if r.kind == "entity":

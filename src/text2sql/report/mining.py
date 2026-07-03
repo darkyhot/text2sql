@@ -460,9 +460,10 @@ def overview(df: pd.DataFrame, measures: list[Measure], dims: list[str], date: s
     картина в целом) + динамика главной денежной меры."""
     df[ROW_COL] = 1 if ROW_COL not in df.columns else df[ROW_COL]
     dims = [d for d in dims if df[d].nunique(dropna=True) >= 2][:2]
+    count = next((m for m in measures if m.kind == "count" and m.col == ROW_COL), None)
     money = _money_measure(measures)
     rates = [m for m in measures if m.kind == "rate"][:2]
-    picks = ([money] if money else []) + rates
+    picks = ([count] if count else []) + ([money] if money else []) + rates   # кол-во сущностей — вперёд
     out: list[AnalysisResult] = []
     for m in picks:
         dfm = _pop(df, m)                          # бизнес-скоуп: только где мера заполнена
@@ -482,6 +483,71 @@ def overview(df: pd.DataFrame, measures: list[Measure], dims: list[str], date: s
         if r:
             out.append(r)
     return out
+
+
+def focus_answer(df: pd.DataFrame, reqs: dict, measures: list[Measure], assets: Path,
+                 labels: Labels | None = None) -> list[AnalysisResult]:
+    """Раздел «Ответ на ваш запрос»: строит ровно те разбивки (показатель×разрез×агрегат),
+    что LLM извлёк из запроса пользователя — включая КОЛИЧЕСТВО задач по разрезам и СРЕДНИЕ."""
+    df[ROW_COL] = 1 if ROW_COL not in df.columns else df[ROW_COL]
+    out: list[AnalysisResult] = []
+    seen: set = set()
+    count_meas = next((m for m in measures if m.kind == "count" and m.col == ROW_COL),
+                      Measure("Количество записей", ROW_COL, "sum", "count", ""))
+    for b in reqs.get("breakdowns", [])[:8]:
+        mn, dim, agg = b["measure"], b["dim"], b["agg"]
+        if (mn, dim, agg) in seen or dim not in df.columns:
+            continue
+        seen.add((mn, dim, agg))
+        meas = count_meas if mn == "__count__" else _measure_by_name(measures, mn)
+        if meas is None:
+            continue
+        r = _bar_by_dim(df, meas, dim, agg, assets, labels)
+        if r:
+            out.append(r)
+    return out
+
+
+def _bar_by_dim(df, m: Measure, dim: str, agg: str, assets: Path, labels=None) -> AnalysisResult | None:
+    """Бар «агрегат(показатель) по разрезу». agg: count|avg|sum. Для count/sum пустые/нулевые
+    срезы отбрасываются (нет информации). Возвращает секцию фокус-ответа."""
+    if dim not in df.columns:
+        return None
+    dfx = _pop(df, m) if agg != "count" else df
+    is_rate = m.kind == "rate"
+    if agg == "count":
+        s = dfx.groupby(dim)[m.col].sum() if m.col == ROW_COL else dfx.groupby(dim)[m.col].count()
+        unit, agg_lbl, pct = "шт", "Количество", False
+    elif agg == "avg":
+        s = dfx.groupby(dim)[m.col].mean()
+        s = s * 100 if is_rate else s
+        unit, agg_lbl, pct = ("%" if is_rate else m.unit), "Среднее", is_rate
+    else:
+        s = dfx.groupby(dim)[m.col].sum()
+        unit, agg_lbl, pct = m.unit, "Всего", False
+    s = s.dropna()
+    if agg != "avg":
+        s = s[s != 0]
+    if s.empty:
+        return None
+    s = s.sort_values(ascending=False)
+    total = float(s.sum())
+    head = s.head(12)
+    tbl = head.reset_index(); tbl.columns = [dim, "v"]; tbl[dim] = tbl[dim].map(_tick)
+    fig, ax = plt.subplots(figsize=(9, max(3, 0.5 * len(tbl) + 0.6)))
+    sns.barplot(data=tbl, y=dim, x="v", ax=ax, color="#3B7DD8")
+    ax.margins(x=0.16)
+    _annot(ax, tbl["v"].tolist(), horizontal=True, pct=pct)
+    mlabel = m.label if not (agg == "count" and m.col == ROW_COL) else m.label
+    title = f"{agg_lbl}: {mlabel} по «{_ds(labels, dim)}»"
+    ax.set_title(title, fontsize=11)
+    ax.set_xlabel(unit); ax.set_ylabel(""); ax.grid(axis="x", alpha=.3)
+    chart = _save(fig, assets, f"focus_{agg}_{m.col}_{dim}")
+    facts = {"agg": agg_lbl, "measure": m.label, "dim": _dt(labels, dim),
+             "leader": fmt_val(s.index[0]), "leader_val": _fmt_unit(float(s.iloc[0]), unit),
+             "leader_share": round(float(s.iloc[0]) / total * 100, 1) if agg != "avg" and total else None,
+             "n_categories": int(s.shape[0])}
+    return AnalysisResult(f"focus_{agg}_{m.col}_{dim}", title, "focus", facts, "", chart)
 
 
 def _trend(df, date, m: Measure, assets: Path) -> AnalysisResult | None:
@@ -562,7 +628,9 @@ def headline_kpi(df: pd.DataFrame, measures: list[Measure]) -> AnalysisResult:
     rows = [("Всего записей", _fmt(len(df)))]
     for m in measures:
         try:
-            if m.kind == "rate":
+            if m.kind == "count" and m.col == ROW_COL:   # «Количество задач» — без Σ, просто число
+                rows.append((m.label, _fmt(float(df[m.col].sum()))))
+            elif m.kind == "rate":
                 rows.append((m.label, f"{df[m.col].mean()*100:.0f}%"))
             elif m.kind == "duration":
                 v = df[m.col].mean()

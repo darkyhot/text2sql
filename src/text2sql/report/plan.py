@@ -230,6 +230,45 @@ _NARRATE_SYS = (
 )
 
 
+_FOCUS_SYS = (
+    "Пользователь заказал бизнес-отчёт с КОНКРЕТНЫМ запросом. Разложи запрос на набор "
+    "разбивок, которые ПРЯМО на него отвечают. Каждая разбивка = показатель × разрез × агрегат:\n"
+    "- measure: имя показателя из списка ИЛИ \"__count__\" — количество САМИХ записей/сущностей "
+    "(бери его, когда спрашивают «сколько», «какие», распределение/состав по разрезу);\n"
+    "- dim: имя разреза из списка;\n"
+    "- agg: \"count\" (сколько записей), \"avg\" (среднее значение показателя), \"sum\" (сумма/итого).\n"
+    "Пример: «средний потенциал по территории» → {measure: потенциал, dim: территория, agg: avg}; "
+    "«источник и тип задач» → две разбивки {__count__, источник, count} и {__count__, тип, count}.\n"
+    "Бери 3-8 самых точных под запрос. Только имена из списков.\n"
+    'Верни JSON: {"question":"суть запроса одной фразой","breakdowns":[{"measure":..,"dim":..,"agg":..}]}'
+)
+
+
+def focus_plan_llm(llm, focus: str, measures, dims: list[str], labels) -> dict:
+    """Свободный текст запроса → конкретные разбивки (показатель×разрез×агрегат), которыми
+    отчёт прямо ответит. Валидируется по спискам мер/разрезов."""
+    m_list = "\n".join(f"- {m.name}: {m.label} [{m.kind}]" for m in measures)
+    m_list += "\n- __count__: количество самих записей/сущностей"
+    d_list = "\n".join(f"- {d}: {labels.of(d)}" for d in dims)
+    user = f"Запрос пользователя: {focus}\n\nПоказатели:\n{m_list}\n\nРазрезы:\n{d_list}"
+    try:
+        out = llm.complete_json(_FOCUS_SYS, user, max_tokens=2500, node="report_focus")
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("report: фокус-план не построен: %s", exc)
+        return {"question": focus, "breakdowns": []}
+    m_names = {m.name for m in measures} | {"__count__"}
+    dset = set(dims)
+    bd = []
+    for b in (out.get("breakdowns") or []):
+        if not isinstance(b, dict):
+            continue
+        mn, dn = b.get("measure"), b.get("dim")
+        ag = str(b.get("agg") or "count").lower()
+        if mn in m_names and dn in dset and ag in ("count", "avg", "sum"):
+            bd.append({"measure": mn, "dim": dn, "agg": ag})
+    return {"question": str(out.get("question") or focus).strip(), "breakdowns": bd}
+
+
 def narrate(llm, table_desc: str, focus: str, results: list[AnalysisResult]) -> tuple[list[str], list[str]]:
     # короткие id (s0, s1…) — надёжнее длинных ключей для слабых моделей.
     # Ограничиваем число секций в промпте: у больших отчётов reasoning-модель иначе

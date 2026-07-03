@@ -155,21 +155,33 @@ def inject_signals(table: str, row: dict) -> None:
         put("task_create_dt", create)
         plan = _mk_dttm(create, 7)
         put("plan_close_task_dttm", plan)
+        # БИЗНЕС-ПРАВИЛО: поля про СДЕЛКУ заполнены только для task_category='Предложение';
+        # для 'Задача' — все сделочные поля (id/даты/кол-во/потенциал) пустые (NULL).
+        DEAL_COLS = ("deal_code", "deal_create_dttm", "plan_staff_deal_qty",
+                     "fact_staff_deal_qty", "unrealized_deal_potential")
+        is_offer = random.random() < 0.5
+        put("task_category", "Предложение" if is_offer else "Задача")
+        if is_offer:
+            put("deal_create_dttm", _mk_dttm(create, random.randint(1, 20)))
+            put("plan_staff_deal_qty", random.randint(1, 20))
+            put("fact_staff_deal_qty", random.randint(0, 20))
+            put("unrealized_deal_potential", random.randint(0, 6000))
+        else:
+            for k in DEAL_COLS:
+                put(k, None)
         r = random.random()
         if r < 0.10:                       # горячий срез: просрочка, низкий успех
             put("tb_name", "Московский банк"); put("gosb_name", "Свердловское ГОСБ № 7003")
             put("segment_name", "Микро"); put("task_type", "Отток")
-            put("task_subtype", "Фактический отток"); put("task_category", "Задача")
+            put("task_subtype", "Фактический отток")
             put("is_task_closed", True); put("is_task_in_progress", False)
             put("is_task_closed_success", random.random() < 0.15)
             put("fact_close_task_dttm", plan + dt.timedelta(days=random.randint(5, 30)))  # просрочка
             put("emp_fio", random.choice(HOT_EMP))
-            put("unrealized_deal_potential", random.randint(1000, 8000))
-        elif r < 0.13:                     # денежный перекос: мало задач, огромный потенциал
+        elif r < 0.13 and is_offer:        # перекос потенциала: мало предложений, огромный потенциал
             put("segment_name", "Крупнейшие"); put("task_type", "Привлечение")
             put("unrealized_deal_potential", random.randint(40_000, 90_000))
             put("is_task_closed", random.random() < 0.6)
-            put("is_task_closed_success", random.random() < 0.5)
             put("fact_close_task_dttm", plan - dt.timedelta(days=random.randint(0, 3)))
         else:                              # база: обычно в срок, успех ~55%
             put("is_task_closed", random.random() < 0.7)
@@ -178,7 +190,6 @@ def inject_signals(table: str, row: dict) -> None:
             put("fact_close_task_dttm",
                 plan + dt.timedelta(days=random.randint(1, 10)) if late
                 else plan - dt.timedelta(days=random.randint(0, 4)))
-            put("unrealized_deal_potential", random.randint(0, 6000))
 
     elif table == "uzp_dwh_fact_outflow":
         r = random.random()

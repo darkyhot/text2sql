@@ -23,29 +23,30 @@ _MONTHS = {1: "январь", 2: "февраль", 3: "март", 4: "апрел
            7: "июль", 8: "август", 9: "сентябрь", 10: "октябрь", 11: "ноябрь", 12: "декабрь"}
 
 
-def detect_all(df: pd.DataFrame, roles: Roles, assets) -> list[AnalysisResult]:
+def detect_all(df: pd.DataFrame, roles: Roles, assets, labels=None) -> list[AnalysisResult]:
     out: list[AnalysisResult] = []
+    lab = (lambda c: labels.of(c)) if labels is not None else (lambda c: c)
     date = roles.dates[0] if roles.dates else None
     entity = roles.entities[0] if roles.entities else None
     metric = roles.metrics[0] if roles.metrics else None
     if date and entity:
         for det in (seasonality, repeat_churn):   # new_and_gone убран: для event-таблиц
             try:                                   # («ушедшие клиенты») «новые» вводят в заблуждение
-                r = det(df, date, entity, assets)
+                r = det(df, date, entity, assets, lab(entity))
                 if r:
                     out.append(r)
             except Exception:  # noqa: BLE001
                 pass
     if date and metric:
         try:
-            r = spikes(df, date, metric, assets)
+            r = spikes(df, date, metric, assets, lab(metric))
             if r:
                 out.append(r)
         except Exception:  # noqa: BLE001
             pass
     if entity and metric:
         try:
-            r = anomalous_leader(df, entity, metric)
+            r = anomalous_leader(df, entity, metric, lab(entity), lab(metric))
             if r:
                 out.append(r)
         except Exception:  # noqa: BLE001
@@ -53,7 +54,8 @@ def detect_all(df: pd.DataFrame, roles: Roles, assets) -> list[AnalysisResult]:
     return out
 
 
-def seasonality(df, date, entity, assets) -> AnalysisResult | None:
+def seasonality(df, date, entity, assets, label=None) -> AnalysisResult | None:
+    label = label or entity
     d = pd.DataFrame({entity: df[entity], "_d": pd.to_datetime(df[date], errors="coerce")}).dropna()
     d["y"], d["m"] = d["_d"].dt.year, d["_d"].dt.month
     if d["y"].nunique() < 2:
@@ -86,11 +88,12 @@ def seasonality(df, date, entity, assets) -> AnalysisResult | None:
              "share_pct": round(ent_seasonal / total * 100, 1), "peak_month": _MONTHS[top_month],
              "peak_month_count": int(by_month.iloc[0]), "examples": examples,
              "entity_col": entity}
-    return AnalysisResult(f"season_{entity}", f"🔁 Сезонность по «{entity}»", "pattern", facts,
+    return AnalysisResult(f"season_{entity}", f"🔁 Сезонность по «{label}»", "pattern", facts,
                           _md_table(tbl.head(8), []), chart)
 
 
-def repeat_churn(df, date, entity, assets) -> AnalysisResult | None:
+def repeat_churn(df, date, entity, assets, label=None) -> AnalysisResult | None:
+    label = label or entity
     d = pd.DataFrame({entity: df[entity], "_p": pd.to_datetime(df[date], errors="coerce").dt.to_period("M")}).dropna()
     per_ent = d.groupby(entity)["_p"].nunique()
     total = len(per_ent)
@@ -106,7 +109,7 @@ def repeat_churn(df, date, entity, assets) -> AnalysisResult | None:
     facts = {"repeat_count": repeat, "total_entities": total, "repeat_share_pct": share,
              "max_periods": int(per_ent.max()), "top_repeater": str(per_ent.idxmax()),
              "entity_col": entity}
-    return AnalysisResult(f"repeat_{entity}", f"🔂 Повторяемость по «{entity}»", "pattern", facts,
+    return AnalysisResult(f"repeat_{entity}", f"🔂 Повторяемость по «{label}»", "pattern", facts,
                           _md_table(tbl, []), None)
 
 
@@ -127,7 +130,8 @@ def new_and_gone(df, date, entity, assets) -> AnalysisResult | None:
     return AnalysisResult(f"newgone_{entity}", f"🆕 Новые и ушедшие «{entity}»", "pattern", facts, "", None)
 
 
-def spikes(df, date, metric, assets) -> AnalysisResult | None:
+def spikes(df, date, metric, assets, label=None) -> AnalysisResult | None:
+    label = label or metric
     agg = agg_for(metric)
     d = pd.DataFrame({"_d": pd.to_datetime(df[date], errors="coerce"), metric: df[metric]}).dropna()
     ts = d.set_index("_d").resample("MS")[metric].agg(agg).dropna()
@@ -150,10 +154,11 @@ def spikes(df, date, metric, assets) -> AnalysisResult | None:
         low = down.idxmin()
         facts.update({"dip_period": low.strftime("%Y-%m"), "dip_ratio": round(float(down.min()), 2),
                       "dip_value": _fmt(ts.loc[low])})
-    return AnalysisResult(f"spikes_{metric}", f"📈 Всплески и провалы «{metric}»", "pattern", facts, "", None)
+    return AnalysisResult(f"spikes_{metric}", f"📈 Всплески и провалы «{label}»", "pattern", facts, "", None)
 
 
-def anomalous_leader(df, entity, metric) -> AnalysisResult | None:
+def anomalous_leader(df, entity, metric, ent_label=None, met_label=None) -> AnalysisResult | None:
+    ent_label = ent_label or entity; met_label = met_label or metric
     agg = agg_for(metric)
     g = df.groupby(entity)[metric].agg(agg).sort_values(ascending=False)
     if len(g) < 5:
@@ -167,4 +172,4 @@ def anomalous_leader(df, entity, metric) -> AnalysisResult | None:
     facts = {"leader": str(g.index[0]), "leader_value": _fmt(g.iloc[0]),
              "median_value": _fmt(med), "times_above_median": round(float(ratio), 1),
              "entity_col": entity, "metric": metric}
-    return AnalysisResult(f"anomlead_{entity}_{metric}", f"🚩 Аномальный лидер по «{entity}»", "pattern", facts, "", None)
+    return AnalysisResult(f"anomlead_{entity}_{metric}", f"🚩 Аномальный лидер по «{ent_label}»", "pattern", facts, "", None)

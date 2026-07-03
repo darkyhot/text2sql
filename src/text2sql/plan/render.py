@@ -26,6 +26,17 @@ def _is_expr(s: str) -> bool:
     return bool(_EXPR_RE.search(s or ""))
 
 
+# Признак АГРЕГАТ-выражения (SUM(...), COUNT(...), AVG(...)…) — но НЕ оконного
+# (…OVER(…)): агрегаты живут только в metrics. Такая запись в GROUP BY невалидна,
+# в SELECT — дублирует метрику. Оконные функции идут через raw-SQL, здесь их нет.
+_AGG_EXPR_RE = re.compile(r"\b(sum|avg|min|max|count)\s*\(", re.I)
+
+
+def _is_agg_expr(s: str) -> bool:
+    s = s or ""
+    return bool(_AGG_EXPR_RE.search(s)) and not re.search(r"\bover\b", s, re.I)
+
+
 def _q(db: DbAdapter, dotted: str) -> str:
     """'alias.col' → закавыченный идентификатор; ВЫРАЖЕНИЕ → как есть."""
     dotted = (dotted or "").strip()
@@ -146,13 +157,15 @@ def normalize_plan(plan: StructuredPlan) -> StructuredPlan:
        иначе СУБД падает с GroupingError. Добавляем их в group_by.
     2. Измерения из GROUP BY должны быть видимы в SELECT — добавляем как проекции,
        чтобы пользователь видел разрезы, а не голые агрегаты."""
-    # 0. Убрать вырождение «сколько X»: projection/group_by, совпадающие с агрегируемой
-    #    колонкой (напр. SELECT task_code, COUNT(DISTINCT task_code) GROUP BY task_code
-    #    → должно быть просто COUNT(DISTINCT task_code)).
+    # 0. Убрать вырождение: (а) projection/group_by, совпадающие с агрегируемой колонкой
+    #    (SELECT task_code, COUNT(DISTINCT task_code) GROUP BY task_code → просто COUNT);
+    #    (б) записи, САМИ являющиеся агрегатом (SUM(...), COUNT(...)): в GROUP BY они
+    #    невалидны (СУБД падает), в SELECT — дублируют метрику. Агрегаты живут в metrics.
     metric_cols = {m.column for m in plan.metrics if m.agg != "none" and m.column and m.column != "*"}
-    if metric_cols:
-        plan.projections = [p for p in plan.projections if p.column not in metric_cols]
-        plan.group_by = [c for c in plan.group_by if c not in metric_cols]
+    plan.projections = [p for p in plan.projections
+                        if p.column not in metric_cols and not _is_agg_expr(p.column)]
+    plan.group_by = [c for c in plan.group_by
+                     if c not in metric_cols and not _is_agg_expr(c)]
 
     has_agg = any(m.agg != "none" for m in plan.metrics)
     if has_agg:
@@ -165,6 +178,16 @@ def normalize_plan(plan: StructuredPlan) -> StructuredPlan:
     missing = [c for c in plan.group_by if c not in projected and c not in metric_cols]
     if missing:
         plan.projections = [Projection(column=c) for c in missing] + plan.projections
+
+    # дедуп проекций (по column+alias) и group_by — на случай повторов от LLM
+    seen: set = set()
+    dedup: list[Projection] = []
+    for p in plan.projections:
+        key = (p.column, p.alias)
+        if key not in seen:
+            seen.add(key); dedup.append(p)
+    plan.projections = dedup
+    plan.group_by = list(dict.fromkeys(plan.group_by))
     return plan
 
 

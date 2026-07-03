@@ -12,7 +12,7 @@ from pathlib import Path
 import pandas as pd
 
 from ..config import PATHS
-from . import core, metrics, mining, patterns, plan
+from . import core, labels, metrics, mining, patterns, plan
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +45,11 @@ def _load(db, schema: str, table: str, where: str | None, columns: list[str] | N
             nn = df[c].notna().sum()
             if nn and conv.notna().sum() >= nn * 0.9:
                 df[c] = conv
+        # целочисленные колонки держим как Int64 (иначе id «плывёт» в 9038.0 из-за NaN)
+        if pd.api.types.is_float_dtype(df[c]):
+            s = df[c].dropna()
+            if len(s) and (s % 1 == 0).all():
+                df[c] = df[c].astype("Int64")
     return df
 
 
@@ -64,12 +69,18 @@ def build_business_report(db, catalog, llm, fqn: str, *, where: str | None = Non
     schema, table = fqn.split(".", 1)
     out_dir = out_dir or PATHS.workspace_dir
     assets = out_dir / "report_assets" / table   # своя папка на таблицу (не перетирает)
+    if assets.exists():                            # чистим старые PNG (не мешаем новым)
+        import shutil
+        shutil.rmtree(assets, ignore_errors=True)
 
     progress("загружаю данные…")
     df = _load(db, schema, table, where, _load_columns(catalog, fqn))
     if df.empty:
         raise ValueError("По заданному фильтру нет данных.")
     table_desc, meta = _meta_for(catalog, fqn)
+
+    progress("готовлю бизнес-подписи колонок…")
+    lbls = labels.build_labels_llm(llm, table_desc, meta, list(df.columns))
 
     progress("профилирую колонки (роли, главные метрики)…")
     # LLM-first профилирование (роли колонок по смыслу); regex-эвристика — фолбэк
@@ -85,7 +96,7 @@ def build_business_report(db, catalog, llm, fqn: str, *, where: str | None = Non
         if (c not in roles.entities and c not in roles.dimensions
                 and core._ENTITY_RE.search(c) and df[c].nunique(dropna=True) > 10):
             roles.entities.append(c); roles.card[c] = int(df[c].nunique(dropna=True))
-    roles.entities = core._dedup_id_name(roles.entities)
+    core.normalize_roles(roles)     # свернуть id↔name (оставить name) в dims и entities
 
     # явный фокус: колонки, названные пользователем, поднимаем в начало
     focus_dims: list[str] = []
@@ -101,27 +112,32 @@ def build_business_report(db, catalog, llm, fqn: str, *, where: str | None = Non
     progress("вывожу производные показатели (закрытие, просрочка, срок, деньги)…")
     behav_defs = metrics.build_behaviors_llm(llm, table_desc, df, meta)
     measures = metrics.build_derived(df, behav_defs, meta)
-    metrics.money_from_metrics(df, meta, measures, roles.metrics)   # деньги — только уверенно
+    metrics.money_from_metrics(df, meta, measures, roles.metrics, lbls)   # деньги — только уверенно
     if not measures:
         raise ValueError("Не удалось определить показатели для аналитики.")
     date = roles.dates[0] if roles.dates else None
+    scope = mining.scope_notes(df, measures, roles.dimensions, lbls)      # условная заполненность
 
     progress("считаю обзорные разрезы и динамику…")
     results = [mining.headline_kpi(df, measures)]
-    results += mining.overview(df, measures, roles.dimensions, date, assets)
+    results += mining.overview(df, measures, roles.dimensions, date, assets, lbls)
 
     progress("кручу разрезы: ищу аномалии, концентрацию, перекос деньги/количество…")
     findings = mining.mine(df, measures, roles.dimensions, roles.entities, assets,
-                           focus_dims=focus_dims or None)
+                           focus_dims=focus_dims or None, labels=lbls)
     mined_results = [mining.finding_to_result(f) for f in findings]
     section_of = {mining.finding_to_result(f).key: mining.section_for(f) for f in findings}
     results += mined_results
 
+    progress("считаю рейтинги по сущностям (сотрудники, клиенты, ИНН)…")
+    results += mining.entity_ratings(df, roles.entities, measures, assets, lbls)
+
     progress("ищу закономерности во времени…")
-    results += patterns.detect_all(df, roles, assets)
+    results += patterns.detect_all(df, roles, assets, lbls)
 
     progress("пишу выводы бизнес-языком…")
     summary, attention = plan.narrate(llm, table_desc, focus, [r for r in results if r.key != "kpi"])
+    attention = scope + attention          # скоуп-заметки — впереди «на что обратить внимание»
     angle = ""
 
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -144,6 +160,7 @@ _SECTION_ORDER = [
     "💰 Где сосредоточены деньги и объёмы",
     "⚖️ Ценность важнее количества",
     "🚨 Аномальные срезы",
+    "👥 Ключевые игроки: сотрудники, клиенты, ИНН",
     "🔍 Закономерности во времени",
 ]
 
@@ -151,6 +168,8 @@ _SECTION_ORDER = [
 def _section_of_result(r, section_of: dict) -> str:
     if r.kind == "overview":
         return "📈 Обзор по показателям"
+    if r.kind == "entity":
+        return "👥 Ключевые игроки: сотрудники, клиенты, ИНН"
     if r.kind == "pattern":
         return "🔍 Закономерности во времени"
     if r.kind == "mined":

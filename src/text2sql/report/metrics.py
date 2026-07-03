@@ -23,11 +23,23 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class Measure:
-    name: str          # человекочитаемое: «Просрочка закрытия», «Отток в деньгах»
+    name: str          # идентификатор меры: «Просрочка закрытия» или имя колонки
     col: str           # колонка в df (существующая или производная)
     agg: str           # sum | mean
     kind: str          # money | count | rate | duration | value
     unit: str          # ₽ | шт | % | дн
+    label: str = ""    # бизнес-подпись для показа (по умолчанию = name)
+    tech: str = ""     # техническое имя колонки для «подпись (tech)»; "" если синтетическая
+
+    def __post_init__(self):
+        if not self.label:
+            self.label = self.name
+
+    def title(self) -> str:
+        """«Подпись (tech)» — если есть техническое имя-источник; иначе просто подпись."""
+        if self.tech and self.label.lower() != self.tech.lower():
+            return f"{self.label} ({self.tech})"
+        return self.label
 
 
 ROW_COL = "__row"       # техническая колонка-единица (для count по строкам)
@@ -169,10 +181,11 @@ def _looks_money(df: pd.DataFrame, col: str, desc: str) -> bool:
 
 
 def money_from_metrics(df: pd.DataFrame, roles_meta: dict[str, dict], measures: list[Measure],
-                       metric_cols: list[str]) -> None:
+                       metric_cols: list[str], labels=None) -> None:
     """Числовые колонки → меры. Проценты → доля (mean, %). Деньги (₽) — только при
     уверенности (_looks_money); остальные — count без валюты. avg/среднее → агрегат mean
     (не суммируем средние/проценты как «итог»)."""
+    lab = (lambda c: labels.of(c)) if labels is not None else (lambda c: c)
     have = {m.col for m in measures}
     for c in metric_cols:
         if c in have or c not in df.columns:
@@ -185,10 +198,10 @@ def money_from_metrics(df: pd.DataFrame, roles_meta: dict[str, dict], measures: 
             if float(s.dropna().abs().max() or 0) > 1.5:      # шкала 0..100 → 0..1
                 col = f"__perc_{c}"
                 df[col] = s / 100.0
-            measures.append(Measure(c, col, "mean", "rate", "%"))
+            measures.append(Measure(c, col, "mean", "rate", "%", label=lab(c), tech=c))
             continue
         is_money = _looks_money(df, c, desc)
         agg = "mean" if (_AVG_RE.search(c) or _AVG_RE.search(desc)) else "sum"
         kind = "money" if is_money else "count"
         unit = "₽" if is_money else ""
-        measures.append(Measure(c, c, agg, kind, unit))
+        measures.append(Measure(c, c, agg, kind, unit, label=lab(c), tech=c))

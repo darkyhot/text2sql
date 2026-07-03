@@ -33,9 +33,18 @@ import pandas as pd
 import seaborn as sns
 
 from .core import AnalysisResult, _fmt, _save
+from .labels import Labels, fmt_val
 from .metrics import Measure, ROW_COL
 
 logger = logging.getLogger(__name__)
+
+
+def _dt(labels: Labels | None, d: str) -> str:      # «подпись (col)» для заголовка
+    return labels.col_title(d) if labels else d
+
+
+def _ds(labels: Labels | None, d: str) -> str:      # короткая подпись разреза
+    return labels.of(d) if labels else d
 
 
 @dataclass
@@ -43,7 +52,7 @@ class Finding:
     kind: str                       # rate_dev | interaction | money_conc | value_mismatch
     measure: str
     unit: str
-    dims: list[str]
+    dims: list[str]                 # РЕАЛЬНЫЕ имена колонок-разрезов (для маски среза)
     title: str
     facts: dict
     score: float
@@ -52,6 +61,7 @@ class Finding:
     chart: str | None = None
     drill_md: str = ""
     key: str = ""
+    slice_vals: list = field(default_factory=list)   # СЫРЫЕ значения среза (для маски)
 
 
 def _money_measure(measures: list[Measure]) -> Measure | None:
@@ -68,7 +78,8 @@ def _fmt_unit(v: float, unit: str) -> str:
 
 
 def mine(df: pd.DataFrame, measures: list[Measure], dims: list[str], entities: list[str],
-         assets: Path, *, focus_dims: list[str] | None = None) -> list[Finding]:
+         assets: Path, *, focus_dims: list[str] | None = None,
+         labels: Labels | None = None) -> list[Finding]:
     """Полный майнинг. Возвращает отобранные находки (уже отранжированы, дедуп)."""
     n = len(df)
     if n == 0 or not dims:
@@ -90,30 +101,65 @@ def mine(df: pd.DataFrame, measures: list[Measure], dims: list[str], entities: l
     findings: list[Finding] = []
     # 1) rate/duration-отклонения по одиночным разрезам
     for m in rate_measures:
-        findings += _rate_deviations(df, m, dims, min_rows, weight, total_w)
-    # 2) концентрация денег/объёма
+        findings += _rate_deviations(df, m, dims, min_rows, weight, total_w, labels)
+    # 2) концентрация денег/объёма (по подмножеству, где мера заполнена — бизнес-скоуп)
     for m in val_measures[:3]:
-        findings += _money_concentration(df, m, dims)
+        findings += _money_concentration(_pop(df, m), m, dims, labels)
     # 3) перекос значимость vs количество (мал по строкам, крупный по деньгам/объёму)
     if weight is not None:
-        findings += _value_mismatch(df, weight, dims, min_rows, total_w)
+        findings += _value_mismatch(_pop(df, weight), weight, dims, min_rows, labels)
     # 4) 2D-взаимодействия — только по rate/duration («хуже, чем ждали» осмысленно
     #    для долей/сроков; для сумм это шум — их закрывают концентрация и перекос)
     top_dims = (focus_dims or []) + [d for d in dims if d not in (focus_dims or [])]
     for m in rate_measures[:3]:
-        findings += _interactions_2d(df, m, top_dims[:5], min_rows, weight, total_w)
+        findings += _interactions_2d(df, m, top_dims[:5], min_rows, weight, total_w, labels)
 
     findings = _select(findings)
     # 5) drill по сущностям внутри горячих срезов (только для отобранных топ-4)
     for f in findings[:4]:
-        f.drill_md = _drill(df, f, entities, weight, measures)
+        f.drill_md = _drill(df, f, entities, weight, measures, labels)
     for f in findings:
-        f.chart = _chart(df, f, measures, assets)
+        f.chart = _chart(df, f, measures, assets, labels)
     return findings
 
 
+def _pop(df: pd.DataFrame, m: Measure) -> pd.DataFrame:
+    """Подмножество строк, где мера ЗАПОЛНЕНА (бизнес-скоуп): если у меры значимая доля
+    пустых, анализируем только там, где она есть (напр. потенциал — только Предложения)."""
+    if m is None or m.col not in df.columns:
+        return df
+    na = df[m.col].isna().mean()
+    return df[df[m.col].notna()] if na > 0.05 else df
+
+
+def scope_notes(df: pd.DataFrame, measures: list[Measure], dims: list[str],
+                labels: Labels | None = None) -> list[str]:
+    """Бизнес-скоуп показателей: если метрика заполнена ТОЛЬКО для части значений некой
+    категории (потенциал — только для Предложения), фиксируем это заметкой. Детерминированно,
+    без хардкода: категория «делит» метрику на пусто/заполнено."""
+    notes: list[str] = []
+    low_dims = [d for d in dims if d in df.columns and 2 <= df[d].nunique(dropna=True) <= 15]
+    for m in measures:
+        if m.kind not in ("money", "count", "value") or m.col not in df.columns:
+            continue
+        na = df[m.col].isna().mean()
+        if na < 0.1:                          # заполнена почти везде — не условная
+            continue
+        notnull = df[m.col].notna()
+        for d in low_dims:
+            frac = notnull.groupby(df[d]).mean()
+            populated = frac[frac >= 0.5].index.tolist()
+            empty = frac[frac <= 0.05].index.tolist()
+            if populated and empty:           # категория делит на заполнено/пусто
+                vals = ", ".join(fmt_val(v) for v in populated[:4])
+                notes.append(f"«{m.label}» заполнен только для «{_ds(labels, d)}» = {vals} — "
+                             f"анализирую этот показатель только по ним.")
+                break
+    return notes
+
+
 # ---------- детекторы ----------
-def _rate_deviations(df, m: Measure, dims, min_rows, weight, total_w) -> list[Finding]:
+def _rate_deviations(df, m: Measure, dims, min_rows, weight, total_w, labels=None) -> list[Finding]:
     overall = float(df[m.col].mean())
     if not np.isfinite(overall):
         return []
@@ -143,20 +189,20 @@ def _rate_deviations(df, m: Measure, dims, min_rows, weight, total_w) -> list[Fi
             direction = "выше" if gap > 0 else "ниже"
             out.append(Finding(
                 kind="rate_dev", measure=m.name, unit=m.unit, dims=[d],
-                title=f"«{d}»: {m.name} отклоняется от среднего",
-                facts={"dim": d, "slice": str(name), "value": _fmt_unit(val, m.unit),
+                title=f"{m.title()} по «{_dt(labels, d)}»: отклонение от среднего",
+                facts={"dim": _dt(labels, d), "slice": fmt_val(name), "value": _fmt_unit(val, m.unit),
                        "overall": _fmt_unit(overall, m.unit), "lift": round(lift, 2),
                        "direction": direction, "n_rows": nrows,
                        "weight": _fmt_unit(slice_w, weight.unit) if weight is not None else None,
-                       "weight_name": weight.name if weight is not None else None,
+                       "weight_name": weight.label if weight is not None else None,
                        "is_money": is_money},
-                score=float(score), n_rows=nrows,
+                score=float(score), n_rows=nrows, slice_vals=[name],
                 money=slice_w if is_money else None,
                 key=f"rate|{m.name}|{d}|{name}"))
     return out
 
 
-def _money_concentration(df, m: Measure, dims) -> list[Finding]:
+def _money_concentration(df, m: Measure, dims, labels=None) -> list[Finding]:
     out: list[Finding] = []
     for d in dims:
         g = df.groupby(d)[m.col].sum().sort_values(ascending=False)
@@ -172,22 +218,24 @@ def _money_concentration(df, m: Measure, dims) -> list[Finding]:
         score = top_share * 3 + (1 - n80 / len(g))
         out.append(Finding(
             kind="money_conc", measure=m.name, unit=m.unit, dims=[d],
-            title=f"Концентрация «{m.name}» по «{d}»",
-            facts={"dim": d, "leader": str(g.index[0]), "leader_val": _fmt_unit(float(g.iloc[0]), m.unit),
+            title=f"Концентрация «{m.title()}» по «{_dt(labels, d)}»",
+            facts={"dim": _dt(labels, d), "leader": fmt_val(g.index[0]),
+                   "leader_val": _fmt_unit(float(g.iloc[0]), m.unit),
                    "leader_share": round(top_share * 100, 1), "n_for_80": n80,
                    "total_categories": len(g), "unit": m.unit},
             score=float(score), money=float(g.iloc[0]) if m.kind == "money" else None,
-            key=f"conc|{m.name}|{d}"))
+            slice_vals=[g.index[0]], key=f"conc|{m.name}|{d}"))
     return out
 
 
-def _value_mismatch(df, weight: Measure, dims, min_rows, total_w) -> list[Finding]:
+def _value_mismatch(df, weight: Measure, dims, min_rows, labels=None) -> list[Finding]:
     """Срезы, где доля ЗНАЧИМОСТИ (деньги/объём) существенно выше доли КОЛИЧЕСТВА строк —
     мал по людям/строкам, но крупный по деньгам/объёму (высокая ценность на единицу)."""
+    total_w = float(df[weight.col].sum())
     if total_w <= 0:
         return []
     is_money = weight.kind == "money"
-    noun = "деньгам" if is_money else f"«{weight.name}»"
+    noun = "деньгам" if is_money else f"«{weight.label}»"
     total_rows = len(df)
     out: list[Finding] = []
     for d in dims:
@@ -202,20 +250,20 @@ def _value_mismatch(df, weight: Measure, dims, min_rows, total_w) -> list[Findin
         for name, row in cand.head(3).iterrows():
             out.append(Finding(
                 kind="value_mismatch", measure=weight.name, unit=weight.unit, dims=[d],
-                title=f"«{d}»: {name} — мал по количеству, крупный по {noun}",
-                facts={"dim": d, "slice": str(name), "is_money": is_money,
-                       "weight_name": weight.name,
+                title=f"«{fmt_val(name)}» ({_ds(labels, d)}) — мал по количеству, крупный по {noun}",
+                facts={"dim": _dt(labels, d), "slice": fmt_val(name), "is_money": is_money,
+                       "weight_name": weight.label,
                        "weight": _fmt_unit(float(row["w"]), weight.unit),
                        "w_share": round(float(row["w_share"]) * 100, 1),
                        "cnt_share": round(float(row["cnt_share"]) * 100, 1),
                        "ratio": round(float(row["ratio"]), 1), "n_rows": int(row["n"])},
                 score=float(row["ratio"]) * float(row["w_share"]) * 4,
                 n_rows=int(row["n"]), money=float(row["w"]) if is_money else None,
-                key=f"mismatch|{weight.name}|{d}|{name}"))
+                slice_vals=[name], key=f"mismatch|{weight.name}|{d}|{name}"))
     return out
 
 
-def _interactions_2d(df, m: Measure, dims, min_rows, weight, total_w) -> list[Finding]:
+def _interactions_2d(df, m: Measure, dims, min_rows, weight, total_w, labels=None) -> list[Finding]:
     """Пара разрезов, где показатель СИЛЬНЕЕ, чем предсказывают одиночные эффекты
     (мультипликативная модель). Это настоящая аномалия сочетания."""
     if len(dims) < 2:
@@ -259,13 +307,14 @@ def _interactions_2d(df, m: Measure, dims, min_rows, weight, total_w) -> list[Fi
             score = abs(inter - 1) * np.log1p(material * 100) * 2.5
             out.append(Finding(
                 kind="interaction", measure=m.name, unit=m.unit, dims=[da, db],
-                title=f"Аномальное сочетание: «{va}» × «{vb}» — {m.name}",
-                facts={"dim_a": da, "val_a": str(va), "dim_b": db, "val_b": str(vb),
+                title=f"Аномальное сочетание: «{fmt_val(va)}» × «{fmt_val(vb)}» — {m.title()}",
+                facts={"dim_a": _dt(labels, da), "val_a": fmt_val(va),
+                       "dim_b": _dt(labels, db), "val_b": fmt_val(vb),
                        "value": _fmt_unit(val, m.unit), "overall": _fmt_unit(overall, m.unit),
                        "vs_expected": round(inter, 2), "n_rows": nrows,
                        "weight": _fmt_unit(slice_w, weight.unit) if weight is not None else None,
-                       "weight_name": weight.name if weight is not None else None},
-                score=float(score), n_rows=nrows,
+                       "weight_name": weight.label if weight is not None else None},
+                score=float(score), n_rows=nrows, slice_vals=[va, vb],
                 money=slice_w if is_money else None,
                 key=f"inter|{m.name}|{da}|{va}|{db}|{vb}"))
     return out
@@ -299,7 +348,7 @@ def _select(findings: list[Finding], *, total=14) -> list[Finding]:
 
 # ---------- drill по сущностям ----------
 def _drill(df, f: Finding, entities: list[str], weight: Measure | None,
-           measures: list[Measure]) -> str:
+           measures: list[Measure], labels=None) -> str:
     """Кто внутри горячего среза создаёт эффект. Для доли/срока ранжируем по ЧИСЛУ
     «проблемных» случаев (кто даёт больше всего просрочек), иначе — по мере значимости
     (деньгам/объёму). Из сущностей берём самую концентрированную (ТОП-5 объясняет больше)."""
@@ -316,10 +365,10 @@ def _drill(df, f: Finding, entities: list[str], weight: Measure | None,
             continue
         if is_rate and meas.kind == "rate":
             g = sub.groupby(ent)[meas.col].sum().sort_values(ascending=False)   # число случаев
-            val_name, unit = f"{meas.name}, случаев", "шт"
+            val_name, unit = f"{meas.label}, случаев", "шт"
         elif weight is not None:
             g = sub.groupby(ent)[weight.col].sum().sort_values(ascending=False)
-            val_name, unit = weight.name, weight.unit
+            val_name, unit = weight.label, weight.unit
         else:
             g = sub.groupby(ent).size().sort_values(ascending=False)
             val_name, unit = "количество", "шт"
@@ -333,23 +382,21 @@ def _drill(df, f: Finding, entities: list[str], weight: Measure | None,
     if best is None:
         return ""
     share, ent, topk, val_name, unit = best
-    lines = [f"Внутри этого среза ТОП-{len(topk)} по «{ent}» дают {share:.0f}% ({val_name}):", "",
-             f"| {ent} | {val_name} |", "|---|---|"]
+    ent_lbl = _ds(labels, ent)
+    lines = [f"Внутри этого среза ТОП-{len(topk)} по «{ent_lbl}» дают {share:.0f}% ({val_name}):", "",
+             f"| {ent_lbl} | {val_name} |", "|---|---|"]
     for name, v in topk.items():
-        lines.append(f"| {str(name)[:40]} | {_fmt_unit(float(v), unit)} |")
+        lines.append(f"| {fmt_val(name)} | {_fmt_unit(float(v), unit)} |")
     return "\n".join(lines)
 
 
 def _slice_mask(df, f: Finding) -> pd.Series:
+    """Маска строк среза — по РЕАЛЬНЫМ колонкам (f.dims) и СЫРЫМ значениям (f.slice_vals),
+    а не по отформатированным подписям."""
     m = pd.Series(True, index=df.index)
-    fa = f.facts
-    if f.kind == "interaction":
-        m &= df[fa["dim_a"]].astype(str) == fa["val_a"]
-        m &= df[fa["dim_b"]].astype(str) == fa["val_b"]
-    elif "slice" in fa and f.dims:
-        m &= df[f.dims[0]].astype(str) == fa["slice"]
-    elif "leader" in fa and f.dims:
-        m &= df[f.dims[0]].astype(str) == fa["leader"]
+    for col, val in zip(f.dims, f.slice_vals):
+        if col in df.columns:
+            m &= df[col].astype(str) == str(val)
     return m
 
 
@@ -400,7 +447,7 @@ def section_for(f: Finding) -> str:
 
 
 def overview(df: pd.DataFrame, measures: list[Measure], dims: list[str], date: str | None,
-             assets: Path) -> list[AnalysisResult]:
+             assets: Path, labels: Labels | None = None) -> list[AnalysisResult]:
     """Обзорные разрезы: главные показатели по 1-2 основным разрезам (не аномалии, а
     картина в целом) + динамика главной денежной меры."""
     df[ROW_COL] = 1 if ROW_COL not in df.columns else df[ROW_COL]
@@ -410,15 +457,20 @@ def overview(df: pd.DataFrame, measures: list[Measure], dims: list[str], date: s
     picks = ([money] if money else []) + rates
     out: list[AnalysisResult] = []
     for m in picks:
+        dfm = _pop(df, m)                          # бизнес-скоуп: только где мера заполнена
         for d in dims:
+            if dfm[d].nunique(dropna=True) < 2:    # после скоупа разрез мог схлопнуться
+                continue
+            title = f"{m.title()} по «{_dt(labels, d)}»"
             f = Finding(kind="rate_dev" if m.kind == "rate" else "money_conc", measure=m.name,
-                        unit=m.unit, dims=[d], title=f"{m.name} по «{d}»", facts={"dim": d}, score=0)
-            chart = _bar_vs_baseline(df, f, measures, assets)
+                        unit=m.unit, dims=[d], title=title, facts={"dim": d}, score=0)
+            chart = _bar_vs_baseline(dfm, f, measures, assets, labels)
             if chart:
-                out.append(AnalysisResult(f"ovw_{m.col}_{d}", f"{m.name} по «{d}»", "overview",
-                                          {"measure": m.name, "dim": d, "unit": m.unit}, "", chart))
+                out.append(AnalysisResult(f"ovw_{m.col}_{d}", title, "overview",
+                                          {"measure": m.label, "dim": _dt(labels, d), "unit": m.unit},
+                                          "", chart))
     if date and money is not None:
-        r = _trend(df, date, money, assets)
+        r = _trend(_pop(df, money), date, money, assets)
         if r:
             out.append(r)
     return out
@@ -433,8 +485,9 @@ def _trend(df, date, m: Measure, assets: Path) -> AnalysisResult | None:
         return None
     fig, ax = plt.subplots(figsize=(9, 4))
     sns.lineplot(x=ts.index, y=ts.values, marker="o", ax=ax, color="#2E8B57")
-    ax.set_title(f"Динамика: {m.name} по месяцам")
+    ax.set_title(f"Динамика: {m.label} по месяцам")
     ax.set_xlabel(""); ax.set_ylabel(m.unit)
+    ax.grid(True, alpha=.3)
     chart = _save(fig, assets, f"trend_{m.col}")
     first, last = float(ts.iloc[0]), float(ts.iloc[-1])
     growth = ((last - first) / abs(first) * 100) if first else 0
@@ -444,6 +497,57 @@ def _trend(df, date, m: Measure, assets: Path) -> AnalysisResult | None:
     return AnalysisResult(f"trend_{m.col}", f"Динамика «{m.name}»", "overview", facts, "", chart)
 
 
+def entity_ratings(df: pd.DataFrame, entities: list[str], measures: list[Measure],
+                   assets: Path, labels: Labels | None = None) -> list[AnalysisResult]:
+    """Рейтинги по КАЖДОЙ ключевой сущности (сотрудник/менеджер, ИНН/клиент, компания):
+    ТОП по деньгам/объёму + концентрация. Так ИНН и клиенты точно получают аналитику,
+    а не только «первая сущность»."""
+    df[ROW_COL] = 1 if ROW_COL not in df.columns else df[ROW_COL]
+    weight = _money_measure(measures) or next(
+        (m for m in measures if m.kind in ("count", "value") and m.agg == "sum"), None)
+    out: list[AnalysisResult] = []
+    for ent in entities[:4]:
+        if ent not in df.columns or df[ent].nunique(dropna=True) < 5:
+            continue
+        r = _entity_top(df, ent, weight, assets, labels)
+        if r:
+            out.append(r)
+    return out
+
+
+def _entity_top(df, ent: str, weight: Measure | None, assets: Path,
+                labels=None) -> AnalysisResult | None:
+    dfx = _pop(df, weight) if weight is not None else df
+    if weight is not None:
+        g = dfx.groupby(ent)[weight.col].sum().sort_values(ascending=False)
+        val_name, unit, kind = weight.label, weight.unit, weight.kind
+    else:
+        g = dfx.groupby(ent).size().sort_values(ascending=False)
+        val_name, unit, kind = "количество", "шт", "count"
+    g = g[g > 0]
+    if len(g) < 5:
+        return None
+    total = float(g.sum())
+    cum = g.cumsum() / total
+    n80 = int((cum <= 0.8).sum()) + 1
+    head = g.head(12)
+    tbl = head.reset_index(); tbl.columns = [ent, "v"]; tbl[ent] = tbl[ent].map(_tick)
+    fig, ax = plt.subplots(figsize=(9, max(3, 0.5 * len(tbl) + 0.6)))
+    sns.barplot(data=tbl, y=ent, x="v", ax=ax, color="#2E8B57")
+    ax.margins(x=0.16)
+    _annot(ax, tbl["v"].tolist(), horizontal=True, pct=(kind == "rate"))
+    ent_lbl = _ds(labels, ent)
+    ax.set_title(f"ТОП по «{ent_lbl}» ({val_name})", fontsize=11)
+    ax.set_xlabel(unit); ax.set_ylabel(""); ax.grid(axis="x", alpha=.3)
+    chart = _save(fig, assets, f"ent_{ent}_{weight.col if weight else 'cnt'}")
+    facts = {"entity": ent_lbl, "leader": fmt_val(g.index[0]),
+             "leader_val": _fmt_unit(float(g.iloc[0]), unit),
+             "leader_share": round(float(g.iloc[0]) / total * 100, 1),
+             "n_for_80": n80, "total_entities": int(len(g)), "value_name": val_name}
+    return AnalysisResult(f"ent_{ent}", f"ТОП и концентрация по «{_dt(labels, ent)}»",
+                          "entity", facts, "", chart)
+
+
 def headline_kpi(df: pd.DataFrame, measures: list[Measure]) -> AnalysisResult:
     """Расширенные ключевые цифры: строки + каждый показатель в целом по таблице
     (доля %, деньги Σ, срок среднее, объём)."""
@@ -451,16 +555,16 @@ def headline_kpi(df: pd.DataFrame, measures: list[Measure]) -> AnalysisResult:
     for m in measures:
         try:
             if m.kind == "rate":
-                rows.append((m.name, f"{df[m.col].mean()*100:.0f}%"))
+                rows.append((m.label, f"{df[m.col].mean()*100:.0f}%"))
             elif m.kind == "duration":
                 v = df[m.col].mean()
-                rows.append((m.name, f"{v:.0f} {m.unit}" if pd.notna(v) else "—"))
+                rows.append((m.label, f"{v:.0f} {m.unit}" if pd.notna(v) else "—"))
             elif m.agg == "mean":                      # средняя ЗП и т.п. — среднее, не сумма
-                rows.append((f"среднее {m.name}", _fmt_unit(float(df[m.col].mean()), m.unit)))
+                rows.append((f"среднее {m.label}", _fmt_unit(float(df[m.col].mean()), m.unit)))
             elif m.kind == "money":
-                rows.append((f"Σ {m.name}", _fmt_unit(float(df[m.col].sum()), m.unit)))
+                rows.append((f"Σ {m.label}", _fmt_unit(float(df[m.col].sum()), m.unit)))
             else:
-                rows.append((f"Σ {m.name}", _fmt(float(df[m.col].sum()))))
+                rows.append((f"Σ {m.label}", _fmt(float(df[m.col].sum()))))
         except Exception:  # noqa: BLE001
             continue
     tbl = pd.DataFrame(rows, columns=["Показатель", "Значение"])
@@ -469,12 +573,13 @@ def headline_kpi(df: pd.DataFrame, measures: list[Measure]) -> AnalysisResult:
 
 
 # ---------- графики ----------
-def _chart(df, f: Finding, measures: list[Measure], assets: Path) -> str | None:
+def _chart(df, f: Finding, measures: list[Measure], assets: Path, labels=None) -> str | None:
     try:
+        m = _measure_by_name(measures, f.measure)
         if f.kind == "interaction":
-            return _heatmap(df, f, measures, assets)
+            return _heatmap(_pop(df, m) if m else df, f, measures, assets, labels)
         if f.kind in ("rate_dev", "value_mismatch", "money_conc"):
-            return _bar_vs_baseline(df, f, measures, assets)
+            return _bar_vs_baseline(_pop(df, m) if m else df, f, measures, assets, labels)
     except Exception as exc:  # noqa: BLE001
         logger.warning("report: график находки не построен (%s): %s", f.key, exc)
     return None
@@ -484,7 +589,25 @@ def _measure_by_name(measures, name) -> Measure | None:
     return next((m for m in measures if m.name == name), None)
 
 
-def _bar_vs_baseline(df, f: Finding, measures, assets) -> str | None:
+def _tick(v) -> str:
+    """Подпись категории на оси: целое как целое, обрезка длинного (без наезда)."""
+    s = fmt_val(v)
+    return s if len(s) <= 22 else s[:20] + "…"
+
+
+def _annot(ax, values, horizontal=True, pct=False):
+    """Числа на концах баров, компактно, без наложения."""
+    for i, v in enumerate(values):
+        if not np.isfinite(v):
+            continue
+        txt = f"{v:.0f}%" if pct else _fmt(v)
+        if horizontal:
+            ax.text(v, i, f" {txt}", va="center", ha="left", fontsize=8, color="#334")
+        else:
+            ax.text(i, v, txt, va="bottom", ha="center", fontsize=8, color="#334")
+
+
+def _bar_vs_baseline(df, f: Finding, measures, assets, labels=None) -> str | None:
     m = _measure_by_name(measures, f.measure)
     if m is None:
         return None
@@ -496,18 +619,22 @@ def _bar_vs_baseline(df, f: Finding, measures, assets) -> str | None:
     if g.empty:
         return None
     g = g.sort_values(ascending=False).head(12)
-    vals = g * 100 if m.kind == "rate" else g
-    tbl = vals.reset_index(); tbl.columns = [d, "v"]; tbl[d] = tbl[d].astype(str)
-    fig, ax = plt.subplots(figsize=(8, max(3, 0.45 * len(tbl))))
+    vals = (g * 100) if m.kind == "rate" else g
+    tbl = vals.reset_index(); tbl.columns = [d, "v"]
+    tbl[d] = tbl[d].map(_tick)                       # int-как-int + обрезка длинных
+    fig, ax = plt.subplots(figsize=(9, max(3, 0.5 * len(tbl) + 0.6)))
     sns.barplot(data=tbl, y=d, x="v", ax=ax, color="#C0504D" if m.kind == "rate" else "#3B7DD8")
     if m.kind == "rate":
         ax.axvline(df[m.col].mean() * 100, color="gray", ls="--", lw=1)
-    ax.set_title(f"{m.name} по «{d}»" + (" (пунктир — среднее)" if m.kind == "rate" else ""))
-    ax.set_xlabel(m.unit); ax.set_ylabel("")
+    ax.margins(x=0.16)                               # место под числа справа
+    _annot(ax, tbl["v"].tolist(), horizontal=True, pct=(m.kind == "rate"))
+    ttl = f"{m.label} по «{_ds(labels, d)}»" + (" (пунктир — среднее)" if m.kind == "rate" else "")
+    ax.set_title(ttl, fontsize=11)
+    ax.set_xlabel(m.unit); ax.set_ylabel(""); ax.grid(axis="x", alpha=.3)
     return _save(fig, assets, f"mine_{f.kind}_{m.col}_{d}")
 
 
-def _heatmap(df, f: Finding, measures, assets) -> str | None:
+def _heatmap(df, f: Finding, measures, assets, labels=None) -> str | None:
     m = _measure_by_name(measures, f.measure)
     if m is None:
         return None
@@ -522,9 +649,13 @@ def _heatmap(df, f: Finding, measures, assets) -> str | None:
         return None
     if m.kind == "rate":
         piv = piv * 100
-    fig, ax = plt.subplots(figsize=(min(11, 1.1 * len(piv.columns) + 3), min(9, 0.6 * len(piv.index) + 2)))
+    piv.index = [_tick(x) for x in piv.index]        # int-как-int + обрезка
+    piv.columns = [_tick(x) for x in piv.columns]
+    fig, ax = plt.subplots(figsize=(min(12, 1.3 * len(piv.columns) + 3), min(9, 0.7 * len(piv.index) + 2)))
     sns.heatmap(piv, annot=True, fmt=".0f", cmap="Reds" if m.kind == "rate" else "Blues",
-                ax=ax, cbar_kws={"label": m.unit}, linewidths=.5)
-    ax.set_title(f"{m.name}: {da} × {db}")
+                ax=ax, cbar_kws={"label": m.unit}, linewidths=.5, annot_kws={"fontsize": 8})
+    ax.set_title(f"{m.label}: {_ds(labels, da)} × {_ds(labels, db)}", fontsize=11)
     ax.set_xlabel(""); ax.set_ylabel("")
+    ax.set_xticklabels(ax.get_xticklabels(), rotation=35, ha="right", fontsize=8)
+    ax.set_yticklabels(ax.get_yticklabels(), rotation=0, fontsize=8)
     return _save(fig, assets, f"mine_heat_{m.col}_{da}_{db}")

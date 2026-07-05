@@ -5,12 +5,16 @@
 from __future__ import annotations
 
 import json
+import logging
+import os
 import re
+import time
 from typing import Any, Callable
 
 from ..config import LLM, LLMConfig
 from .base import LLMBackend, LLMResult
 
+logger = logging.getLogger(__name__)
 _JSON_BLOCK = re.compile(r"\{.*\}", re.DOTALL)
 
 
@@ -24,6 +28,14 @@ def make_backend(cfg: LLMConfig | None = None) -> LLMBackend:
 
 
 class LLMClient:
+    # Ретраи: сначала N_QUICK быстрых попыток (короткая пауза), затем N_SLOW «медленных»
+    # с длинной паузой — на случай сбоев/пустых ответов (reasoning съел бюджет) и
+    # временной недоступности/лимитов провайдера. Настраивается через env.
+    N_QUICK = int(os.getenv("LLM_RETRY_QUICK", "4"))
+    QUICK_DELAY = float(os.getenv("LLM_RETRY_QUICK_DELAY", "3"))
+    N_SLOW = int(os.getenv("LLM_RETRY_SLOW", "3"))
+    SLOW_DELAY = float(os.getenv("LLM_RETRY_SLOW_DELAY", "30"))
+
     def __init__(
         self,
         backend: LLMBackend | None = None,
@@ -35,17 +47,36 @@ class LLMClient:
         self.backend = backend or make_backend(self.cfg)
         self._tracer = tracer
 
+    def _delays(self) -> list[float]:
+        # паузы ПЕРЕД повторной попыткой (первая попытка — без паузы)
+        return [0.0] + [self.QUICK_DELAY] * self.N_QUICK + [self.SLOW_DELAY] * self.N_SLOW
+
     def complete(self, system: str, user: str, *, max_tokens: int | None = None,
                  temperature: float | None = None, node: str = "") -> LLMResult:
-        res = self.backend.chat(system, user, max_tokens=max_tokens, temperature=temperature)
-        if self._tracer:
-            self._tracer({
-                "kind": "llm", "node": node, "model": self.backend.model,
-                "system": system, "user": user, "text": res.text,
-                "finish_reason": res.finish_reason, "usage": res.usage,
-                "reasoning_len": len(res.reasoning),
-            })
-        return res
+        last_exc: Exception | None = None
+        delays = self._delays()
+        for attempt, delay in enumerate(delays, 1):
+            if delay:
+                logger.warning("LLM[%s]: повтор %d/%d через %.0fс (%s)",
+                               node or "-", attempt - 1, len(delays) - 1, delay, last_exc)
+                time.sleep(delay)
+            try:
+                res = self.backend.chat(system, user, max_tokens=max_tokens, temperature=temperature)
+            except Exception as exc:  # noqa: BLE001  (сеть/лимит/провайдер — повторяем)
+                last_exc = exc
+                continue
+            if not (res.text and res.text.strip()):     # пустой ответ (напр. reasoning съел бюджет)
+                last_exc = ValueError("пустой ответ LLM")
+                continue
+            if self._tracer:
+                self._tracer({
+                    "kind": "llm", "node": node, "model": self.backend.model,
+                    "system": system, "user": user, "text": res.text,
+                    "finish_reason": res.finish_reason, "usage": res.usage,
+                    "reasoning_len": len(res.reasoning),
+                })
+            return res
+        raise last_exc or RuntimeError("LLM: все попытки исчерпаны")
 
     def complete_json(self, system: str, user: str, *, max_tokens: int | None = None,
                       node: str = "") -> dict[str, Any]:

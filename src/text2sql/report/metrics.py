@@ -199,17 +199,21 @@ def _looks_money(df: pd.DataFrame, col: str, desc: str) -> bool:
 
 def money_from_metrics(df: pd.DataFrame, roles_meta: dict[str, dict], measures: list[Measure],
                        metric_cols: list[str], labels=None) -> None:
-    """Числовые колонки → меры. Проценты → доля (mean, %). Деньги (₽) — только при
-    уверенности (_looks_money); остальные — count без валюты. avg/среднее → агрегат mean
-    (не суммируем средние/проценты как «итог»)."""
+    """Числовые колонки → меры. ВИД величины (деньги/люди/количество/процент) определяет
+    LLM (labels.unit_kind) — это надёжнее регекса/копеек. Деньги (₽) — только при уверенности
+    LLM; при отсутствии вердикта консервативно: деньги ТОЛЬКО по сильному денежному токену
+    имени, иначе количество (без ₽). avg/среднее → агрегат mean (не суммируем средние)."""
     lab = (lambda c: labels.of(c)) if labels is not None else (lambda c: c)
+    uk = (lambda c: labels.unit_kind(c)) if labels is not None else (lambda c: None)
     have = {m.col for m in measures}
     for c in metric_cols:
         if c in have or c not in df.columns:
             continue
         desc = roles_meta.get(c, {}).get("desc", "")
-        # процент/доля — НЕ деньги; нормируем к 0..1, чтобы пороги/формат совпали с rate-мерами
-        if _PERC_RE.search(c) or _PERC_RE.search(desc):
+        kind_llm = uk(c)
+        agg = "mean" if (_AVG_RE.search(c) or _AVG_RE.search(desc)) else "sum"
+        # процент/доля → нормируем к 0..1 (совпадёт с rate-мерами по порогам/формату)
+        if kind_llm == "percent" or (kind_llm is None and (_PERC_RE.search(c) or _PERC_RE.search(desc))):
             s = pd.to_numeric(df[c], errors="coerce")
             col = c
             if float(s.dropna().abs().max() or 0) > 1.5:      # шкала 0..100 → 0..1
@@ -217,8 +221,12 @@ def money_from_metrics(df: pd.DataFrame, roles_meta: dict[str, dict], measures: 
                 df[col] = s / 100.0
             measures.append(Measure(c, col, "mean", "rate", "%", label=lab(c), tech=c))
             continue
-        is_money = _looks_money(df, c, desc)
-        agg = "mean" if (_AVG_RE.search(c) or _AVG_RE.search(desc)) else "sum"
-        kind = "money" if is_money else "count"
-        unit = "₽" if is_money else ""
-        measures.append(Measure(c, c, agg, kind, unit, label=lab(c), tech=c))
+        if kind_llm == "money":
+            measures.append(Measure(c, c, agg, "money", "₽", label=lab(c), tech=c))
+        elif kind_llm in ("people", "count"):
+            unit = "чел." if kind_llm == "people" else ""
+            measures.append(Measure(c, c, agg, "count", unit, label=lab(c), tech=c))
+        else:                              # нет вердикта LLM → консервативно по имени
+            is_money = bool(_STRONG_MONEY.search(c) or _STRONG_MONEY.search(desc or ""))
+            measures.append(Measure(c, c, agg, "money" if is_money else "count",
+                                    "₽" if is_money else "", label=lab(c), tech=c))

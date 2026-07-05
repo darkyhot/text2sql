@@ -43,6 +43,10 @@ HELP_TEXT = """
                         фокус ПЕРЕД --where; --where идёт до конца строки. Примеры:
                         /build_business_report ...uzp_dwh_fact_outflow --where report_dt >= '2026-01-01'
                         /build_business_report ...uzp_dwh_sale_funnel_task аналитика по закрытию задач сотрудниками --where report_dt >= '2026-01-01'
+  /investigate schema.table <вопрос> [--where <SQL>]
+                      — РАССЛЕДОВАНИЕ вопроса (где потеряли/откуда отток/почему упал X):
+                        декомпозиция цели → спуск по дереву → почему → кто → выводы.
+                        напр.: /investigate ...yva_date_fl_market_analysis где мы потеряли больше всего физлиц к 2026
   /reset              — сбросить контекст (новая сессия)
   /clear              — очистить вывод консоли
   /exit               — завершить работу агента
@@ -169,7 +173,8 @@ class CLI:
         logger.info("CLI: /build_business_report %s where=%r focus=%r", table, where, focus)
         try:
             res = build_business_report(self.agent.db, self.agent.catalog, self.agent.llm,
-                                        table, where=where, focus=focus, progress=self._status)
+                                        table, where=where, focus=focus, progress=self._status,
+                                        money_confirm=self._confirm_money)
         except Exception as exc:  # noqa: BLE001
             if is_kerberos_auth_error(exc):
                 print(f"⚠ {KERBEROS_MESSAGE}")
@@ -179,6 +184,54 @@ class CLI:
             return
         print(f"✅ Отчёт готов (секций: {res['sections']}, графиков: {res['charts']}, строк: {res['rows']:,}).".replace(",", " "))
         print(f"   HTML (открыть в браузере): {res['html_path']}")
+        print(f"   MD:  {res['md_path']}")
+
+    def _confirm_money(self, items: list[tuple[str, str]]) -> set[str]:
+        """Переспрос про деньги: показать поля, помеченные как ДЕНЬГИ (₽), и дать поправить.
+        Возвращает множество колонок, которые ДЕЙСТВИТЕЛЬНО деньги (остальные → количество)."""
+        print("\n— Проверка единиц измерения —")
+        print("  Помечены как ДЕНЬГИ (₽): " + ", ".join(f"{lab} ({col})" for col, lab in items))
+        print("  Это верно? Enter — да; либо перечислите через запятую ТОЛЬКО те, что реально "
+              "деньги (напр. amt_total); 'нет' — ни одно не деньги.")
+        try:
+            raw = input("  Деньги: ").strip()
+        except (EOFError, KeyboardInterrupt):
+            raw = ""
+        if raw == "":
+            return {col for col, _ in items}
+        if raw.lower() in ("нет", "no", "-"):
+            return set()
+        picked = {p.strip() for p in raw.replace(";", ",").split(",") if p.strip()}
+        # сопоставим по тех.имени или подписи
+        keep = set()
+        for col, lab in items:
+            if col in picked or lab in picked or any(p.lower() in (col.lower(), lab.lower()) for p in picked):
+                keep.add(col)
+        return keep
+
+    def _investigate(self, rest: str) -> None:
+        from .report.investigate import investigate
+        table, where, question = self._parse_report_args(rest)
+        if "." not in table or not question.strip():
+            print("Формат: /investigate schema.table <вопрос> [--where <SQL>]")
+            print("  напр.: /investigate ...yva_date_fl_market_analysis где мы потеряли больше всего физлиц к 2026")
+            return
+        if not self.agent.catalog.get(table):
+            print(f"✗ Таблица {table} не найдена. Сначала /add_table {table}.")
+            return
+        logger.info("CLI: /investigate %s where=%r q=%r", table, where, question)
+        try:
+            res = investigate(self.agent.db, self.agent.catalog, self.agent.llm,
+                              table, question, where=where, progress=self._status)
+        except Exception as exc:  # noqa: BLE001
+            if is_kerberos_auth_error(exc):
+                print(f"⚠ {KERBEROS_MESSAGE}")
+            else:
+                logger.exception("investigate failed")
+                print(f"✗ Не удалось провести расследование: {exc}")
+            return
+        print(f"✅ Расследование готово (уровней спуска: {res['levels']}, строк: {res['rows']:,}).".replace(",", " "))
+        print(f"   HTML: {res['html_path']}")
         print(f"   MD:  {res['md_path']}")
 
     def _reset(self) -> None:
@@ -347,6 +400,11 @@ class CLI:
                     else:
                         # сырой остаток строки — сохранить пробелы/кавычки в --where
                         self._build_business_report(user_input.split(None, 1)[1] if len(user_input.split(None, 1)) > 1 else "")
+                elif cmd == "/investigate":
+                    if not self.agent.db.is_configured:
+                        print("Не настроен коннект к БД, выполните /config_db_conn")
+                    else:
+                        self._investigate(user_input.split(None, 1)[1] if len(user_input.split(None, 1)) > 1 else "")
                 elif cmd in ("/refresh_metadata", "/refrash_metadata", "/refresh"):
                     if not self.agent.db.is_configured:
                         print("Не настроен коннект к БД, выполните /config_db_conn")

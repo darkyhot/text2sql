@@ -59,27 +59,33 @@ def _dedup_id_name(cols: list[str]) -> list[str]:
     return out
 
 
-def normalize_roles(roles: "Roles") -> None:
-    """Сворачивает пары id↔name В ОБЕИХ ролях (dimensions+entities), оставляя читаемое
-    name. Если у концепта есть name где-либо — id-версии убираются из обоих списков
-    (не строим и по tb_id, и по tb_name). Идентификатор без пары name — сохраняется."""
-    named_concepts = {_concept(c) for c in roles.dimensions + roles.entities if _NAME_RE.search(c)}
+def normalize_roles(roles: "Roles", all_cols: list[str] | None = None) -> None:
+    """Разрез/сущность-ИДЕНТИФИКАТОР заменяет на КОЛОНКУ-НАЗВАНИЕ того же объекта, если
+    она есть В ТАБЛИЦЕ (не только в ролях). Так строим по tb_name/gosb_name, даже если
+    LLM-профайлер пометил название как ignore, а id — как разрез. Идентификатор без
+    парного названия (напр. tb_id без tb_name) — сохраняется как есть."""
+    # концепт → колонка-название, присутствующая в ТАБЛИЦЕ (источник истины — все колонки)
+    pool = list(all_cols) if all_cols else (roles.dimensions + roles.entities)
+    name_of: dict[str, str] = {}
+    for c in pool:
+        if _NAME_RE.search(c):
+            name_of.setdefault(_concept(c), c)
 
-    def drop_id_dups(cols: list[str]) -> list[str]:
+    def fix(cols: list[str]) -> list[str]:
         seen: set[str] = set()
         out: list[str] = []
         for c in cols:
             con = _concept(c)
-            # id-версия при наличии name того же концепта — выкидываем
-            if not _NAME_RE.search(c) and con in named_concepts:
-                continue
-            if con in seen:            # дубль концепта в одном списке — только первый
+            if not _NAME_RE.search(c) and con in name_of:   # id/код → его название
+                c = name_of[con]
+                con = _concept(c)
+            if con in seen:                                 # дубль концепта — только первый
                 continue
             seen.add(con); out.append(c)
         return out
 
-    roles.dimensions = drop_id_dups(roles.dimensions)
-    roles.entities = drop_id_dups(roles.entities)
+    roles.dimensions = fix(roles.dimensions)
+    roles.entities = fix(roles.entities)
     # разрез не должен дублировать сущность (и наоборот) по одному концепту
     dim_con = {_concept(c) for c in roles.dimensions}
     roles.entities = [c for c in roles.entities if _concept(c) not in dim_con]

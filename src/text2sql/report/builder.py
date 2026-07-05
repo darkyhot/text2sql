@@ -38,9 +38,10 @@ def _load(db, schema: str, table: str, where: str | None, columns: list[str] | N
     # все строки из запроса (ограничение — через --where), дальше только pandas
     res = db.run_export(sql, enforce_limit=False)
     df = pd.DataFrame(res.rows, columns=res.columns)
-    # numeric приходит Decimal (object) → приводим к числам, текст не трогаем
+    # numeric приходит Decimal/строкой (object ИЛИ str-dtype) → приводим к числам
     for c in df.columns:
-        if df[c].dtype == object:
+        if not (pd.api.types.is_numeric_dtype(df[c]) or pd.api.types.is_datetime64_any_dtype(df[c])
+                or pd.api.types.is_bool_dtype(df[c])):
             conv = pd.to_numeric(df[c], errors="coerce")
             nn = df[c].notna().sum()
             if nn and conv.notna().sum() >= nn * 0.9:
@@ -64,7 +65,7 @@ def _meta_for(catalog, fqn: str) -> tuple[str, dict[str, dict]]:
 
 def build_business_report(db, catalog, llm, fqn: str, *, where: str | None = None,
                           focus: str = "", out_dir: Path | None = None,
-                          progress=lambda m: None) -> dict:
+                          progress=lambda m: None, money_confirm=None) -> dict:
     """Собрать бизнес-отчёт по таблице. Возвращает {md_path, sections, rows}."""
     schema, table = fqn.split(".", 1)
     out_dir = out_dir or PATHS.workspace_dir
@@ -79,8 +80,8 @@ def build_business_report(db, catalog, llm, fqn: str, *, where: str | None = Non
         raise ValueError("По заданному фильтру нет данных.")
     table_desc, meta = _meta_for(catalog, fqn)
 
-    progress("готовлю бизнес-подписи колонок…")
-    lbls = labels.build_labels_llm(llm, table_desc, meta, list(df.columns))
+    progress("готовлю бизнес-подписи и единицы измерения колонок…")
+    lbls = labels.build_labels_llm(llm, table_desc, meta, list(df.columns), df)
 
     progress("профилирую колонки (роли, главные метрики)…")
     # LLM-first профилирование (роли колонок по смыслу); regex-эвристика — фолбэк
@@ -96,7 +97,7 @@ def build_business_report(db, catalog, llm, fqn: str, *, where: str | None = Non
         if (c not in roles.entities and c not in roles.dimensions
                 and core._ENTITY_RE.search(c) and df[c].nunique(dropna=True) > 10):
             roles.entities.append(c); roles.card[c] = int(df[c].nunique(dropna=True))
-    core.normalize_roles(roles)     # свернуть id↔name (оставить name) в dims и entities
+    core.normalize_roles(roles, list(df.columns))   # id → название (по всем колонкам таблицы)
 
     # явный фокус: колонки, названные пользователем, поднимаем в начало
     focus_dims: list[str] = []
@@ -119,6 +120,15 @@ def build_business_report(db, catalog, llm, fqn: str, *, where: str | None = Non
         logger.info("report %s: считаем записи как сущность: %s", fqn, count_m.label)
     if not measures:
         raise ValueError("Не удалось определить показатели для аналитики.")
+    # переспрос про деньги (интерактив): пользователь подтверждает/правит денежные поля
+    if money_confirm is not None:
+        cand = [m for m in measures if m.kind == "money" and m.tech]
+        if cand:
+            keep = money_confirm([(m.tech, m.label) for m in cand]) or set()
+            for m in cand:
+                if m.tech not in keep:                  # не деньги → количество, без ₽
+                    m.kind, m.unit = "count", ""
+                    logger.info("report: %s помечено как НЕ деньги (по правке пользователя)", m.tech)
     date = roles.dates[0] if roles.dates else None
     scope = mining.scope_notes(df, measures, roles.dimensions, lbls)      # условная заполненность
 

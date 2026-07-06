@@ -159,19 +159,22 @@ class Contrib:
 
 
 def _decompose(df: pd.DataFrame, target: str, dim: str, mode: str,
-               ref: float | None = None) -> Contrib:
+               ref: float | None = None, side: str = "auto") -> Contrib:
     """ref — знаменатель для ДОЛИ (обычно общие потери всей таблицы), чтобы «доля лидера»
-    была сопоставима между уровнями («49% ВСЕХ потерь»), а не 100% локально."""
+    была сопоставима между уровнями («49% ВСЕХ потерь»), а не 100% локально.
+    side — какую сторону атрибутировать: 'loss' (отрицательные) | 'gain' | 'auto' (доминирующую).
+    Важно: при вопросе про ПОТЕРИ берём потери, даже если net положительный."""
     s = pd.to_numeric(df[target], errors="coerce")
     g = s.groupby(df[dim]).sum()
     n = df.groupby(dim)[target].size()
     total = float(g.sum())
     if mode == "change":
         neg, pos = float(g[g < 0].sum()), float(g[g > 0].sum())
-        if abs(neg) >= abs(pos) and neg < 0:
-            loss, asc = neg, True                    # потери: самые отрицательные вперёд
+        want_loss = side == "loss" or (side == "auto" and abs(neg) >= abs(pos) and neg < 0)
+        if want_loss:
+            loss, asc = (neg if neg < 0 else -1e-9), True    # потери: самые отрицательные вперёд
         else:
-            loss, asc = pos, False                   # прирост: самые крупные вперёд
+            loss, asc = (pos if pos > 0 else 1e-9), False    # прирост: самые крупные вперёд
         contrib = g.sort_values(ascending=asc)
     else:
         loss, asc = total, False
@@ -226,11 +229,11 @@ def _drill(df, frame: Frame, assets, lbls, ref, *, max_depth=3, min_rows=30,
 
 
 # ---------- «почему» и «кто» ----------
-def _why(df, frame: Frame, assets, lbls, ref) -> list[tuple[str, Contrib, str | None]]:
+def _why(df, frame: Frame, assets, lbls, ref, side="auto") -> list[tuple[str, Contrib, str | None]]:
     out = []
     for d in frame.why_dims[:2]:
         if d in df.columns and 2 <= df[d].nunique(dropna=True) <= 40:
-            c = _decompose(df, frame.target, d, frame.mode, ref)
+            c = _decompose(df, frame.target, d, frame.mode, ref, side)
             out.append((d, c, _contrib_chart(c, frame, assets, lbls, tag="why")))
     return out
 
@@ -316,6 +319,201 @@ def _entity_chart(top: pd.Series, ent: str, frame: Frame, assets, lbls) -> str |
         return None
 
 
+# ---------- ГЛУБОКАЯ ДЕКОМПОЗИЦИЯ ----------
+def _side_of(frame: Frame) -> str:
+    return frame.direction if frame.direction in ("loss", "gain") else "auto"
+
+
+def _side_series(g: pd.Series, side: str) -> pd.Series:
+    if side == "loss":
+        return g[g < 0].sort_values()
+    if side == "gain":
+        return g[g > 0].sort_values(ascending=False)
+    return g.reindex(g.abs().sort_values(ascending=False).index)
+
+
+@dataclass
+class Child:
+    label: str
+    contrib: float
+    share_in_parent: float
+
+
+@dataclass
+class Node:
+    label: str
+    contrib: float
+    share_of_total: float
+    children: list          # list[Child]
+    tail_contrib: float     # «прочие» внутри узла
+    tail_count: int
+
+
+def _build_tree(df, frame: Frame, ref: float, top_dim: str, entity: str, side: str,
+                *, max_seg=6, max_comp=8) -> list[Node]:
+    """Дерево: top_dim (сегмент) → топ-entity (компании) внутри + «прочие»."""
+    s = pd.to_numeric(df[frame.target], errors="coerce")
+    seg = _side_series(s.groupby(df[top_dim]).sum(), side)
+    nodes: list[Node] = []
+    for segname, segval in seg.head(max_seg).items():
+        sub = df[df[top_dim].astype(str) == str(segname)]
+        cs = _side_series(pd.to_numeric(sub[frame.target], errors="coerce").groupby(sub[entity]).sum(), side)
+        segabs = abs(float(segval)) or 1.0
+        top = cs.head(max_comp)
+        tail = float(cs.iloc[max_comp:].sum()) if len(cs) > max_comp else 0.0
+        children = [Child(fmt_val(i), float(v), abs(v) / segabs * 100) for i, v in top.items()]
+        nodes.append(Node(fmt_val(segname), float(segval), abs(float(segval)) / abs(ref) * 100,
+                          children, tail, max(0, len(cs) - max_comp)))
+    return nodes
+
+
+def _treemap_chart(tree: list[Node], frame: Frame, assets, lbls, top_dim, entity) -> str | None:
+    """Вложенный treemap: сегмент-прямоугольник, внутри — компании (размер = вклад)."""
+    try:
+        import squarify
+        segs = [(n.label, abs(n.contrib), n) for n in tree if abs(n.contrib) > 0]
+        if not segs:
+            return None
+        W, H = 100.0, 100.0
+        seg_sizes = squarify.normalize_sizes([x[1] for x in segs], W, H)
+        seg_rects = squarify.squarify(seg_sizes, 0, 0, W, H)
+        palette = sns.color_palette("tab10", len(segs))
+        fig, ax = plt.subplots(figsize=(11, 7))
+        for (name, sz, node), rect, col in zip(segs, seg_rects, palette):
+            ax.add_patch(plt.Rectangle((rect["x"], rect["y"]), rect["dx"], rect["dy"],
+                                       facecolor="none", edgecolor="#222", lw=2.2))
+            parts = [(c.label, abs(c.contrib)) for c in node.children if abs(c.contrib) > 0]
+            if node.tail_count:
+                parts.append((f"прочие ({node.tail_count})", abs(node.tail_contrib)))
+            if not parts:
+                continue
+            csz = squarify.normalize_sizes([p[1] for p in parts], rect["dx"], rect["dy"])
+            crects = squarify.squarify(csz, rect["x"], rect["y"], rect["dx"], rect["dy"])
+            for (clabel, cval), cr in zip(parts, crects):
+                ax.add_patch(plt.Rectangle((cr["x"], cr["y"]), cr["dx"], cr["dy"],
+                                           facecolor=col, edgecolor="white", lw=0.8, alpha=.85))
+                if cr["dx"] > 7 and cr["dy"] > 5:
+                    ax.text(cr["x"] + cr["dx"] / 2, cr["y"] + cr["dy"] / 2,
+                            f"{clabel[:16]}\n{_fmt(cval)}", ha="center", va="center", fontsize=7)
+            # подпись сегмента
+            ax.text(rect["x"] + rect["dx"] / 2, rect["y"] + rect["dy"] - 2.5,
+                    f"{name} · {_fmt(abs(node.contrib))}", ha="center", va="top",
+                    fontsize=9, fontweight="bold", color="#111")
+        ax.set_xlim(0, W); ax.set_ylim(0, H); ax.axis("off")
+        ax.set_title(f"Дерево потерь: «{lbls.of(top_dim)}» → «{lbls.of(entity)}» (площадь = вклад)", fontsize=12)
+        return _save(fig, assets, "inv_treemap")
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("investigate: treemap не построен: %s", exc)
+        return None
+
+
+def _waterfall_chart(df, frame: Frame, dim, side, assets, lbls) -> str | None:
+    """Водопад: как складывается итог из вкладов по разрезу (потери ↓, прирост ↑ → net)."""
+    try:
+        s = pd.to_numeric(df[frame.target], errors="coerce")
+        g = s.groupby(df[dim]).sum().sort_values()          # от потерь к приросту
+        items = list(g.items())
+        if len(items) > 12:                                 # схлопнуть хвост
+            items = items[:6] + [("прочие", float(g.iloc[6:-3].sum()))] + items[-3:] if len(items) > 9 else items
+        labels_ = [_tick(k) for k, _ in items] + ["ИТОГ (net)"]
+        vals = [float(v) for _, v in items]
+        fig, ax = plt.subplots(figsize=(max(8, 0.8 * len(labels_) + 2), 5))
+        run = 0.0
+        for i, v in enumerate(vals):
+            ax.bar(i, v, bottom=run, color=_C_LOSS if v < 0 else _C_GAIN, edgecolor="white")
+            ax.text(i, run + v + (max(map(abs, vals)) * 0.01 if v >= 0 else -max(map(abs, vals)) * 0.01),
+                    _fmt(v), ha="center", va="bottom" if v >= 0 else "top", fontsize=7)
+            run += v
+        ax.bar(len(vals), run, color=_C_NEUT, edgecolor="white")
+        ax.text(len(vals), run, _fmt(run), ha="center", va="bottom", fontsize=8, fontweight="bold")
+        ax.axhline(0, color="#888", lw=1)
+        ax.set_xticks(range(len(labels_))); ax.set_xticklabels(labels_, rotation=35, ha="right", fontsize=8)
+        ax.set_title(f"Как складывается {lbls.of(frame.target)} по «{lbls.of(dim)}»", fontsize=11)
+        ax.grid(axis="y", alpha=.3)
+        return _save(fig, assets, f"inv_waterfall_{dim}")
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("investigate: водопад не построен: %s", exc)
+        return None
+
+
+def _pareto_curve(df, frame: Frame, entity, side, assets, lbls) -> tuple[str | None, dict]:
+    """Кривая Парето: накопленная доля потерь по сущностям (топ-N = X%)."""
+    try:
+        s = pd.to_numeric(df[frame.target], errors="coerce")
+        g = _side_series(s.groupby(df[entity]).sum(), side)
+        vals = g.abs().values
+        total = vals.sum()
+        if total <= 0 or len(vals) < 5:
+            return None, {}
+        cum = np.cumsum(vals) / total * 100
+        n80 = int((cum < 80).sum()) + 1
+        top10 = float(cum[min(9, len(cum) - 1)])
+        fig, ax = plt.subplots(figsize=(9, 4.5))
+        ax.plot(range(1, len(cum) + 1), cum, color=_C_LOSS, lw=2)
+        ax.axhline(80, color="gray", ls="--", lw=1); ax.axvline(n80, color="gray", ls=":", lw=1)
+        ax.set_ylim(0, 105); ax.set_xlabel(f"число «{lbls.of(entity)}» (по убыванию вклада)")
+        ax.set_ylabel("накопленная доля потерь, %")
+        ax.set_title(f"Концентрация: топ-{n80} «{lbls.of(entity)}» = 80% потерь", fontsize=11)
+        ax.grid(alpha=.3)
+        chart = _save(fig, assets, f"inv_pareto_{entity}")
+        return chart, {"n_for_80": n80, "total": int(len(vals)), "top10_share": round(top10, 1)}
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("investigate: Парето-кривая не построена: %s", exc)
+        return None, {}
+
+
+def _crosstab_heatmap(df, frame: Frame, da, db, side, assets, lbls) -> str | None:
+    try:
+        s = pd.to_numeric(df[frame.target], errors="coerce")
+        piv = s.groupby([df[da], df[db]]).sum().unstack()
+        # оставляем сторону потерь/прироста, топ по объёму
+        keep_a = _side_series(s.groupby(df[da]).sum(), side).head(8).index
+        keep_b = _side_series(s.groupby(df[db]).sum(), side).head(8).index
+        piv = piv.reindex(index=keep_a, columns=keep_b)
+        if piv.empty:
+            return None
+        piv.index = [_tick(x) for x in piv.index]; piv.columns = [_tick(x) for x in piv.columns]
+        fig, ax = plt.subplots(figsize=(min(12, 1.3 * len(piv.columns) + 3), min(8, 0.6 * len(piv.index) + 2)))
+        sns.heatmap(piv / 1000, annot=True, fmt=".0f", cmap="RdYlGn", center=0, ax=ax,
+                    cbar_kws={"label": f"{lbls.of(frame.target)}, тыс"}, linewidths=.5, annot_kws={"fontsize": 8})
+        ax.set_title(f"{lbls.of(frame.target)}: «{lbls.of(da)}» × «{lbls.of(db)}»", fontsize=11)
+        ax.set_xlabel(""); ax.set_ylabel("")
+        ax.set_xticklabels(ax.get_xticklabels(), rotation=35, ha="right", fontsize=8)
+        return _save(fig, assets, f"inv_heat_{da}_{db}")
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("investigate: кросс-таб не построен: %s", exc)
+        return None
+
+
+def _quadrant_chart(df, frame: Frame, entity, value, side, assets, lbls) -> str | None:
+    """Квадрант: убыль (X) vs ценность/потенциал (Y) по сущностям — приоритет возврата."""
+    try:
+        if not value or value not in df.columns:
+            return None
+        s = pd.to_numeric(df[frame.target], errors="coerce")
+        loss = _side_series(s.groupby(df[entity]).sum(), side).abs()
+        val = pd.to_numeric(df[value], errors="coerce").groupby(df[entity]).sum().reindex(loss.index)
+        d = pd.DataFrame({"loss": loss, "val": val}).dropna().head(60)
+        if len(d) < 4:
+            return None
+        fig, ax = plt.subplots(figsize=(8, 6))
+        ax.scatter(d["loss"], d["val"], s=40, color=_C_LOSS, alpha=.6)
+        ax.axvline(d["loss"].median(), color="gray", ls="--", lw=1)
+        ax.axhline(d["val"].median(), color="gray", ls="--", lw=1)
+        # подписать топ-6 по (убыль×ценность)
+        pri = (d["loss"] * d["val"]).sort_values(ascending=False).head(6).index
+        for i in pri:
+            ax.annotate(_tick(i), (d.loc[i, "loss"], d.loc[i, "val"]), fontsize=7,
+                        xytext=(3, 3), textcoords="offset points")
+        ax.set_xlabel(f"убыль ({lbls.of(frame.target)})"); ax.set_ylabel(lbls.of(value))
+        ax.set_title(f"Приоритет возврата: убыль × «{lbls.of(value)}» по «{lbls.of(entity)}»", fontsize=11)
+        ax.grid(alpha=.3)
+        return _save(fig, assets, f"inv_quadrant_{entity}")
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("investigate: квадрант не построен: %s", exc)
+        return None
+
+
 # ---------- синтез (LLM) ----------
 _SYNTH_SYS = (
     "Ты пишешь ВЫВОД расследования простым языком для руководителя. По фактам дай:\n"
@@ -366,35 +564,55 @@ def investigate(db, catalog, llm, fqn: str, question: str, *, where: str | None 
     gross_loss = float(s[s < 0].sum()) if frame.mode == "change" else None
     gross_gain = float(s[s > 0].sum()) if frame.mode == "change" else None
     unit = _target_unit(prep, frame.target)
-    # знаменатель для «доли» — доминирующая сторона всей таблицы (все потери/весь прирост)
+    side = _side_of(frame)                                # какую сторону расследуем
+    # знаменатель «доли»: сторона потерь (если вопрос про потери), иначе доминирующая
     if frame.mode == "change":
-        ref = gross_loss if abs(gross_loss) >= abs(gross_gain) else gross_gain
+        ref = gross_loss if side == "loss" else (gross_gain if side == "gain"
+              else (gross_loss if abs(gross_loss) >= abs(gross_gain) else gross_gain))
     else:
         ref = net
     ref = ref or 1.0
 
-    progress("раскладываю потери по разрезам (спуск по дереву)…")
-    levels = _drill(df, frame, assets, prep.lbls, ref)
-    progress("ищу причины…")
-    why = _why(df, frame, assets, prep.lbls, ref)
-    comps = _components(df, frame, prep.lbls)
-    progress("нахожу конкретных «виновников»…")
-    who_tbl, who_chart = _who(df, frame, assets, prep.lbls)
+    # главный разрез для дерева/водопада/кросс-таба — с макс. концентрацией вклада
+    ent_con = {core._concept(e) for e in [frame.entity] if frame.entity}
+    dcand = [d for d in frame.drill_dims if d in df.columns and core._concept(d) not in ent_con
+             and 2 <= df[d].nunique(dropna=True) <= 60]
+    primary = max(dcand, key=lambda d: _decompose(df, frame.target, d, frame.mode, ref, side).top_share,
+                  default=(dcand[0] if dcand else None))
 
-    facts = _facts_for_synth(frame, prep.lbls, net, gross_loss, gross_gain, unit, levels, why, comps, who_tbl)
+    progress("строю водопад и кривую концентрации…")
+    waterfall = _waterfall_chart(df, frame, primary, side, assets, prep.lbls) if primary else None
+    pareto_chart, pareto_facts = (_pareto_curve(df, frame, frame.entity, side, assets, prep.lbls)
+                                  if frame.entity else (None, {}))
+    progress("раскладываю потери по дереву (сегмент → компании)…")
+    tree = _build_tree(df, frame, ref, primary, frame.entity, side) if (primary and frame.entity) else []
+    treemap = _treemap_chart(tree, frame, assets, prep.lbls, primary, frame.entity) if tree else None
+    progress("ищу причины и структуру…")
+    why = _why(df, frame, assets, prep.lbls, ref, side)
+    heat = (_crosstab_heatmap(df, frame, primary, frame.why_dims[0], side, assets, prep.lbls)
+            if (primary and frame.why_dims) else None)
+    comps = _components(df, frame, prep.lbls)
+    progress("нахожу «виновников» и приоритет возврата…")
+    who_tbl, who_chart = _who(df, frame, assets, prep.lbls)
+    quadrant = _quadrant_chart(df, frame, frame.entity, frame.value, side, assets, prep.lbls) if frame.entity else None
+
+    facts = _facts_for_synth(frame, prep.lbls, net, gross_loss, gross_gain, unit, tree, why,
+                             comps, who_tbl, pareto_facts, primary)
     progress("собираю причинную цепочку и действия…")
     synth = _synthesize(llm, question, facts)
 
     out_dir.mkdir(parents=True, exist_ok=True)
     ctx = dict(prep=prep, frame=frame, table=table, fqn=fqn, question=question, where=where,
-               net=net, gross_loss=gross_loss, gross_gain=gross_gain, unit=unit,
-               levels=levels, why=why, comps=comps, who_tbl=who_tbl, who_chart=who_chart, synth=synth)
+               net=net, gross_loss=gross_loss, gross_gain=gross_gain, unit=unit, primary=primary,
+               waterfall=waterfall, pareto_chart=pareto_chart, pareto_facts=pareto_facts,
+               tree=tree, treemap=treemap, why=why, heat=heat, comps=comps,
+               who_tbl=who_tbl, who_chart=who_chart, quadrant=quadrant, synth=synth)
     md_path = out_dir / f"{table}_investigation.md"
     html_path = out_dir / f"{table}_investigation.html"
     md_path.write_text(_assemble_md(**ctx), encoding="utf-8")
     html_path.write_text(_assemble_html(**ctx), encoding="utf-8")
     return {"md_path": str(md_path), "html_path": str(html_path),
-            "levels": len(levels), "rows": len(df)}
+            "segments": len(tree), "rows": len(df)}
 
 
 def _target_unit(prep: Prep, col: str) -> str:
@@ -413,18 +631,22 @@ def _side(loss) -> str:
     return "потерь" if loss < 0 else "прироста"
 
 
-def _facts_for_synth(frame, lbls, net, gloss, ggain, unit, levels, why, comps, who_tbl) -> dict:
+def _facts_for_synth(frame, lbls, net, gloss, ggain, unit, tree, why, comps, who_tbl,
+                     pareto_facts, primary) -> dict:
     f = {"целевая": f"{lbls.of(frame.target)} (единица: {unit or 'шт'})", "режим": frame.mode,
          "итог_net": _fmt_u(net, unit)}
     if gloss is not None:
         f["всего_потеряно"] = _fmt_u(gloss, unit)
         f["всего_приросло"] = _fmt_u(ggain, unit)
+    f["главный_разрез"] = lbls.of(primary) if primary else None
     f["дерево"] = [{
-        "разрез": lbls.of(l.dim), "лидер": fmt_val(l.followed),
-        "вклад_лидера": _fmt_u(float(l.contrib.table["contrib"].iloc[0]), unit),
-        "доля_лидера_%": round(l.contrib.top_share, 1),
-        "N_на_половину": l.contrib.n_for_half,
-    } for l in levels]
+        "узел": n.label, "вклад": _fmt_u(n.contrib, unit), "доля_от_общих_%": round(n.share_of_total, 1),
+        "топ_внутри": [{"кто": c.label, "вклад": _fmt_u(c.contrib, unit),
+                        "доля_в_узле_%": round(c.share_in_parent, 1)} for c in n.children[:4]],
+    } for n in tree[:5]]
+    if pareto_facts:
+        f["концентрация"] = (f"топ-{pareto_facts.get('n_for_80')} «{lbls.of(frame.entity)}» = 80% потерь "
+                             f"(всего {pareto_facts.get('total')}); топ-10 = {pareto_facts.get('top10_share')}%")
     f["почему"] = [{"разрез": lbls.of(d), "преобладает_значение": fmt_val(c.table.index[0]),
                     "доля_%": round(c.top_share, 1)} for d, c, _ in why]
     if comps:
@@ -437,7 +659,12 @@ def _facts_for_synth(frame, lbls, net, gloss, ggain, unit, levels, why, comps, w
 
 # ---------- рендер ----------
 def _assemble_md(prep, frame, table, fqn, question, where, net, gross_loss, gross_gain, unit,
-                 levels, why, comps, who_tbl, who_chart, synth) -> str:
+                 primary, waterfall, pareto_chart, pareto_facts, tree, treemap, why, heat,
+                 comps, who_tbl, who_chart, quadrant, synth) -> str:
+    T = table + "_investigate"
+    lb = prep.lbls
+    def im(ch, alt=""):
+        return f"![{alt}]({_rel_chart(T, ch)})\n" if ch else ""
     L = [f"# 🔎 Расследование: {prep.table_desc}", f"**Вопрос:** {question}\n"]
     meta = f"**Таблица:** `{fqn}` · **строк:** {len(prep.df):,}".replace(",", " ")
     if where:
@@ -445,47 +672,53 @@ def _assemble_md(prep, frame, table, fqn, question, where, net, gross_loss, gros
     L.append(meta + "\n")
     if synth.get("answer"):
         L.append("## 🎯 Ответ\n" + synth["answer"] + "\n")
-    # KPI
-    L.append("## 📊 Итог")
-    L.append(f"- **{prep.lbls.of(frame.target)} (net):** {_fmt_u(net, unit)}")
+    # масштаб: net vs gross
+    L.append("## 📊 Масштаб")
     if gross_loss is not None:
-        L.append(f"- **Всего потеряно:** {_fmt_u(gross_loss, unit)} · **приросло:** {_fmt_u(gross_gain, unit)}")
+        L.append(f"- **Валовые потери:** {_fmt_u(gross_loss, unit)} · **приток:** {_fmt_u(gross_gain, unit)} "
+                 f"· **net:** {_fmt_u(net, unit)}")
+    else:
+        L.append(f"- **{lb.of(frame.target)}:** {_fmt_u(net, unit)}")
+    if pareto_facts:
+        L.append(f"- **Концентрация:** топ-{pareto_facts['n_for_80']} «{lb.of(frame.entity)}» = 80% потерь "
+                 f"(из {pareto_facts['total']}); топ-10 = {pareto_facts['top10_share']}%.")
     L.append("")
+    L.append(im(waterfall, "водопад")); L.append(im(pareto_chart, "Парето"))
     if comps:
         L.append("## 🧩 Из чего складывается")
-        for name, v in comps:
-            L.append(f"- {name}: {_fmt_u(v, unit)}")
+        L += [f"- {name}: {_fmt_u(v, unit)}" for name, v in comps]
         L.append("")
-    if levels:
-        L.append("## 📉 Где сосредоточено (спуск по дереву)")
-        for i, lv in enumerate(levels, 1):
-            c = lv.contrib
-            L.append(f"### Уровень {i}: по «{prep.lbls.col_title(lv.dim)}»")
-            L.append(f"Крупнейший: **{fmt_val(lv.followed)}** — {_fmt_u(float(c.table['contrib'].iloc[0]), unit)} "
-                     f"({c.top_share:.0f}% {_side(c.loss)}); {c.n_for_half} знач. дают половину.\n")
-            if lv.chart:
-                L.append(f"![{lv.dim}]({_rel_chart(table + '_investigate', lv.chart)})\n")
-    if why:
+    if tree:
+        L.append(f"## 🌳 Дерево потерь: «{lb.col_title(primary)}» → «{lb.col_title(frame.entity)}»")
+        L.append(im(treemap, "treemap"))
+        for n in tree:
+            L.append(f"### {n.label} — {_fmt_u(n.contrib, unit)} ({n.share_of_total:.0f}% всех потерь)")
+            for c in n.children[:5]:
+                L.append(f"- {c.label}: {_fmt_u(c.contrib, unit)} ({c.share_in_parent:.0f}% узла)")
+            if n.tail_count:
+                L.append(f"- прочие ({n.tail_count}): {_fmt_u(n.tail_contrib, unit)}")
+            L.append("")
+    if why or heat:
         L.append("## ❓ Почему")
         for d, c, ch in why:
-            L.append(f"### По «{prep.lbls.col_title(d)}»")
-            L.append(f"Главное: **{fmt_val(c.table.index[0])}** ({c.top_share:.0f}%).\n")
-            if ch:
-                L.append(f"![{d}]({_rel_chart(table + '_investigate', ch)})\n")
+            L.append(f"### По «{lb.col_title(d)}»: преобладает **{fmt_val(c.table.index[0])}** ({c.top_share:.0f}%)")
+            L.append(im(ch, d))
+        if heat:
+            L.append(f"### Где какая причина: «{lb.of(primary)}» × «{lb.of(frame.why_dims[0])}»")
+            L.append(im(heat, "heat"))
     if who_tbl is not None:
-        L.append(f"## 👤 Кто (конкретные {prep.lbls.of(frame.entity)})")
+        L.append(f"## 👤 Кто + приоритет возврата ({lb.of(frame.entity)})")
         has_val = "value" in who_tbl.columns
-        L.append(f"| {prep.lbls.of(frame.entity)} | {prep.lbls.of(frame.target)} |"
-                 + (f" {prep.lbls.of(frame.value)} |" if has_val else ""))
+        L.append(f"| {lb.of(frame.entity)} | {lb.of(frame.target)} |"
+                 + (f" {lb.of(frame.value)} |" if has_val else ""))
         L.append("|---|---|" + ("---|" if has_val else ""))
         for idx, row in who_tbl.head(8).iterrows():
             line = f"| {fmt_val(idx)} | {_fmt_u(float(row['contrib']), unit)} |"
             if has_val:
-                line += f" {_fmt(float(row['value']))} |" if pd.notna(row['value']) else " — |"
+                line += (f" {_fmt(float(row['value']))} |" if pd.notna(row['value']) else " — |")
             L.append(line)
         L.append("")
-        if who_chart:
-            L.append(f"![who]({_rel_chart(table + '_investigate', who_chart)})\n")
+        L.append(im(quadrant, "квадрант")); L.append(im(who_chart, "кто"))
     if synth.get("chain"):
         L.append("## 🧭 Причинная цепочка")
         L += [f"{i}. {x}" for i, x in enumerate(synth["chain"], 1)]
@@ -499,8 +732,13 @@ def _assemble_md(prep, frame, table, fqn, question, where, net, gross_loss, gros
 
 
 def _assemble_html(prep, frame, table, fqn, question, where, net, gross_loss, gross_gain, unit,
-                   levels, why, comps, who_tbl, who_chart, synth) -> str:
+                   primary, waterfall, pareto_chart, pareto_facts, tree, treemap, why, heat,
+                   comps, who_tbl, who_chart, quadrant, synth) -> str:
     import html as _h
+    lb = prep.lbls
+    def im(ch):
+        b = _img_b64(ch)
+        return f"<img src='{b}'>" if b else ""
     H = ["<!doctype html><html lang='ru'><head><meta charset='utf-8'>",
          f"<title>Расследование: {_h.escape(table)}</title><style>{_HTML_CSS}</style></head><body>",
          f"<h1>🔎 Расследование: {_h.escape(prep.table_desc)}</h1>",
@@ -512,52 +750,51 @@ def _assemble_html(prep, frame, table, fqn, question, where, net, gross_loss, gr
     if synth.get("answer"):
         H.append(f"<div class='card summary'><h2 style='border:none;margin-top:0'>🎯 Ответ</h2>"
                  f"<p class='insight'>{_h.escape(synth['answer'])}</p></div>")
-    # итог
-    kpi = [f"<b>{_h.escape(prep.lbls.of(frame.target))} (net):</b> {_h.escape(_fmt_u(net, unit))}"]
+    # масштаб
+    H.append("<h2>📊 Масштаб</h2><div class='card'>")
     if gross_loss is not None:
-        kpi.append(f"<b>Потеряно:</b> {_h.escape(_fmt_u(gross_loss, unit))} · "
-                   f"<b>приросло:</b> {_h.escape(_fmt_u(gross_gain, unit))}")
-    H.append("<h2>📊 Итог</h2><div class='card'><p>" + " &nbsp;·&nbsp; ".join(kpi) + "</p></div>")
+        H.append(f"<p><b>Валовые потери:</b> {_h.escape(_fmt_u(gross_loss, unit))} &nbsp;·&nbsp; "
+                 f"<b>приток:</b> {_h.escape(_fmt_u(gross_gain, unit))} &nbsp;·&nbsp; "
+                 f"<b>net:</b> {_h.escape(_fmt_u(net, unit))}</p>")
+    if pareto_facts:
+        H.append(f"<p class='factline'>Концентрация: топ-{pareto_facts['n_for_80']} «{_h.escape(lb.of(frame.entity))}» "
+                 f"= 80% потерь (из {pareto_facts['total']}); топ-10 = {pareto_facts['top10_share']}%.</p>")
+    H.append(im(waterfall) + im(pareto_chart) + "</div>")
     if comps:
         H.append("<h2>🧩 Из чего складывается</h2><div class='card'><ul>"
-                 + "".join(f"<li>{_h.escape(n)}: {_h.escape(_fmt_u(v, unit))}</li>" for n, v in comps)
-                 + "</ul></div>")
-    if levels:
-        H.append("<h2>📉 Где сосредоточено (спуск по дереву)</h2>")
-        for i, lv in enumerate(levels, 1):
-            c = lv.contrib
-            H.append(f"<h3>Уровень {i}: по «{_h.escape(prep.lbls.col_title(lv.dim))}»</h3><div class='card'>")
-            H.append(f"<p class='factline'>Крупнейший: <strong>{_h.escape(fmt_val(lv.followed))}</strong> — "
-                     f"{_h.escape(_fmt_u(float(c.table['contrib'].iloc[0]), unit))} "
-                     f"({c.top_share:.0f}% {_side(c.loss)}); {c.n_for_half} знач. дают половину.</p>")
-            img = _img_b64(lv.chart)
-            if img:
-                H.append(f"<img src='{img}'>")
-            H.append("</div>")
-    if why:
+                 + "".join(f"<li>{_h.escape(n)}: {_h.escape(_fmt_u(v, unit))}</li>" for n, v in comps) + "</ul></div>")
+    if tree:
+        H.append(f"<h2>🌳 Дерево потерь: «{_h.escape(lb.col_title(primary))}» → «{_h.escape(lb.col_title(frame.entity))}»</h2>")
+        H.append("<div class='card'>" + im(treemap) + "</div>")
+        for n in tree:
+            H.append(f"<h3>{_h.escape(n.label)} — {_h.escape(_fmt_u(n.contrib, unit))} "
+                     f"({n.share_of_total:.0f}% всех потерь)</h3><div class='card'><ul>")
+            for c in n.children[:5]:
+                H.append(f"<li>{_h.escape(c.label)}: {_h.escape(_fmt_u(c.contrib, unit))} "
+                         f"({c.share_in_parent:.0f}% узла)</li>")
+            if n.tail_count:
+                H.append(f"<li>прочие ({n.tail_count}): {_h.escape(_fmt_u(n.tail_contrib, unit))}</li>")
+            H.append("</ul></div>")
+    if why or heat:
         H.append("<h2>❓ Почему</h2>")
         for d, c, ch in why:
-            H.append(f"<h3>По «{_h.escape(prep.lbls.col_title(d))}»</h3><div class='card'>")
-            H.append(f"<p class='factline'>Главное: <strong>{_h.escape(fmt_val(c.table.index[0]))}</strong> "
-                     f"({c.top_share:.0f}%).</p>")
-            img = _img_b64(ch)
-            if img:
-                H.append(f"<img src='{img}'>")
-            H.append("</div>")
+            H.append(f"<h3>По «{_h.escape(lb.col_title(d))}»</h3><div class='card'>"
+                     f"<p class='factline'>Преобладает <strong>{_h.escape(fmt_val(c.table.index[0]))}</strong> "
+                     f"({c.top_share:.0f}%).</p>" + im(ch) + "</div>")
+        if heat:
+            H.append(f"<h3>Где какая причина: «{_h.escape(lb.of(primary))}» × «{_h.escape(lb.of(frame.why_dims[0]))}»</h3>"
+                     f"<div class='card'>" + im(heat) + "</div>")
     if who_tbl is not None:
         has_val = "value" in who_tbl.columns
-        H.append(f"<h2>👤 Кто (конкретные {_h.escape(prep.lbls.of(frame.entity))})</h2><div class='card pattern-card'>")
+        H.append(f"<h2>👤 Кто + приоритет возврата ({_h.escape(lb.of(frame.entity))})</h2><div class='card pattern-card'>")
         rows = "".join(
             f"<tr><td>{_h.escape(fmt_val(idx))}</td><td>{_h.escape(_fmt_u(float(r['contrib']), unit))}</td>"
             + (f"<td>{_h.escape(_fmt(float(r['value'])) if pd.notna(r['value']) else '—')}</td>" if has_val else "")
             + "</tr>" for idx, r in who_tbl.head(8).iterrows())
-        head = (f"<th>{_h.escape(prep.lbls.of(frame.entity))}</th><th>{_h.escape(prep.lbls.of(frame.target))}</th>"
-                + (f"<th>{_h.escape(prep.lbls.of(frame.value))}</th>" if has_val else ""))
+        head = (f"<th>{_h.escape(lb.of(frame.entity))}</th><th>{_h.escape(lb.of(frame.target))}</th>"
+                + (f"<th>{_h.escape(lb.of(frame.value))}</th>" if has_val else ""))
         H.append(f"<table><thead><tr>{head}</tr></thead><tbody>{rows}</tbody></table>")
-        img = _img_b64(who_chart)
-        if img:
-            H.append(f"<img src='{img}'>")
-        H.append("</div>")
+        H.append(im(quadrant) + im(who_chart) + "</div>")
     if synth.get("chain"):
         H.append("<h2>🧭 Причинная цепочка</h2><div class='card'><ol>"
                  + "".join(f"<li>{_h.escape(x)}</li>" for x in synth["chain"]) + "</ol></div>")

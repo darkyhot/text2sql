@@ -13,3 +13,4 @@ seaborn
 tabulate
 # Прод: бэкенд GigaChat (на локальном DeepSeek-контуре не требуется)
 langchain-gigachat
+squarify

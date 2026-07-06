@@ -78,41 +78,85 @@ class LLMClient:
             return res
         raise last_exc or RuntimeError("LLM: все попытки исчерпаны")
 
+    _JSON_SUFFIX = ("\n\nОтвечай ТОЛЬКО валидным JSON-объектом. Никакого текста, markdown, ``` или "
+                    "пояснений до и после. Первый символ ответа — {, последний — }. "
+                    "Все ключи и строковые значения — в ДВОЙНЫХ кавычках, без висячих запятых.")
+
     def complete_json(self, system: str, user: str, *, max_tokens: int | None = None,
                       node: str = "") -> dict[str, Any]:
-        sys_json = system.rstrip() + "\n\nОтвечай ТОЛЬКО валидным JSON-объектом, без markdown и пояснений."
-        res = self.complete(sys_json, user, max_tokens=max_tokens, node=node)
-        parsed = self._try_parse(res.text)
-        if parsed is not None:
-            return parsed
-        repair = self.complete(
-            sys_json, "Преобразуй в один валидный JSON-объект без markdown и текста:\n\n" + res.text,
-            max_tokens=max_tokens, node=node + ":repair",
-        )
-        parsed = self._try_parse(repair.text)
-        if parsed is None:
-            raise ValueError(f"LLM не вернул валидный JSON после ремонта. Сырой ответ:\n{res.text[:500]}")
-        return parsed
+        sys_json = system.rstrip() + self._JSON_SUFFIX
+        raw = ""
+        # несколько попыток генерации (модель иногда отдаёт текст/markdown/обрезанный JSON),
+        # каждую подстраховываем «ремонтом»
+        for attempt in range(3):
+            hint = "" if attempt == 0 else "\n\n(Верни СТРОГО JSON-объект, только {…}.)"
+            res = self.complete(sys_json, user + hint, max_tokens=max_tokens,
+                                node=node + (f":try{attempt}" if attempt else ""))
+            raw = res.text
+            parsed = self._try_parse(raw)
+            if parsed is not None:
+                return parsed
+            repair = self.complete(
+                sys_json, "Преобразуй в ОДИН валидный JSON-объект (только {…}, без текста и markdown):\n\n" + raw,
+                max_tokens=max_tokens, node=node + ":repair")
+            parsed = self._try_parse(repair.text)
+            if parsed is not None:
+                return parsed
+        raise ValueError(f"LLM не вернул валидный JSON после {3} попыток. Сырой ответ:\n{raw[:500]}")
 
     @staticmethod
-    def _try_parse(text: str) -> dict[str, Any] | None:
+    def _clean_json(s: str) -> str:
+        """Мелкий ремонт почти-JSON: типографские кавычки, висячие запятые."""
+        s = (s.replace("“", '"').replace("”", '"').replace("„", '"')
+             .replace("’", "'").replace(" ", " "))
+        s = re.sub(r",\s*([}\]])", r"\1", s)          # висячие запятые перед } или ]
+        return s
+
+    @classmethod
+    def _try_parse(cls, text: str) -> dict[str, Any] | None:
         if not text:
             return None
         candidate = text.strip()
-        if candidate.startswith("```"):
-            candidate = re.sub(r"^json\s*", "", candidate.strip("`"), flags=re.IGNORECASE).strip()
+        if candidate.startswith("```"):               # снять ```json … ```
+            candidate = candidate.strip("`")
+            candidate = re.sub(r"^json\s*", "", candidate, flags=re.IGNORECASE).strip()
         for chunk in (candidate, _extract(candidate)):
             if not chunk:
                 continue
-            try:
-                obj = json.loads(chunk)
-                if isinstance(obj, dict):
-                    return obj
-            except json.JSONDecodeError:
-                continue
+            for variant in (chunk, cls._clean_json(chunk)):
+                try:
+                    obj = json.loads(variant)
+                    if isinstance(obj, dict):
+                        return obj
+                except json.JSONDecodeError:
+                    continue
         return None
 
 
 def _extract(text: str) -> str:
-    m = _JSON_BLOCK.search(text)
+    """Сбалансированный {…} от первой { до парной } (учёт вложенности и строк в кавычках).
+    Надёжнее жадной регексы, когда вокруг JSON есть текст/скобки."""
+    start = text.find("{")
+    if start < 0:
+        return ""
+    depth, in_str, esc = 0, False, False
+    for i in range(start, len(text)):
+        ch = text[i]
+        if in_str:
+            if esc:
+                esc = False
+            elif ch == "\\":
+                esc = True
+            elif ch == '"':
+                in_str = False
+            continue
+        if ch == '"':
+            in_str = True
+        elif ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                return text[start:i + 1]
+    m = _JSON_BLOCK.search(text)                       # fallback: жадный
     return m.group(0) if m else ""

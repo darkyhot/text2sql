@@ -20,6 +20,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -41,6 +42,10 @@ from .metrics import Measure, ROW_COL
 logger = logging.getLogger(__name__)
 
 _C_LOSS, _C_GAIN, _C_NEUT = "#C0504D", "#2E8B57", "#3B7DD8"
+# сущность-ИДЕНТИФИКАТОР vs ЧИТАЕМОЕ имя; разрезы-ПРИЧИНЫ/статусы (детекция по смыслу)
+_ID_ENT = re.compile(r"(^inn$|_inn$|_id$|_code$|saphr|epk|ogrn|kpp)", re.I)
+_NAME_ENT = re.compile(r"(name|fio|компан|client|клиент|организ|holder|наимен)", re.I)
+_REASON_RE = re.compile(r"(причин|reason|повод|cause|статус|status|основан|infopovod|признак|тип)", re.I)
 
 
 # ---------- подготовка данных (загрузка, роли, меры) ----------
@@ -89,6 +94,7 @@ class Frame:
     why_dims: list[str] = field(default_factory=list)
     components: list[str] = field(default_factory=list)
     entity: str | None = None
+    id_col: str | None = None            # id-партнёр сущности (ИНН) — показываем в скобках
     value: str | None = None
     restated: str = ""
 
@@ -134,14 +140,38 @@ def _frame(llm, question, prep: Prep) -> Frame:
     s = pd.to_numeric(df[target], errors="coerce")
     mode = out.get("mode") if out.get("mode") in ("change", "magnitude") else \
         ("change" if (s.min() is not None and s.min() < 0) else "magnitude")
+    # СУЩНОСТЬ: предпочитаем ЧИТАЕМОЕ имя организации/клиента идентификатору (ИНН/коду)
+    ents = list(prep.roles.entities)
+    chosen = out.get("entity") if out.get("entity") in entset else None
+    name_ents = [e for e in ents if _NAME_ENT.search(e) and not _ID_ENT.search(e)]
+    if (chosen is None or _ID_ENT.search(chosen)) and name_ents:
+        entity = name_ents[0]
+    else:
+        entity = chosen or (name_ents[0] if name_ents else (ents[0] if ents else None))
+    # id-партнёр (ИНН/код) той же сущности — для показа в скобках после имени
+    id_col = None
+    if entity and _NAME_ENT.search(entity):
+        cands = [c for c in df.columns if _ID_ENT.search(c) and df[c].nunique(dropna=True) >= df[entity].nunique(dropna=True)]
+        id_col = next((c for c in cands if c.lower() in ("inn",) or "inn" in c.lower()), cands[0] if cands else None)
+
+    # ПОЧЕМУ: к разрезам от LLM добавляем очевидные причины/статусы из ЛЮБЫХ колонок
+    # (детерминированно, чтобы блок «почему» не пропадал, если LLM/профайлер их не отметил)
+    why = [d for d in (out.get("why_dims") or []) if d in dimset]
+    for c in df.columns:
+        if c in why or pd.api.types.is_numeric_dtype(df[c]):
+            continue
+        desc = prep.meta.get(c, {}).get("desc", "")
+        if (_REASON_RE.search(c) or _REASON_RE.search(desc)) and 2 <= df[c].nunique(dropna=True) <= 40:
+            why.append(c)
+
     return Frame(
         target=target, mode=mode,
         direction=out.get("direction") if out.get("direction") in ("loss", "gain", "top")
         else ("loss" if mode == "change" else "top"),
         drill_dims=[d for d in (out.get("drill_dims") or []) if d in dimset] or list(prep.roles.dimensions),
-        why_dims=[d for d in (out.get("why_dims") or []) if d in dimset],
+        why_dims=why[:3],
         components=[c for c in (out.get("components") or []) if c in numset and c != target],
-        entity=(out.get("entity") if out.get("entity") in entset else (prep.roles.entities[0] if prep.roles.entities else None)),
+        entity=entity, id_col=id_col,
         value=(out.get("value") if out.get("value") in numset else None),
         restated=str(out.get("restated") or question).strip(),
     )
@@ -247,7 +277,7 @@ def _components(df, frame: Frame, lbls) -> list[tuple[str, float]]:
     return res
 
 
-def _who(df, frame: Frame, assets, lbls) -> tuple[pd.DataFrame | None, str | None]:
+def _who(df, frame: Frame, assets, lbls, elab=fmt_val) -> tuple[pd.DataFrame | None, str | None]:
     ent = frame.entity
     if not ent or ent not in df.columns:
         return None, None
@@ -263,10 +293,11 @@ def _who(df, frame: Frame, assets, lbls) -> tuple[pd.DataFrame | None, str | Non
     if frame.value and frame.value in df.columns:
         vv = pd.to_numeric(df[frame.value], errors="coerce").groupby(df[ent]).sum()
         val = vv.reindex(top.index)
-    tbl = pd.DataFrame({"contrib": top})
+    disp = top.copy(); disp.index = [elab(i) for i in top.index]     # «Имя (ИНН …)»
+    tbl = pd.DataFrame({"contrib": disp})
     if val is not None:
-        tbl["value"] = val
-    chart = _entity_chart(top, ent, frame, assets, lbls)
+        tbl["value"] = val.values
+    chart = _entity_chart(disp, ent, frame, assets, lbls)
     return tbl, chart
 
 
@@ -324,6 +355,24 @@ def _side_of(frame: Frame) -> str:
     return frame.direction if frame.direction in ("loss", "gain") else "auto"
 
 
+def _make_elab(df, frame: Frame, lbls):
+    """Подпись значения сущности: «Название (ИНН 123…)», если у имени есть id-партнёр."""
+    ent, idc = frame.entity, frame.id_col
+    if not (ent and idc and idc in df.columns and ent in df.columns):
+        return lambda v: fmt_val(v)
+    # показываем id в скобках только при связи имя↔id ≈ 1:1 (иначе id вводит в заблуждение)
+    if df.groupby(ent)[idc].nunique().median() > 1:
+        return lambda v: fmt_val(v)
+    m = df.groupby(ent)[idc].agg(lambda s: (s.dropna().mode().iloc[0]
+                                            if not s.dropna().mode().empty else None))
+    idlabel = lbls.of(idc)
+
+    def elab(v):
+        idv = m.get(v)
+        return f"{fmt_val(v)} ({idlabel} {fmt_val(idv)})" if idv is not None else fmt_val(v)
+    return elab
+
+
 def _side_series(g: pd.Series, side: str) -> pd.Series:
     if side == "loss":
         return g[g < 0].sort_values()
@@ -350,7 +399,7 @@ class Node:
 
 
 def _build_tree(df, frame: Frame, ref: float, top_dim: str, entity: str, side: str,
-                *, max_seg=6, max_comp=8) -> list[Node]:
+                elab=fmt_val, *, max_seg=6, max_comp=8) -> list[Node]:
     """Дерево: top_dim (сегмент) → топ-entity (компании) внутри + «прочие»."""
     # СОГЛАСОВАННАЯ loss-декомпозиция: узел (сегмент) = сумма ПРОИГРЫВАЮЩИХ сущностей внутри,
     # чтобы «топ + прочие» = узлу, а Σ узлов = общим потерям (без взаимозачёта с приростом).
@@ -365,7 +414,7 @@ def _build_tree(df, frame: Frame, ref: float, top_dim: str, entity: str, side: s
         segabs = abs(val) or 1.0
         top = cs.head(max_comp)
         tail = float(cs.iloc[max_comp:].sum()) if len(cs) > max_comp else 0.0
-        children = [Child(fmt_val(i), float(v), abs(v) / segabs * 100) for i, v in top.items()]
+        children = [Child(elab(i), float(v), abs(v) / segabs * 100) for i, v in top.items()]
         nodes.append(Node(fmt_val(segname), val, abs(val) / abs(ref) * 100,
                           children, tail, max(0, len(cs) - max_comp)))
     return nodes
@@ -594,7 +643,8 @@ def investigate(db, catalog, llm, fqn: str, question: str, *, where: str | None 
     pareto_chart, pareto_facts = (_pareto_curve(df, frame, frame.entity, side, assets, prep.lbls)
                                   if frame.entity else (None, {}))
     progress("раскладываю потери по дереву (сегмент → компании)…")
-    tree = _build_tree(df, frame, ref, primary, frame.entity, side) if (primary and frame.entity) else []
+    elab = _make_elab(df, frame, prep.lbls)                # подпись «Имя (ИНН …)»
+    tree = _build_tree(df, frame, ref, primary, frame.entity, side, elab) if (primary and frame.entity) else []
     treemap = _treemap_chart(tree, frame, assets, prep.lbls, primary, frame.entity) if tree else None
     progress("ищу причины и структуру…")
     why = _why(df, frame, assets, prep.lbls, ref, side)
@@ -602,7 +652,7 @@ def investigate(db, catalog, llm, fqn: str, question: str, *, where: str | None 
             if (primary and frame.why_dims) else None)
     comps = _components(df, frame, prep.lbls)
     progress("нахожу «виновников» и приоритет возврата…")
-    who_tbl, who_chart = _who(df, frame, assets, prep.lbls)
+    who_tbl, who_chart = _who(df, frame, assets, prep.lbls, elab)
     quadrant = _quadrant_chart(df, frame, frame.entity, frame.value, side, assets, prep.lbls) if frame.entity else None
 
     facts = _facts_for_synth(frame, prep.lbls, net, gross_loss, gross_gain, unit, tree, why,

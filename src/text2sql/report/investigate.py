@@ -352,17 +352,21 @@ class Node:
 def _build_tree(df, frame: Frame, ref: float, top_dim: str, entity: str, side: str,
                 *, max_seg=6, max_comp=8) -> list[Node]:
     """Дерево: top_dim (сегмент) → топ-entity (компании) внутри + «прочие»."""
-    s = pd.to_numeric(df[frame.target], errors="coerce")
-    seg = _side_series(s.groupby(df[top_dim]).sum(), side)
-    nodes: list[Node] = []
-    for segname, segval in seg.head(max_seg).items():
-        sub = df[df[top_dim].astype(str) == str(segname)]
+    # СОГЛАСОВАННАЯ loss-декомпозиция: узел (сегмент) = сумма ПРОИГРЫВАЮЩИХ сущностей внутри,
+    # чтобы «топ + прочие» = узлу, а Σ узлов = общим потерям (без взаимозачёта с приростом).
+    seg_side: dict = {}
+    for segname, sub in df.groupby(top_dim):
         cs = _side_series(pd.to_numeric(sub[frame.target], errors="coerce").groupby(sub[entity]).sum(), side)
-        segabs = abs(float(segval)) or 1.0
+        val = float(cs.sum())
+        if abs(val) > 1e-9:
+            seg_side[segname] = (val, cs)
+    nodes: list[Node] = []
+    for segname, (val, cs) in sorted(seg_side.items(), key=lambda kv: abs(kv[1][0]), reverse=True)[:max_seg]:
+        segabs = abs(val) or 1.0
         top = cs.head(max_comp)
         tail = float(cs.iloc[max_comp:].sum()) if len(cs) > max_comp else 0.0
         children = [Child(fmt_val(i), float(v), abs(v) / segabs * 100) for i, v in top.items()]
-        nodes.append(Node(fmt_val(segname), float(segval), abs(float(segval)) / abs(ref) * 100,
+        nodes.append(Node(fmt_val(segname), val, abs(val) / abs(ref) * 100,
                           children, tail, max(0, len(cs) - max_comp)))
     return nodes
 
@@ -377,11 +381,12 @@ def _treemap_chart(tree: list[Node], frame: Frame, assets, lbls, top_dim, entity
         W, H = 100.0, 100.0
         seg_sizes = squarify.normalize_sizes([x[1] for x in segs], W, H)
         seg_rects = squarify.squarify(seg_sizes, 0, 0, W, H)
-        palette = sns.color_palette("tab10", len(segs))
-        fig, ax = plt.subplots(figsize=(11, 7))
-        for (name, sz, node), rect, col in zip(segs, seg_rects, palette):
+        leaf_pal = sns.color_palette("tab20", 20)                   # цвет — по КОМПАНИИ, не сегменту
+        ci = 0
+        fig, ax = plt.subplots(figsize=(12, 7.5))
+        for (name, sz, node), rect in zip(segs, seg_rects):
             ax.add_patch(plt.Rectangle((rect["x"], rect["y"]), rect["dx"], rect["dy"],
-                                       facecolor="none", edgecolor="#222", lw=2.2))
+                                       facecolor="none", edgecolor="#111", lw=3, zorder=5))
             parts = [(c.label, abs(c.contrib)) for c in node.children if abs(c.contrib) > 0]
             if node.tail_count:
                 parts.append((f"прочие ({node.tail_count})", abs(node.tail_contrib)))
@@ -390,8 +395,12 @@ def _treemap_chart(tree: list[Node], frame: Frame, assets, lbls, top_dim, entity
             csz = squarify.normalize_sizes([p[1] for p in parts], rect["dx"], rect["dy"])
             crects = squarify.squarify(csz, rect["x"], rect["y"], rect["dx"], rect["dy"])
             for (clabel, cval), cr in zip(parts, crects):
+                is_other = clabel.startswith("прочие")
+                fc = "#c9d2de" if is_other else leaf_pal[ci % 20]
+                if not is_other:
+                    ci += 1
                 ax.add_patch(plt.Rectangle((cr["x"], cr["y"]), cr["dx"], cr["dy"],
-                                           facecolor=col, edgecolor="white", lw=0.8, alpha=.85))
+                                           facecolor=fc, edgecolor="white", lw=1.0, alpha=.92))
                 if cr["dx"] > 7 and cr["dy"] > 5:
                     ax.text(cr["x"] + cr["dx"] / 2, cr["y"] + cr["dy"] / 2,
                             f"{clabel[:16]}\n{_fmt(cval)}", ha="center", va="center", fontsize=7)

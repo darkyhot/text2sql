@@ -230,7 +230,7 @@ class CLI:
                 logger.exception("investigate failed")
                 print(f"✗ Не удалось провести расследование: {exc}")
             return
-        print(f"✅ Расследование готово (уровней спуска: {res['levels']}, строк: {res['rows']:,}).".replace(",", " "))
+        print(f"✅ Расследование готово (веток дерева: {res.get('segments', 0)}, строк: {res['rows']:,}).".replace(",", " "))
         print(f"   HTML: {res['html_path']}")
         print(f"   MD:  {res['md_path']}")
 

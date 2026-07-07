@@ -13,7 +13,7 @@ from pathlib import Path
 import pandas as pd
 
 from ..config import PATHS
-from . import core, labels, metrics, mining, patterns, plan
+from . import core, labels, metrics, mining, patterns, plan, scoring
 
 logger = logging.getLogger(__name__)
 
@@ -177,6 +177,8 @@ def build_business_report(db, catalog, llm, fqn: str, *, where: str | None = Non
         results += patterns.detect_all(df, roles, assets, lbls)
 
     progress("пишу выводы бизнес-языком…")
+    for r in results:                        # C3: размечаем раздел-источник для кросс-ссылок
+        r.facts["_section"] = _section_of_result(r, section_of)
     summary, attention = plan.narrate(llm, table_desc, focus, [r for r in results if r.key != "kpi"])
     attention = scope + attention          # скоуп-заметки — впереди «на что обратить внимание»
     angle = ""
@@ -195,18 +197,6 @@ def build_business_report(db, catalog, llm, fqn: str, *, where: str | None = Non
             "charts": sum(1 for r in results if r.chart)}
 
 
-# порядок и заголовки тематических разделов
-_SECTION_ORDER = [
-    "🎯 Ответ на ваш запрос",
-    "📈 Обзор по показателям",
-    "💰 Где сосредоточены деньги и объёмы",
-    "⚖️ Ценность важнее количества",
-    "🚨 Аномальные срезы",
-    "👥 Ключевые игроки: сотрудники, клиенты, ИНН",
-    "🔍 Закономерности во времени",
-]
-
-
 def _section_of_result(r, section_of: dict) -> str:
     if r.kind == "focus":
         return "🎯 Ответ на ваш запрос"
@@ -222,16 +212,21 @@ def _section_of_result(r, section_of: dict) -> str:
 
 
 def _grouped(results, section_of: dict) -> list[tuple[str, list]]:
+    """Группируем находки по разделам и упорядочиваем по ЗНАЧИМОСТИ (C2): базовый ранг
+    раздела, а внутри discovery-разделов (💰/⚖️/🚨, один ранг) — по агрегатному score
+    находок, чтобы самый острый разрез всплывал выше. Внутри раздела — тоже по score."""
     buckets: dict[str, list] = {}
     for r in results:
         if r.key == "kpi" or r.facts.get("note"):
             continue
         buckets.setdefault(_section_of_result(r, section_of), []).append(r)
-    ordered = [(h, buckets[h]) for h in _SECTION_ORDER if buckets.get(h)]
-    for h, rs in buckets.items():          # неучтённые (на всякий) — в конец
-        if h not in _SECTION_ORDER:
-            ordered.append((h, rs))
-    return ordered
+    for rs in buckets.values():
+        rs.sort(key=lambda r: r.score, reverse=True)
+    def _key(item):
+        header, rs = item
+        agg = max((r.score for r in rs), default=0.0)
+        return scoring.section_sort_key(header, agg)
+    return sorted(buckets.items(), key=_key, reverse=True)
 
 
 def _rel_chart(table: str, chart: str | None) -> str:

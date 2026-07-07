@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from pathlib import Path
 
 from . import core
@@ -269,6 +270,26 @@ def focus_plan_llm(llm, focus: str, measures, dims: list[str], labels) -> dict:
     return {"question": str(out.get("question") or focus).strip(), "breakdowns": bd}
 
 
+# Детерминированная страховка: даже с прямым запретом в промпте reasoning-модель
+# изредка срывается в матжаргон («максимальная дисперсия»). Заменяем на простой русский —
+# инвариант «без матжаргона» держится независимо от капризов модели.
+_DEJARGON: list[tuple[re.Pattern, str]] = [
+    (re.compile(r"\bz[-\s]?score\w*", re.I), "отклонение"),
+    (re.compile(r"\bp[-\s]?value\w*", re.I), "значимость"),
+    (re.compile(r"стандартн\w*\s+отклонени\w*", re.I), "разброс"),
+    (re.compile(r"дисперси\w*", re.I), "вариативность"),   # жен. род — согласуется («максимальная …»)
+    (re.compile(r"корреляци\w*", re.I), "взаимосвязь"),
+    (re.compile(r"коррелир\w*", re.I), "связан"),
+    (re.compile(r"(кванти|перценти)л\w*", re.I), "уровень"),
+]
+
+
+def _dejargon(text: str) -> str:
+    for rx, repl in _DEJARGON:
+        text = rx.sub(repl, text)
+    return text
+
+
 def narrate(llm, table_desc: str, focus: str, results: list[AnalysisResult]) -> tuple[list[str], list[str]]:
     # короткие id (s0, s1…) — надёжнее длинных ключей для слабых моделей.
     # Ограничиваем число секций в промпте: у больших отчётов reasoning-модель иначе
@@ -277,11 +298,16 @@ def narrate(llm, table_desc: str, focus: str, results: list[AnalysisResult]) -> 
     ids = {f"s{i}": r for i, r in enumerate(rich)}
     # компактные факты: только осмысленные для вывода поля (без служебных _kind/_line)
     def _slim(facts: dict) -> dict:
-        return {k: v for k, v in facts.items() if k not in ("_line", "_kind") and v not in (None, "")}
-    sections = [{"id": sid, "title": r.title, "facts": _slim(r.facts)} for sid, r in ids.items()]
+        return {k: v for k, v in facts.items()
+                if k not in ("_line", "_kind", "_section") and v not in (None, "")}
+    sections = [{"id": sid, "title": r.title, "section": r.facts.get("_section", ""),
+                 "facts": _slim(r.facts)} for sid, r in ids.items()]
     user = (f"Таблица: {table_desc}\nФокус: {focus or '(общий обзор)'}\n\n"
-            f"Секции (id, что посчитано):\n{sections}\n\n"
-            "В insights ключами используй id секций (s0, s1, …).")
+            f"Секции (id, раздел отчёта, что посчитано):\n{sections}\n\n"
+            "В insights ключами используй id секций (s0, s1, …). В каждом пункте summary, "
+            "где это уместно, СОШЛИСЬ на раздел-источник факта по его названию в скобках "
+            "(поле section), напр. «…(раздел ⚖️ Ценность важнее количества)». Так руководитель "
+            "видит, куда смотреть в отчёте.")
     try:
         # reasoning-модели (DeepSeek) тратят бюджет на размышление — даём с запасом
         out = llm.complete_json(_NARRATE_SYS, user, max_tokens=8000, node="report_narrate")
@@ -290,7 +316,7 @@ def narrate(llm, table_desc: str, focus: str, results: list[AnalysisResult]) -> 
         return [], []
     insights = out.get("insights", {}) or {}
     for sid, r in ids.items():
-        r.insight = str(insights.get(sid, "")).strip()
-    summary = [str(x).strip() for x in (out.get("summary") or []) if str(x).strip()]
-    attention = [str(x).strip() for x in (out.get("attention") or []) if str(x).strip()]
+        r.insight = _dejargon(str(insights.get(sid, "")).strip())
+    summary = [_dejargon(str(x).strip()) for x in (out.get("summary") or []) if str(x).strip()]
+    attention = [_dejargon(str(x).strip()) for x in (out.get("attention") or []) if str(x).strip()]
     return summary, attention

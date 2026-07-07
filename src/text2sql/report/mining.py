@@ -35,6 +35,7 @@ import seaborn as sns
 from .core import AnalysisResult, _fmt, _save
 from .labels import Labels, fmt_val
 from .metrics import Measure, ROW_COL
+from .scoring import TH
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +86,7 @@ def mine(df: pd.DataFrame, measures: list[Measure], dims: list[str], entities: l
     if n == 0 or not dims:
         return []
     df[ROW_COL] = 1
-    min_rows = max(30, int(n * 0.005))
+    min_rows = TH.min_rows(n)
     fd = focus_dims or []
     dims = fd + [d for d in dims if d not in fd]      # фокус-разрезы вперёд
     dims = [d for d in dims if d in df.columns and df[d].nunique(dropna=True) >= 2][:10]
@@ -187,13 +188,13 @@ def _rate_deviations(df, m: Measure, dims, min_rows, weight, total_w, labels=Non
             lift = val / overall if overall else 1.0
             gap = val - overall
             # rate: существенное относительное И абсолютное отклонение; duration: относительное
-            if m.kind == "rate" and (abs(gap) < 0.05 or 0.77 <= lift <= 1.3):
+            if m.kind == "rate" and (abs(gap) < TH.rate_abs_gap or TH.rate_lift_lo <= lift <= TH.rate_lift_hi):
                 continue
-            if m.kind == "duration" and 0.7 <= lift <= 1.43:
+            if m.kind == "duration" and TH.dur_lift_lo <= lift <= TH.dur_lift_hi:
                 continue
             slice_w = float(row.get("w", 0.0)) if weight is not None else 0.0
             material = (slice_w / total_w) if total_w else (nrows / len(df))
-            score = abs(lift - 1) * np.log1p(material * 100) * (2 if is_money and slice_w else 1)
+            score = abs(lift - 1) * np.log1p(material * 100) * (TH.w_money_boost if is_money and slice_w else 1)
             direction = "выше" if gap > 0 else "ниже"
             out.append(Finding(
                 kind="rate_dev", measure=m.name, unit=m.unit, dims=[d],
@@ -221,9 +222,9 @@ def _money_concentration(df, m: Measure, dims, labels=None) -> list[Finding]:
         cum = g.cumsum() / total
         n80 = int((cum <= 0.8).sum()) + 1
         # интересно, если концентрация выражена: 1 срез ≥25% ИЛИ ≤20% категорий дают 80%
-        if top_share < 0.25 and (n80 / len(g)) > 0.35:
+        if top_share < TH.conc_top_share and (n80 / len(g)) > TH.conc_n80_frac:
             continue
-        score = top_share * 3 + (1 - n80 / len(g))
+        score = top_share * TH.w_conc_top + (1 - n80 / len(g))
         out.append(Finding(
             kind="money_conc", measure=m.name, unit=m.unit, dims=[d],
             title=f"Концентрация «{m.title()}» по «{_dt(labels, d)}»",
@@ -254,7 +255,7 @@ def _value_mismatch(df, weight: Measure, dims, min_rows, labels=None) -> list[Fi
         g["w_share"] = g["w"] / total_w
         g["cnt_share"] = g["n"] / total_rows
         g["ratio"] = g["w_share"] / g["cnt_share"].replace(0, np.nan)
-        cand = g[(g["w_share"] >= 0.08) & (g["ratio"] >= 1.8)].sort_values("w", ascending=False)
+        cand = g[(g["w_share"] >= TH.mismatch_w_share) & (g["ratio"] >= TH.mismatch_ratio)].sort_values("w", ascending=False)
         for name, row in cand.head(3).iterrows():
             out.append(Finding(
                 kind="value_mismatch", measure=weight.name, unit=weight.unit, dims=[d],
@@ -265,7 +266,7 @@ def _value_mismatch(df, weight: Measure, dims, min_rows, labels=None) -> list[Fi
                        "w_share": round(float(row["w_share"]) * 100, 1),
                        "cnt_share": round(float(row["cnt_share"]) * 100, 1),
                        "ratio": round(float(row["ratio"]), 1), "n_rows": int(row["n"])},
-                score=float(row["ratio"]) * float(row["w_share"]) * 4,
+                score=float(row["ratio"]) * float(row["w_share"]) * TH.w_mismatch,
                 n_rows=int(row["n"]), money=float(row["w"]) if is_money else None,
                 slice_vals=[name], key=f"mismatch|{weight.name}|{d}|{name}"))
     return out
@@ -300,19 +301,19 @@ def _interactions_2d(df, m: Measure, dims, min_rows, weight, total_w, labels=Non
             inter = val / pred                       # >1 сильнее, чем ждали от суммы эффектов
             if m.kind == "rate" and abs(val - overall) < 0.05:
                 continue
-            if not (inter >= 1.4 or inter <= 0.6):
+            if not (inter >= TH.inter_hi or inter <= TH.inter_lo):
                 continue
             # НАСТОЯЩАЯ синергия: комбо ХУЖЕ (или ЛУЧШЕ) каждого разреза по отдельности,
             # иначе один разрез уже всё объясняет (не interaction, а его 1D-эффект)
-            if inter >= 1.4 and not (val > sa * 1.1 and val > sb * 1.1):
+            if inter >= TH.inter_hi and not (val > sa * 1.1 and val > sb * 1.1):
                 continue
-            if inter <= 0.6 and not (val < sa * 0.9 and val < sb * 0.9):
+            if inter <= TH.inter_lo and not (val < sa * 0.9 and val < sb * 0.9):
                 continue
             slice_w = float(row.get("w", 0.0)) if weight is not None else 0.0
             material = (slice_w / total_w) if total_w else (nrows / len(df))
-            if material < 0.01 and nrows < min_rows * 2:
+            if material < TH.inter_material and nrows < min_rows * 2:
                 continue
-            score = abs(inter - 1) * np.log1p(material * 100) * 2.5
+            score = abs(inter - 1) * np.log1p(material * 100) * TH.w_inter
             out.append(Finding(
                 kind="interaction", measure=m.name, unit=m.unit, dims=[da, db],
                 title=f"Аномальное сочетание: «{fmt_val(va)}» × «{fmt_val(vb)}» — {m.title()}",
@@ -329,13 +330,11 @@ def _interactions_2d(df, m: Measure, dims, min_rows, weight, total_w, labels=Non
 
 
 # ---------- отбор ----------
-_KIND_CAP = {"rate_dev": 6, "interaction": 3, "money_conc": 4, "value_mismatch": 3}
-
-
-def _select(findings: list[Finding], *, total=14) -> list[Finding]:
+def _select(findings: list[Finding], *, total=TH.select_total) -> list[Finding]:
     findings.sort(key=lambda f: f.score, reverse=True)
     seen_vals: set[tuple] = set()
     by_kind: dict[str, int] = {}
+    cap = TH.kind_cap
     out: list[Finding] = []
     for f in findings:
         vals = [f.facts.get(k) for k in ("slice", "val_a", "val_b", "leader") if f.facts.get(k)]
@@ -343,7 +342,7 @@ def _select(findings: list[Finding], *, total=14) -> list[Finding]:
         # (не повторяем один и тот же ГОСБ/сегмент в разных сочетаниях)
         if vals and all((f.measure, v) in seen_vals for v in vals):
             continue
-        if by_kind.get(f.kind, 0) >= _KIND_CAP.get(f.kind, 5):
+        if by_kind.get(f.kind, 0) >= cap.get(f.kind, 5):
             continue
         by_kind[f.kind] = by_kind.get(f.kind, 0) + 1
         for v in vals:
@@ -447,7 +446,7 @@ def finding_to_result(f: Finding) -> AnalysisResult:
     facts["_line"] = _finding_line(f)
     key = "".join(ch if ch.isalnum() else "_" for ch in f.key)[:60]
     return AnalysisResult(key=f"mine_{key}", title=f.title, kind="mined", facts=facts,
-                          table_md=f.drill_md, chart=f.chart)
+                          table_md=f.drill_md, chart=f.chart, score=f.score)
 
 
 def section_for(f: Finding) -> str:
@@ -691,7 +690,7 @@ def _bar_vs_baseline(df, f: Finding, measures, assets, labels=None) -> str | Non
     agg = "mean" if m.kind in ("rate", "duration") else "sum"
     g = df.groupby(d)[m.col].agg(agg)
     nrows = df.groupby(d)[ROW_COL].sum()
-    g = g[nrows >= max(30, int(len(df) * 0.005))]
+    g = g[nrows >= TH.min_rows(len(df))]
     if g.empty:
         return None
     g = g.sort_values(ascending=False).head(12)

@@ -107,6 +107,7 @@ class AnalysisResult:
     table_md: str = ""
     chart: str | None = None
     insight: str = ""
+    score: float = 0.0          # значимость находки (для порядка разделов, C2)
 
 
 def agg_for(metric: str) -> str:

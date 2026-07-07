@@ -6,6 +6,7 @@ from __future__ import annotations
 import base64
 import html as _html
 import logging
+import os
 import re
 from pathlib import Path
 
@@ -32,12 +33,31 @@ def _load_columns(catalog, fqn: str) -> list[str] | None:
 
 def _load(db, schema: str, table: str, where: str | None, columns: list[str] | None) -> pd.DataFrame:
     proj = ", ".join(f'"{c}"' for c in columns) if columns else "*"
-    sql = f'SELECT {proj} FROM "{schema}"."{table}"'
-    if where:
-        sql += f" WHERE {where}"
-    # все строки из запроса (ограничение — через --where), дальше только pandas
+    # ГЕЙТ ПО ПАМЯТИ: оцениваем размер (EXPLAIN, без выполнения); если таблица не влезает
+    # в бюджет RAM — грузим СОГЛАСОВАННЫЙ сэмпл (WHERE random()<p) на уровне SQL + плашка.
+    budget_gb = float(os.getenv("PANDAS_MEM_BUDGET_GB", "80"))
+    ncols = len(columns) if columns else 30
+    frac, sample_note = None, None
+    try:
+        est_rows = db.estimate_row_count(schema, table)
+    except Exception:  # noqa: BLE001
+        est_rows = None
+    if est_rows:
+        est_gb = est_rows * ncols * 60 / 1e9          # ~60 байт/ячейка (грубая оценка)
+        if est_gb > budget_gb:
+            frac = max(0.001, min(0.9, budget_gb / est_gb * 0.85))
+    conds = ([f"({where})"] if where else []) + ([f"random() < {frac:.6f}"] if frac is not None else [])
+    sql = f'SELECT {proj} FROM "{schema}"."{table}"' + (" WHERE " + " AND ".join(conds) if conds else "")
     res = db.run_export(sql, enforce_limit=False)
     df = pd.DataFrame(res.rows, columns=res.columns)
+    if frac is not None:
+        rows_h = f"{est_rows:,}".replace(",", " ")
+        sample_note = (f"Таблица (~{rows_h} строк) не влезает в бюджет {budget_gb:.0f} ГБ RAM — "
+                       f"загружен согласованный сэмпл ~{frac*100:.1f}% строк; абсолютные числа "
+                       f"масштабированы по сэмплу, доли/средние корректны.")
+        df.attrs["sample_note"] = sample_note
+        logger.warning("report _load %s.%s: сэмпл %.2f%% (est_rows=%s, est_gb=%.1f > budget=%.0f)",
+                        schema, table, frac * 100, est_rows, est_gb, budget_gb)
     # numeric приходит Decimal/строкой (object ИЛИ str-dtype) → приводим к числам
     for c in df.columns:
         if not (pd.api.types.is_numeric_dtype(df[c]) or pd.api.types.is_datetime64_any_dtype(df[c])
@@ -131,27 +151,30 @@ def build_business_report(db, catalog, llm, fqn: str, *, where: str | None = Non
                     logger.info("report: %s помечено как НЕ деньги (по правке пользователя)", m.tech)
     date = roles.dates[0] if roles.dates else None
     scope = mining.scope_notes(df, measures, roles.dimensions, lbls)      # условная заполненность
+    if df.attrs.get("sample_note"):                                      # плашка о сэмпле (гейт памяти)
+        scope = [df.attrs["sample_note"]] + scope
 
-    progress("считаю обзорные разрезы и динамику…")
-    results = [mining.headline_kpi(df, measures)]
-    # фокус-раздел: разложить запрос пользователя в конкретные разбивки и ответить ими
-    if focus:
-        reqs = plan.focus_plan_llm(llm, focus, measures, roles.dimensions, lbls)
-        results += mining.focus_answer(df, reqs, measures, assets, lbls)
-    results += mining.overview(df, measures, roles.dimensions, date, assets, lbls)
+    with core.report_style():                # локальный стиль графиков (не мутируем ноутбук)
+        progress("считаю обзорные разрезы и динамику…")
+        results = [mining.headline_kpi(df, measures)]
+        # фокус-раздел: разложить запрос пользователя в конкретные разбивки и ответить ими
+        if focus:
+            reqs = plan.focus_plan_llm(llm, focus, measures, roles.dimensions, lbls)
+            results += mining.focus_answer(df, reqs, measures, assets, lbls)
+        results += mining.overview(df, measures, roles.dimensions, date, assets, lbls)
 
-    progress("кручу разрезы: ищу аномалии, концентрацию, перекос деньги/количество…")
-    findings = mining.mine(df, measures, roles.dimensions, roles.entities, assets,
-                           focus_dims=focus_dims or None, labels=lbls)
-    mined_results = [mining.finding_to_result(f) for f in findings]
-    section_of = {mining.finding_to_result(f).key: mining.section_for(f) for f in findings}
-    results += mined_results
+        progress("кручу разрезы: ищу аномалии, концентрацию, перекос деньги/количество…")
+        findings = mining.mine(df, measures, roles.dimensions, roles.entities, assets,
+                               focus_dims=focus_dims or None, labels=lbls)
+        mined_results = [mining.finding_to_result(f) for f in findings]
+        section_of = {mining.finding_to_result(f).key: mining.section_for(f) for f in findings}
+        results += mined_results
 
-    progress("считаю рейтинги по сущностям (сотрудники, клиенты, ИНН)…")
-    results += mining.entity_ratings(df, roles.entities, measures, assets, lbls)
+        progress("считаю рейтинги по сущностям (сотрудники, клиенты, ИНН)…")
+        results += mining.entity_ratings(df, roles.entities, measures, assets, lbls)
 
-    progress("ищу закономерности во времени…")
-    results += patterns.detect_all(df, roles, assets, lbls)
+        progress("ищу закономерности во времени…")
+        results += patterns.detect_all(df, roles, assets, lbls)
 
     progress("пишу выводы бизнес-языком…")
     summary, attention = plan.narrate(llm, table_desc, focus, [r for r in results if r.key != "kpi"])

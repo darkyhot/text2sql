@@ -172,9 +172,9 @@ class CLI:
             return
         logger.info("CLI: /build_business_report %s where=%r focus=%r", table, where, focus)
         try:
+            # money_confirm НЕ передаём: агент работает без интерактивных переспросов
             res = build_business_report(self.agent.db, self.agent.catalog, self.agent.llm,
-                                        table, where=where, focus=focus, progress=self._status,
-                                        money_confirm=self._confirm_money)
+                                        table, where=where, focus=focus, progress=self._status)
         except Exception as exc:  # noqa: BLE001
             if is_kerberos_auth_error(exc):
                 print(f"⚠ {KERBEROS_MESSAGE}")
@@ -182,7 +182,8 @@ class CLI:
                 logger.exception("build_business_report failed")
                 print(f"✗ Не удалось построить отчёт: {exc}")
             return
-        print(f"✅ Отчёт готов (секций: {res['sections']}, графиков: {res['charts']}, строк: {res['rows']:,}).".replace(",", " "))
+        rows = f"{res['rows']:,}".replace(",", " ")
+        print(f"✅ Отчёт готов (секций: {res['sections']}, графиков: {res['charts']}, строк: {rows}).")
         print(f"   HTML (открыть в браузере): {res['html_path']}")
         print(f"   MD:  {res['md_path']}")
 
@@ -230,7 +231,8 @@ class CLI:
                 logger.exception("investigate failed")
                 print(f"✗ Не удалось провести расследование: {exc}")
             return
-        print(f"✅ Расследование готово (веток дерева: {res.get('segments', 0)}, строк: {res['rows']:,}).".replace(",", " "))
+        rows = f"{res['rows']:,}".replace(",", " ")
+        print(f"✅ Расследование готово (веток дерева: {res.get('segments', 0)}, строк: {rows}).")
         print(f"   HTML: {res['html_path']}")
         print(f"   MD:  {res['md_path']}")
 

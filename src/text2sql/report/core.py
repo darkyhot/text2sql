@@ -11,14 +11,21 @@ from pathlib import Path
 from typing import Any
 
 import matplotlib
-matplotlib.use("Agg")
+if "inline" not in matplotlib.get_backend().lower():   # не отбираем inline-бэкенд ноутбука
+    matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
+from contextlib import contextmanager
 
-sns.set_theme(style="whitegrid", palette="deep")
-plt.rcParams["figure.autolayout"] = True
-plt.rcParams["axes.titlesize"] = 12
+
+@contextmanager
+def report_style():
+    """Локальный стиль графиков отчёта. НЕ мутирует глобальный matplotlib/seaborn
+    (иначе меняется вид всех графиков в ноутбуке пользователя). Оборачивает генерацию."""
+    with plt.rc_context({"figure.autolayout": True, "axes.titlesize": 12}):
+        with sns.axes_style("whitegrid"), sns.color_palette("deep"):
+            yield
 
 _METRIC_RE = re.compile(r"(qty|amount|amt|sum|cnt|count|val|value|potential|salary|fot|perc|percent|share|rate)", re.I)
 _MEAN_RE = re.compile(r"(perc|percent|share|rate|avg|average|доля|средн)", re.I)

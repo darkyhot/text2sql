@@ -5,16 +5,16 @@
   "row_count": 6000,
   "measures": [
     {
-      "name": "Количество записей",
-      "label": "Количество записей",
+      "name": "Количество зачислений",
+      "label": "Количество зачислений",
       "column": "__row",
       "kind": "count",
       "unit": "",
       "agg": "count",
       "total": 6000.0,
-      "top_dim": "Наименование компании",
-      "top_value": "АО Пример",
-      "top_share_pct": 50.0
+      "top_dim": "Системный номер ОСБ",
+      "top_value": "VISA",
+      "top_share_pct": 39.5
     },
     {
       "name": "Доля силовых структур",
@@ -29,8 +29,8 @@
       "top_share_pct": null
     },
     {
-      "name": "Срок от договора до отчета, дн",
-      "label": "Срок от договора до отчета, дн",
+      "name": "Срок договора, дн",
+      "label": "Срок договора, дн",
       "column": "__dur_1",
       "kind": "duration",
       "unit": "дн",
@@ -41,8 +41,8 @@
       "top_share_pct": null
     },
     {
-      "name": "Срок от открытия счета до отчета, дн",
-      "label": "Срок от открытия счета до отчета, дн",
+      "name": "Срок с открытия счета, дн",
+      "label": "Срок с открытия счета, дн",
       "column": "__dur_2",
       "kind": "duration",
       "unit": "дн",
@@ -60,15 +60,27 @@
       "unit": "₽",
       "agg": "sum",
       "total": 58854940.8,
-      "top_dim": "Наименование компании",
-      "top_value": "ООО Ромашка",
-      "top_share_pct": 50.2
+      "top_dim": "Системный номер ОСБ",
+      "top_value": "VISA",
+      "top_share_pct": 39.9
+    },
+    {
+      "name": "transaction_qty",
+      "label": "Количество транзакций",
+      "column": "transaction_qty",
+      "kind": "count",
+      "unit": "",
+      "agg": "sum",
+      "total": 6000.0,
+      "top_dim": "Системный номер ОСБ",
+      "top_value": "VISA",
+      "top_share_pct": 39.5
     }
   ],
   "dimensions": [
     {
       "column": "acc_subtype",
-      "label": "Подтип счета",
+      "label": "Подтип кода счета",
       "cardinality": 3
     },
     {
@@ -78,28 +90,13 @@
     },
     {
       "column": "actual_client_tid",
-      "label": "Идентификатор клиента",
+      "label": "Актуальный ID клиента",
       "cardinality": 3
     },
     {
       "column": "client_category",
       "label": "Категория клиента",
       "cardinality": 4
-    },
-    {
-      "column": "company_name",
-      "label": "Наименование компании",
-      "cardinality": 2
-    },
-    {
-      "column": "document_info_sha1",
-      "label": "Номер паспорта",
-      "cardinality": 3
-    },
-    {
-      "column": "agrmnt_num",
-      "label": "Номер договора",
-      "cardinality": 2
     },
     {
       "column": "enrollment_transcription",
@@ -122,19 +119,9 @@
       "cardinality": 28
     },
     {
-      "column": "sys_gosb_id",
-      "label": "Системный номер ГОСБ",
-      "cardinality": 4
-    },
-    {
       "column": "ipt_name",
       "label": "Системный номер ОСБ",
       "cardinality": 2
-    },
-    {
-      "column": "sys_osb_id",
-      "label": "Номер ОСБ",
-      "cardinality": 4
     },
     {
       "column": "card_type",
@@ -147,18 +134,8 @@
       "cardinality": 12
     },
     {
-      "column": "sys_tb_id",
-      "label": "Системный номер ТБ",
-      "cardinality": 4
-    },
-    {
       "column": "vsp_id",
       "label": "ВСП",
-      "cardinality": 4
-    },
-    {
-      "column": "sys_vsp_id",
-      "label": "Системный номер ВСП",
       "cardinality": 4
     },
     {
@@ -175,17 +152,22 @@
       "column": "market_share_flag_name",
       "label": "Признак доли рынка",
       "cardinality": 3
+    },
+    {
+      "column": "src_system_name",
+      "label": "Система источник",
+      "cardinality": 1
     }
   ],
   "entities": [
     {
-      "column": "inn",
-      "label": "ИНН",
+      "column": "company_name",
+      "label": "Наименование компании",
       "cardinality": 300
     },
     {
-      "column": "inn_parsing",
-      "label": "ИНН (парсинг)",
+      "column": "inn",
+      "label": "ИНН",
       "cardinality": 300
     }
   ],

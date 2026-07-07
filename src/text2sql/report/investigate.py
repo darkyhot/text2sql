@@ -46,6 +46,13 @@ _C_LOSS, _C_GAIN, _C_NEUT = "#C0504D", "#2E8B57", "#3B7DD8"
 _ID_ENT = re.compile(r"(^inn$|_inn$|_id$|_code$|saphr|epk|ogrn|kpp)", re.I)
 _NAME_ENT = re.compile(r"(name|fio|компан|client|клиент|организ|holder|наимен)", re.I)
 _REASON_RE = re.compile(r"(причин|reason|повод|cause|статус|status|основан|infopovod|признак|тип)", re.I)
+# даты ДЕЙСТВИЙ (не временна́я ось метрики): по ним нельзя раскладывать динамику target
+_ACTION_DATE_RE = re.compile(r"(задач|task|создан|created|action|действ|заявк|обращен|звонок|визит|встреч|контакт)", re.I)
+
+
+def _is_action_date(col: str, meta: dict) -> bool:
+    desc = (meta.get(col, {}) or {}).get("desc", "") or ""
+    return bool(_ACTION_DATE_RE.search(col) or _ACTION_DATE_RE.search(desc))
 
 
 # ---------- подготовка данных (загрузка, роли, меры) ----------
@@ -94,7 +101,8 @@ class Frame:
     why_dims: list[str] = field(default_factory=list)
     components: list[str] = field(default_factory=list)
     entity: str | None = None
-    id_col: str | None = None            # id-партнёр сущности (ИНН) — показываем в скобках
+    id_col: str | None = None            # id-партнёр организации (ИНН) — для подписи «Название (ИНН)»
+    name_col: str | None = None          # name-партнёр организации — для подписи, если ключ = ИНН
     value: str | None = None
     restated: str = ""
 
@@ -148,19 +156,28 @@ def _frame(llm, question, prep: Prep) -> Frame:
     s = pd.to_numeric(df[target], errors="coerce")
     mode = out.get("mode") if out.get("mode") in ("change", "magnitude") else \
         ("change" if (s.min() is not None and s.min() < 0) else "magnitude")
-    # СУЩНОСТЬ: предпочитаем ЧИТАЕМОЕ имя организации/клиента идентификатору (ИНН/коду)
+    # СУЩНОСТЬ-ОРГАНИЗАЦИЯ: у неё есть ИМЯ (company_name) и ИД (ИНН). Подпись всегда
+    # «Название (ИНН)», а КЛЮЧУЕМ по самой ГРАНУЛЯРНОЙ колонке — обычно ИНН (300 организаций)
+    # точнее названия (25 в синтетике/грубый пул), иначе теряем разбор по организациям.
     ents = list(prep.roles.entities)
     chosen = out.get("entity") if out.get("entity") in entset else None
     name_ents = [e for e in ents if _NAME_ENT.search(e) and not _ID_ENT.search(e)]
-    if (chosen is None or _ID_ENT.search(chosen)) and name_ents:
-        entity = name_ents[0]
+    id_ents = [e for e in ents if _ID_ENT.search(e)]
+    name_col = name_ents[0] if name_ents else None
+    if id_ents:
+        id_col = next((c for c in id_ents if "inn" in c.lower()), id_ents[0])
+    elif name_col:                        # ИНН не в сущностях — ищем среди всех колонок
+        cands = [c for c in df.columns if _ID_ENT.search(c)
+                 and df[c].nunique(dropna=True) >= df[name_col].nunique(dropna=True)]
+        id_col = next((c for c in cands if "inn" in c.lower()), cands[0] if cands else None)
     else:
-        entity = chosen or (name_ents[0] if name_ents else (ents[0] if ents else None))
-    # id-партнёр (ИНН/код) той же сущности — для показа в скобках после имени
-    id_col = None
-    if entity and _NAME_ENT.search(entity):
-        cands = [c for c in df.columns if _ID_ENT.search(c) and df[c].nunique(dropna=True) >= df[entity].nunique(dropna=True)]
-        id_col = next((c for c in cands if c.lower() in ("inn",) or "inn" in c.lower()), cands[0] if cands else None)
+        id_col = None
+    entity = chosen or (name_ents[0] if name_ents else (ents[0] if ents else None))
+    # если сущность — колонка организации (имя/ИНН), ключуем по более гранулярной из пары
+    if entity and (entity in (name_col, id_col) or _NAME_ENT.search(entity) or _ID_ENT.search(entity)):
+        org_cols = [c for c in (name_col, id_col) if c and c in df.columns]
+        if org_cols:
+            entity = max(org_cols, key=lambda c: df[c].nunique(dropna=True))
 
     # ПОЧЕМУ: к разрезам от LLM добавляем очевидные причины/статусы из ЛЮБЫХ колонок
     # (детерминированно, чтобы блок «почему» не пропадал, если LLM/профайлер их не отметил)
@@ -179,7 +196,7 @@ def _frame(llm, question, prep: Prep) -> Frame:
         drill_dims=[d for d in (out.get("drill_dims") or []) if d in dimset] or list(prep.roles.dimensions),
         why_dims=why[:3],
         components=[c for c in (out.get("components") or []) if c in numset and c != target],
-        entity=entity, id_col=id_col,
+        entity=entity, id_col=id_col, name_col=name_col,
         value=(out.get("value") if out.get("value") in numset else None),
         restated=str(out.get("restated") or question).strip(),
     )
@@ -421,20 +438,36 @@ def _side_of(frame: Frame) -> str:
 
 
 def _make_elab(df, frame: Frame, lbls):
-    """Подпись значения сущности: «Название (ИНН 123…)», если у имени есть id-партнёр."""
-    ent, idc = frame.entity, frame.id_col
-    if not (ent and idc and idc in df.columns and ent in df.columns):
+    """Подпись значения организации ВСЕГДА как «Название (ИНН …)» — независимо от того,
+    ключуем ли анализ по названию или по ИНН. Партнёр (имя/ИНН) показывается только если он
+    ~однозначен на ключ (median distinct ≤ 1), иначе ввёл бы в заблуждение."""
+    ent = frame.entity
+    if not ent or ent not in df.columns:
         return lambda v: fmt_val(v)
-    # показываем id в скобках только при связи имя↔id ≈ 1:1 (иначе id вводит в заблуждение)
-    if df.groupby(ent)[idc].nunique().median() > 1:
-        return lambda v: fmt_val(v)
-    m = df.groupby(ent)[idc].agg(lambda s: (s.dropna().mode().iloc[0]
-                                            if not s.dropna().mode().empty else None))
-    idlabel = lbls.of(idc)
 
-    def elab(v):
-        idv = m.get(v)
-        return f"{fmt_val(v)} ({idlabel} {fmt_val(idv)})" if idv is not None else fmt_val(v)
+    def _lookup(src):
+        # карта ключ→значение src, если src ~однозначен на каждый ключ
+        if not src or src not in df.columns or src == ent:
+            return None
+        if float(df.groupby(ent)[src].nunique(dropna=True).median()) > 1:
+            return None
+        return df.groupby(ent)[src].agg(lambda s: (s.dropna().mode().iloc[0]
+                                                   if not s.dropna().mode().empty else None))
+
+    if _NAME_ENT.search(ent) and not _ID_ENT.search(ent):     # ключ — название: «Название (ИНН)»
+        idmap = _lookup(frame.id_col)
+        idlabel = lbls.of(frame.id_col) if frame.id_col else ""
+
+        def elab(v):
+            iv = idmap.get(v) if idmap is not None else None
+            return f"{fmt_val(v)} ({idlabel} {fmt_val(iv)})" if iv is not None else fmt_val(v)
+    else:                                                     # ключ — ИНН/код: «Название (ИНН)»
+        namemap = _lookup(frame.name_col)
+        idlabel = lbls.of(ent)
+
+        def elab(v):
+            nm = namemap.get(v) if namemap is not None else None
+            return f"{fmt_val(nm)} ({idlabel} {fmt_val(v)})" if nm is not None else fmt_val(v)
     return elab
 
 
@@ -658,8 +691,13 @@ _SYNTH_SYS = (
 
 def _when(df, frame: Frame, prep, unit: str, side: str, assets, lbls) -> tuple[str | None, dict]:
     """B3 «Когда»: динамика целевой величины по месяцам — где сконцентрировалось и резкий слом.
-    Всё детерминированно (pandas): пик исследуемой стороны + самый резкий сдвиг период-к-периоду."""
-    dates = [d for d in prep.roles.dates if d in df.columns]
+    Всё детерминированно (pandas): пик исследуемой стороны + самый резкий сдвиг период-к-периоду.
+
+    ВАЖНО: берём только дату, которая является ВРЕМЕННО́Й ОСЬЮ метрики. Даты ДЕЙСТВИЙ
+    (задача/заявка/создание/контакт) — это когда с организацией работали, а НЕ когда менялась
+    измеряемая величина; раскладывать по ним потери — ложная атрибуция (см. фидбек по market_analysis)."""
+    dates = [d for d in prep.roles.dates
+             if d in df.columns and not _is_action_date(d, prep.meta)]
     if not dates:
         return None, {}
     dcol = dates[0]

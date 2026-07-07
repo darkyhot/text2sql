@@ -134,9 +134,21 @@ def _coerce(v: str, dtype: str):
     return str(v)
 
 
+_ORG_FORMS = ["ООО", "АО", "ПАО", "ЗАО", "ГК"]
+_ORG_WORDS = ["Прогресс", "Вектор", "Ресурс", "Альянс", "Гранит", "Меридиан", "Ориентир",
+              "Капитал", "Синтез", "Партнёр", "Импульс", "Горизонт", "Эталон", "Формат",
+              "Атлант", "Титан", "Ритм", "Сфера", "Квант", "Базис"]
+
+
 class Gen:
     def __init__(self, exact, glob, inns, epk_ids):
         self.exact, self.glob, self.inns, self.epk_ids = exact, glob, inns, epk_ids
+        # У каждой организации ОДНО название: стабильная 1:1 карта ИНН→имя (как в проде).
+        # Иначе имя сеялось независимым случайным пулом (≈8 имён на ИНН) — связь терялась,
+        # и отчёт показывал голый ИНН вместо «Название (ИНН)».
+        self.company_by_inn = {
+            inn: f"{_ORG_FORMS[i % len(_ORG_FORMS)]} «{_ORG_WORDS[i % len(_ORG_WORDS)]}-{i + 1}»"
+            for i, inn in enumerate(inns)}
 
     def value(self, schema: str, table: str, name: str, dtype: str):
         d, n = dtype.lower(), name.lower()
@@ -314,6 +326,9 @@ def seed_table(cur, schema: str, table: str, cols, gen, gosb) -> int:
         if "author_login" in row:
             row["author_login"] = random.choice(AUTHORS)
         inject_signals(table, row)
+        # организация всегда имеет ОДНО название, привязанное к ИНН (1:1) — не случайный пул
+        if row.get("inn") is not None and "company_name" in row:
+            row["company_name"] = gen.company_by_inn.get(row["inn"], row.get("company_name"))
         if pk_cols:
             key = tuple(row[c] for c in pk_cols)
             if key in seen_pk:

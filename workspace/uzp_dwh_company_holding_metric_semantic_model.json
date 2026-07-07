@@ -5,18 +5,6 @@
   "row_count": 4000,
   "measures": [
     {
-      "name": "Задержка обновления данных",
-      "label": "Задержка обновления данных",
-      "column": "__dur_0",
-      "kind": "duration",
-      "unit": "дн",
-      "agg": "mean",
-      "total": 225.98,
-      "top_dim": null,
-      "top_value": null,
-      "top_share_pct": null
-    },
-    {
       "name": "fot_outflow_amt",
       "label": "Отток ФОТ",
       "column": "fot_outflow_amt",
@@ -66,7 +54,7 @@
     },
     {
       "name": "ul_outflow_qty",
-      "label": "Отток юридических лиц",
+      "label": "Отток ЮЛ",
       "column": "ul_outflow_qty",
       "kind": "count",
       "unit": "",
@@ -78,7 +66,7 @@
     },
     {
       "name": "fl_outflow_qty",
-      "label": "Отток физических лиц",
+      "label": "Отток ФЛ",
       "column": "fl_outflow_qty",
       "kind": "count",
       "unit": "чел.",
@@ -90,7 +78,7 @@
     },
     {
       "name": "fot_y_1_diff_amt",
-      "label": "Изменение ФОТ год к году",
+      "label": "Изменение ФОТ г/г",
       "column": "fot_y_1_diff_amt",
       "kind": "money",
       "unit": "₽",
@@ -102,7 +90,7 @@
     },
     {
       "name": "current_fl_qty",
-      "label": "Текущие получатели зарплаты",
+      "label": "Текущие ФЛ",
       "column": "current_fl_qty",
       "kind": "count",
       "unit": "чел.",
@@ -114,7 +102,7 @@
     },
     {
       "name": "fl_y_1_diff_qty",
-      "label": "Изменение получателей год к году",
+      "label": "Изменение ФЛ г/г",
       "column": "fl_y_1_diff_qty",
       "kind": "count",
       "unit": "чел.",
@@ -126,7 +114,7 @@
     },
     {
       "name": "total_emp_qty",
-      "label": "Общее количество сотрудников",
+      "label": "Всего сотрудников",
       "column": "total_emp_qty",
       "kind": "count",
       "unit": "чел.",
@@ -138,7 +126,7 @@
     },
     {
       "name": "zp_fl_perc",
-      "label": "Доля получателей зарплаты",
+      "label": "Доля получателей ЗП",
       "column": "zp_fl_perc",
       "kind": "rate",
       "unit": "%",
@@ -150,7 +138,7 @@
     },
     {
       "name": "new_fl_cnt",
-      "label": "Новые физические лица",
+      "label": "Новые ФЛ",
       "column": "new_fl_cnt",
       "kind": "count",
       "unit": "чел.",
@@ -174,7 +162,7 @@
     },
     {
       "name": "new_fl_cnt_next_month",
-      "label": "Новые ФЛ в следующем месяце",
+      "label": "Новые ФЛ (след. месяц)",
       "column": "new_fl_cnt_next_month",
       "kind": "count",
       "unit": "чел.",
@@ -186,7 +174,7 @@
     },
     {
       "name": "np_cnt_next_month",
-      "label": "НП в следующем месяце",
+      "label": "НП (след. месяц)",
       "column": "np_cnt_next_month",
       "kind": "count",
       "unit": "",
@@ -356,7 +344,7 @@
   "entities": [
     {
       "column": "org_id",
-      "label": "Идентификатор организации",
+      "label": "ID организации",
       "cardinality": 979
     }
   ],

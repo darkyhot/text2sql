@@ -13,7 +13,8 @@ from pathlib import Path
 import pandas as pd
 
 from ..config import PATHS
-from . import core, labels, metrics, mining, patterns, plan, scoring
+from . import core, labels, metrics, mining, patterns, plan, scoring, semantic
+from .store import FrameStore
 
 logger = logging.getLogger(__name__)
 
@@ -154,6 +155,11 @@ def build_business_report(db, catalog, llm, fqn: str, *, where: str | None = Non
     if df.attrs.get("sample_note"):                                      # плашка о сэмпле (гейт памяти)
         scope = [df.attrs["sample_note"]] + scope
 
+    # D: семантическая модель — декларативное описание таблицы (меры/разрезы/сущности +
+    # headline-факты движком AggSpec) → сериализуемый JSON-артефакт для ревью/диффа.
+    store = FrameStore(df)
+    sem = semantic.build_semantic_model(fqn, table_desc, df, roles, measures, lbls, store=store)
+
     with core.report_style():                # локальный стиль графиков (не мутируем ноутбук)
         progress("считаю обзорные разрезы и динамику…")
         results = [mining.headline_kpi(df, measures)]
@@ -192,8 +198,10 @@ def build_business_report(db, catalog, llm, fqn: str, *, where: str | None = Non
     html_path = out_dir / f"{table}_business_report.html"
     md_path.write_text(_assemble_md(**ctx), encoding="utf-8")
     html_path.write_text(_assemble_html(**ctx), encoding="utf-8")
+    sem_path = sem.dump(out_dir / f"{table}_semantic_model.json")
+    logger.info("report %s: семантическая модель → %s (кэш агрегаций: %s)", fqn, sem_path, store.stats)
     return {"md_path": str(md_path), "html_path": str(html_path),
-            "sections": len(results), "rows": len(df),
+            "semantic_path": str(sem_path), "sections": len(results), "rows": len(df),
             "charts": sum(1 for r in results if r.chart)}
 
 

@@ -1,0 +1,243 @@
+{
+  "table": "uzp_dwh_sale_funnel_task",
+  "fqn": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task",
+  "description": "Воронка продаж по всем задачам УЗП",
+  "row_count": 4000,
+  "measures": [
+    {
+      "name": "Количество задач",
+      "label": "Количество задач",
+      "column": "__row",
+      "kind": "count",
+      "unit": "",
+      "agg": "count",
+      "total": 4000.0,
+      "top_dim": "Подтип задачи",
+      "top_value": "Качество обслуживания",
+      "top_share_pct": 55.4
+    },
+    {
+      "name": "Доля закрытых задач",
+      "label": "Доля закрытых задач",
+      "column": "__rate_0",
+      "kind": "rate",
+      "unit": "%",
+      "agg": "mean",
+      "total": 0.73,
+      "top_dim": null,
+      "top_value": null,
+      "top_share_pct": null
+    },
+    {
+      "name": "Доля успешно закрытых",
+      "label": "Доля успешно закрытых",
+      "column": "__rate_1",
+      "kind": "rate",
+      "unit": "%",
+      "agg": "mean",
+      "total": 0.51,
+      "top_dim": null,
+      "top_value": null,
+      "top_share_pct": null
+    },
+    {
+      "name": "Доля задач в работе",
+      "label": "Доля задач в работе",
+      "column": "__rate_2",
+      "kind": "rate",
+      "unit": "%",
+      "agg": "mean",
+      "total": 0.36,
+      "top_dim": null,
+      "top_value": null,
+      "top_share_pct": null
+    },
+    {
+      "name": "Доля задач с эскалацией",
+      "label": "Доля задач с эскалацией",
+      "column": "__rate_3",
+      "kind": "rate",
+      "unit": "%",
+      "agg": "mean",
+      "total": 0.0,
+      "top_dim": null,
+      "top_value": null,
+      "top_share_pct": null
+    },
+    {
+      "name": "Просрочка закрытия",
+      "label": "Просрочка закрытия",
+      "column": "__overdue_4",
+      "kind": "rate",
+      "unit": "%",
+      "agg": "mean",
+      "total": 0.28,
+      "top_dim": null,
+      "top_value": null,
+      "top_share_pct": null
+    },
+    {
+      "name": "Срок отработки, дн",
+      "label": "Срок отработки, дн",
+      "column": "__dur_5",
+      "kind": "duration",
+      "unit": "дн",
+      "agg": "mean",
+      "total": 8.91,
+      "top_dim": null,
+      "top_value": null,
+      "top_share_pct": null
+    },
+    {
+      "name": "Срок до последней активности, дн",
+      "label": "Срок до последней активности, дн",
+      "column": "__dur_6",
+      "kind": "duration",
+      "unit": "дн",
+      "agg": "mean",
+      "total": 224.85,
+      "top_dim": null,
+      "top_value": null,
+      "top_share_pct": null
+    },
+    {
+      "name": "fact_staff_deal_qty",
+      "label": "Фактическое привлечение",
+      "column": "fact_staff_deal_qty",
+      "kind": "count",
+      "unit": "чел.",
+      "agg": "sum",
+      "total": 18871.0,
+      "top_dim": "Категория задачи",
+      "top_value": "Предложение",
+      "top_share_pct": 100.0
+    },
+    {
+      "name": "plan_staff_deal_qty",
+      "label": "Плановое привлечение",
+      "column": "plan_staff_deal_qty",
+      "kind": "count",
+      "unit": "чел.",
+      "agg": "sum",
+      "total": 20462.0,
+      "top_dim": "Категория задачи",
+      "top_value": "Предложение",
+      "top_share_pct": 100.0
+    },
+    {
+      "name": "unrealized_deal_potential",
+      "label": "Нереализованный потенциал",
+      "column": "unrealized_deal_potential",
+      "kind": "count",
+      "unit": "",
+      "agg": "sum",
+      "total": 9532184.0,
+      "top_dim": "Категория задачи",
+      "top_value": "Предложение",
+      "top_share_pct": 100.0
+    }
+  ],
+  "dimensions": [
+    {
+      "column": "tb_name",
+      "label": "Наименование ТБ",
+      "cardinality": 3
+    },
+    {
+      "column": "gosb_name",
+      "label": "Наименование ГОСБ",
+      "cardinality": 3
+    },
+    {
+      "column": "saphr_gosb_id",
+      "label": "Номер ГОСБ сотрудника",
+      "cardinality": 2
+    },
+    {
+      "column": "emp_post",
+      "label": "Должность сотрудника",
+      "cardinality": 2
+    },
+    {
+      "column": "role_code",
+      "label": "Код роли",
+      "cardinality": 2
+    },
+    {
+      "column": "src_task_as_code",
+      "label": "Код источника задачи",
+      "cardinality": 2
+    },
+    {
+      "column": "src_task_business",
+      "label": "Бизнес-источник задачи",
+      "cardinality": 1
+    },
+    {
+      "column": "segment_name",
+      "label": "Наименование сегмента",
+      "cardinality": 4
+    },
+    {
+      "column": "task_category",
+      "label": "Категория задачи",
+      "cardinality": 2
+    },
+    {
+      "column": "task_type",
+      "label": "Тип задачи",
+      "cardinality": 3
+    },
+    {
+      "column": "task_subtype",
+      "label": "Подтип задачи",
+      "cardinality": 2
+    },
+    {
+      "column": "last_active_type",
+      "label": "Тип последней активности",
+      "cardinality": 1
+    },
+    {
+      "column": "last_active_status",
+      "label": "Статус последней активности",
+      "cardinality": 1
+    },
+    {
+      "column": "task_text_status",
+      "label": "Текстовый статус задачи",
+      "cardinality": 1
+    }
+  ],
+  "entities": [
+    {
+      "column": "manager_fio",
+      "label": "ФИО руководителя",
+      "cardinality": 2
+    },
+    {
+      "column": "task_struct_saphr_id",
+      "label": "Идентификатор участника задачи",
+      "cardinality": 907
+    },
+    {
+      "column": "emp_fio",
+      "label": "ФИО сотрудника",
+      "cardinality": 7
+    },
+    {
+      "column": "inn",
+      "label": "ИНН",
+      "cardinality": 300
+    }
+  ],
+  "dates": [
+    "report_dt",
+    "task_create_dt",
+    "plan_close_task_dttm",
+    "fact_close_task_dttm",
+    "last_active_dttm",
+    "deal_create_dttm"
+  ],
+  "_schema": "text2sql.semantic_model/1"
+}

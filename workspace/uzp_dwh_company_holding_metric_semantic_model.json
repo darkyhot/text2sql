@@ -1,0 +1,367 @@
+{
+  "table": "uzp_dwh_company_holding_metric",
+  "fqn": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_company_holding_metric",
+  "description": "Витрина данных с метриками по оттоку, ФОТ и потенциалу сотрудников для AI-агента \"Key clients\"",
+  "row_count": 4000,
+  "measures": [
+    {
+      "name": "Задержка обновления данных",
+      "label": "Задержка обновления данных",
+      "column": "__dur_0",
+      "kind": "duration",
+      "unit": "дн",
+      "agg": "mean",
+      "total": 225.98,
+      "top_dim": null,
+      "top_value": null,
+      "top_share_pct": null
+    },
+    {
+      "name": "fot_outflow_amt",
+      "label": "Отток ФОТ",
+      "column": "fot_outflow_amt",
+      "kind": "money",
+      "unit": "₽",
+      "agg": "sum",
+      "total": 10051324195.74,
+      "top_dim": "Тип организации",
+      "top_value": "Прочее",
+      "top_share_pct": 34.0
+    },
+    {
+      "name": "current_fot_amt",
+      "label": "Текущий ФОТ",
+      "column": "current_fot_amt",
+      "kind": "money",
+      "unit": "₽",
+      "agg": "sum",
+      "total": 10186857587.46,
+      "top_dim": "Уровень загрузки",
+      "top_value": "Прочее",
+      "top_share_pct": 35.1
+    },
+    {
+      "name": "emp_potential_qty",
+      "label": "Потенциал сотрудников",
+      "column": "emp_potential_qty",
+      "kind": "count",
+      "unit": "чел.",
+      "agg": "sum",
+      "total": 10012968.0,
+      "top_dim": "Уровень загрузки",
+      "top_value": "Прочее",
+      "top_share_pct": 34.8
+    },
+    {
+      "name": "fot_potential_amt",
+      "label": "Потенциал ФОТ",
+      "column": "fot_potential_amt",
+      "kind": "money",
+      "unit": "₽",
+      "agg": "sum",
+      "total": 10116043501.56,
+      "top_dim": "Уровень загрузки",
+      "top_value": "Прочее",
+      "top_share_pct": 35.0
+    },
+    {
+      "name": "ul_outflow_qty",
+      "label": "Отток юридических лиц",
+      "column": "ul_outflow_qty",
+      "kind": "count",
+      "unit": "",
+      "agg": "sum",
+      "total": 10036416.0,
+      "top_dim": "Уровень загрузки",
+      "top_value": "Прочее",
+      "top_share_pct": 34.2
+    },
+    {
+      "name": "fl_outflow_qty",
+      "label": "Отток физических лиц",
+      "column": "fl_outflow_qty",
+      "kind": "count",
+      "unit": "чел.",
+      "agg": "sum",
+      "total": 9835764.0,
+      "top_dim": "Тип организации",
+      "top_value": "Основные",
+      "top_share_pct": 33.7
+    },
+    {
+      "name": "fot_y_1_diff_amt",
+      "label": "Изменение ФОТ год к году",
+      "column": "fot_y_1_diff_amt",
+      "kind": "money",
+      "unit": "₽",
+      "agg": "sum",
+      "total": 10116541252.15,
+      "top_dim": "Уровень загрузки",
+      "top_value": "Прочее",
+      "top_share_pct": 34.0
+    },
+    {
+      "name": "current_fl_qty",
+      "label": "Текущие получатели зарплаты",
+      "column": "current_fl_qty",
+      "kind": "count",
+      "unit": "чел.",
+      "agg": "sum",
+      "total": 10016026.0,
+      "top_dim": "Уровень загрузки",
+      "top_value": "Прочее",
+      "top_share_pct": 35.2
+    },
+    {
+      "name": "fl_y_1_diff_qty",
+      "label": "Изменение получателей год к году",
+      "column": "fl_y_1_diff_qty",
+      "kind": "count",
+      "unit": "чел.",
+      "agg": "sum",
+      "total": 9922884.0,
+      "top_dim": "Уровень загрузки",
+      "top_value": "Прочее",
+      "top_share_pct": 34.7
+    },
+    {
+      "name": "total_emp_qty",
+      "label": "Общее количество сотрудников",
+      "column": "total_emp_qty",
+      "kind": "count",
+      "unit": "чел.",
+      "agg": "sum",
+      "total": 10000572.0,
+      "top_dim": "Уровень загрузки",
+      "top_value": "Прочее",
+      "top_share_pct": 34.4
+    },
+    {
+      "name": "zp_fl_perc",
+      "label": "Доля получателей зарплаты",
+      "column": "zp_fl_perc",
+      "kind": "rate",
+      "unit": "%",
+      "agg": "mean",
+      "total": 0.49,
+      "top_dim": null,
+      "top_value": null,
+      "top_share_pct": null
+    },
+    {
+      "name": "new_fl_cnt",
+      "label": "Новые физические лица",
+      "column": "new_fl_cnt",
+      "kind": "count",
+      "unit": "чел.",
+      "agg": "sum",
+      "total": 9936686.0,
+      "top_dim": "Уровень загрузки",
+      "top_value": "Прочее",
+      "top_share_pct": 34.3
+    },
+    {
+      "name": "np_cnt",
+      "label": "Количество НП",
+      "column": "np_cnt",
+      "kind": "count",
+      "unit": "",
+      "agg": "sum",
+      "total": 10061445.0,
+      "top_dim": "Уровень загрузки",
+      "top_value": "Прочее",
+      "top_share_pct": 33.9
+    },
+    {
+      "name": "new_fl_cnt_next_month",
+      "label": "Новые ФЛ в следующем месяце",
+      "column": "new_fl_cnt_next_month",
+      "kind": "count",
+      "unit": "чел.",
+      "agg": "sum",
+      "total": 10145514.0,
+      "top_dim": "Уровень загрузки",
+      "top_value": "Прочее",
+      "top_share_pct": 34.1
+    },
+    {
+      "name": "np_cnt_next_month",
+      "label": "НП в следующем месяце",
+      "column": "np_cnt_next_month",
+      "kind": "count",
+      "unit": "",
+      "agg": "sum",
+      "total": 10238918.0,
+      "top_dim": "Уровень загрузки",
+      "top_value": "Прочее",
+      "top_share_pct": 35.0
+    },
+    {
+      "name": "pu_sber1_available_cnt",
+      "label": "Доступно ПУ Сбер1",
+      "column": "pu_sber1_available_cnt",
+      "kind": "count",
+      "unit": "",
+      "agg": "sum",
+      "total": 9958834.0,
+      "top_dim": "Уровень загрузки",
+      "top_value": "Прочее",
+      "top_share_pct": 34.4
+    },
+    {
+      "name": "pu_sber1_give_cnt",
+      "label": "Назначено ПУ Сбер1",
+      "column": "pu_sber1_give_cnt",
+      "kind": "count",
+      "unit": "",
+      "agg": "sum",
+      "total": 9995861.0,
+      "top_dim": "Тип организации",
+      "top_value": "Прочее",
+      "top_share_pct": 34.5
+    },
+    {
+      "name": "pu_premier_available_cnt",
+      "label": "Доступно ПУ СберПремьер",
+      "column": "pu_premier_available_cnt",
+      "kind": "count",
+      "unit": "",
+      "agg": "sum",
+      "total": 9920198.0,
+      "top_dim": "Уровень загрузки",
+      "top_value": "Прочее",
+      "top_share_pct": 34.9
+    },
+    {
+      "name": "pu_premier_give_cnt",
+      "label": "Назначено ПУ СберПремьер",
+      "column": "pu_premier_give_cnt",
+      "kind": "count",
+      "unit": "",
+      "agg": "sum",
+      "total": 10045523.0,
+      "top_dim": "Уровень загрузки",
+      "top_value": "Прочее",
+      "top_share_pct": 34.0
+    },
+    {
+      "name": "pu_praim_available_cnt",
+      "label": "Доступно ПУ СберПрайм",
+      "column": "pu_praim_available_cnt",
+      "kind": "count",
+      "unit": "",
+      "agg": "sum",
+      "total": 9922329.0,
+      "top_dim": "Уровень загрузки",
+      "top_value": "Прочее",
+      "top_share_pct": 33.7
+    },
+    {
+      "name": "pu_praim_give_cnt",
+      "label": "Назначено ПУ СберПрайм",
+      "column": "pu_praim_give_cnt",
+      "kind": "count",
+      "unit": "",
+      "agg": "sum",
+      "total": 10026393.0,
+      "top_dim": "Уровень загрузки",
+      "top_value": "Прочее",
+      "top_share_pct": 34.9
+    },
+    {
+      "name": "pu_praim_mass_available_cnt",
+      "label": "Доступно ПУ СберПрайм масс",
+      "column": "pu_praim_mass_available_cnt",
+      "kind": "count",
+      "unit": "",
+      "agg": "sum",
+      "total": 10058496.0,
+      "top_dim": "Уровень загрузки",
+      "top_value": "Прочее",
+      "top_share_pct": 34.4
+    },
+    {
+      "name": "pu_praim_mass_give_cnt",
+      "label": "Назначено ПУ СберПрайм масс",
+      "column": "pu_praim_mass_give_cnt",
+      "kind": "count",
+      "unit": "",
+      "agg": "sum",
+      "total": 10067459.0,
+      "top_dim": "Уровень загрузки",
+      "top_value": "Прочее",
+      "top_share_pct": 35.0
+    },
+    {
+      "name": "pu_praim_plus_available_cnt",
+      "label": "Доступно ПУ СберПрайм+",
+      "column": "pu_praim_plus_available_cnt",
+      "kind": "count",
+      "unit": "",
+      "agg": "sum",
+      "total": 9949834.0,
+      "top_dim": "Уровень загрузки",
+      "top_value": "Прочее",
+      "top_share_pct": 34.0
+    },
+    {
+      "name": "pu_praim_plus_give_cnt",
+      "label": "Назначено ПУ СберПрайм+",
+      "column": "pu_praim_plus_give_cnt",
+      "kind": "count",
+      "unit": "",
+      "agg": "sum",
+      "total": 9929914.0,
+      "top_dim": "Уровень загрузки",
+      "top_value": "Прочее",
+      "top_share_pct": 34.5
+    },
+    {
+      "name": "pu_consumer_loan_available_cnt",
+      "label": "Доступно ПУ Потребительский кредит",
+      "column": "pu_consumer_loan_available_cnt",
+      "kind": "count",
+      "unit": "",
+      "agg": "sum",
+      "total": 10148082.0,
+      "top_dim": "Уровень загрузки",
+      "top_value": "Прочее",
+      "top_share_pct": 34.3
+    },
+    {
+      "name": "pu_consumer_loan_give_cnt",
+      "label": "Назначено ПУ Потребительский кредит",
+      "column": "pu_consumer_loan_give_cnt",
+      "kind": "count",
+      "unit": "",
+      "agg": "sum",
+      "total": 9938640.0,
+      "top_dim": "Уровень загрузки",
+      "top_value": "Прочее",
+      "top_share_pct": 34.3
+    }
+  ],
+  "dimensions": [
+    {
+      "column": "level_name",
+      "label": "Уровень загрузки",
+      "cardinality": 3
+    },
+    {
+      "column": "org_type",
+      "label": "Тип организации",
+      "cardinality": 3
+    }
+  ],
+  "entities": [
+    {
+      "column": "org_id",
+      "label": "Идентификатор организации",
+      "cardinality": 979
+    }
+  ],
+  "dates": [
+    "report_dt"
+  ],
+  "_schema": "text2sql.semantic_model/1"
+}

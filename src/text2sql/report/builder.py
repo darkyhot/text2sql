@@ -13,7 +13,7 @@ from pathlib import Path
 import pandas as pd
 
 from ..config import PATHS
-from . import core, interactive, labels, metrics, mining, patterns, plan, scoring, semantic
+from . import core, interactive, labels, metrics, mining, patterns, plan, render, scoring, semantic
 from .store import FrameStore
 
 logger = logging.getLogger(__name__)
@@ -288,28 +288,10 @@ def _assemble_md(table_desc, fqn, table, where, focus, angle, nrows, summary, at
     return "\n".join(L)
 
 
-_HTML_CSS = """
-body{font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:1000px;margin:0 auto;
-padding:32px 24px;color:#1f2933;background:#f7f9fc;line-height:1.55}
-h1{font-size:26px;margin:0 0 4px;color:#12263f}
-h2{font-size:20px;margin:34px 0 10px;padding-bottom:6px;border-bottom:2px solid #e3e8ef;color:#12263f}
-h3{font-size:16px;margin:18px 0 6px;color:#12263f}
-.pattern-card{background:#f3f0fb;border-color:#d9cff0}
-.angle{color:#52606d;font-style:italic;margin:0 0 10px}
-.meta{color:#616e7c;font-size:13px;margin-bottom:8px}
-.card{background:#fff;border:1px solid #e3e8ef;border-radius:12px;padding:18px 22px;margin:16px 0;
-box-shadow:0 1px 3px rgba(16,42,67,.05)}
-.summary{background:#eef4ff;border-color:#c9dbff}
-.attention{background:#fff7ed;border-color:#fdd9a8}
-.insight{font-size:15px;margin:0 0 12px}
-.factline{font-size:14px;margin:0 0 8px;color:#243b53}
-img{max-width:100%;border-radius:8px;margin:6px 0}
-table{border-collapse:collapse;width:100%;font-size:13px;margin-top:8px}
-th,td{border:1px solid #e3e8ef;padding:6px 10px;text-align:left}
-th{background:#f0f4f8}
-ul{margin:6px 0 0 18px}
-details summary{cursor:pointer;color:#3b7dd8;font-size:13px}
-.kpi td:first-child{color:#52606d}.kpi td:last-child{font-weight:600;text-align:right}
+# единая дизайн-система (токены свет/тёмная) + мелкие отчётные добавки
+_HTML_CSS = render.THEME_CSS + """
+details summary{cursor:pointer;color:var(--accent);font-size:13px}
+.kpi td:first-child{color:var(--ink-2)}.kpi td:last-child{font-weight:600;text-align:right}
 """
 
 
@@ -351,7 +333,8 @@ def _md_block_to_html(md: str) -> str:
 def _assemble_html(table_desc, fqn, table, where, focus, angle, nrows, summary, attention,
                    results, section_of) -> str:
     H = [f"<!doctype html><html lang='ru'><head><meta charset='utf-8'>",
-         f"<title>Бизнес-отчёт: {_html.escape(table)}</title><style>{_HTML_CSS}</style></head><body>"]
+         f"<title>Бизнес-отчёт: {_html.escape(table)}</title><style>{_HTML_CSS}</style>",
+         render.plotly_head(), "</head><body>"]
     H.append(f"<h1>📈 Бизнес-отчёт: {_html.escape(table_desc)}</h1>")
     if angle:
         H.append(f"<p class='angle'>{_html.escape(angle)}</p>")
@@ -381,9 +364,7 @@ def _assemble_html(table_desc, fqn, table, where, focus, angle, nrows, summary, 
                 H.append(f"<p class='factline'>{_md_inline_to_html(r.facts['_line'])}</p>")
             if r.insight:
                 H.append(f"<p class='insight'>💡 {_html.escape(r.insight)}</p>")
-            img = _img_b64(r.chart)
-            if img:
-                H.append(f"<img src='{img}' alt='{_html.escape(r.title)}'>")
+            H.append(render.embed(r.chart))          # Plotly (сайдкар) или base64-PNG
             if r.table_md:
                 H.append(_md_block_to_html(r.table_md))
             H.append("</div>")

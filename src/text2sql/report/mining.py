@@ -32,6 +32,7 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 
+from . import render
 from .core import AnalysisResult, _fmt, _save
 from .labels import Labels, fmt_val
 from .metrics import Measure, ROW_COL
@@ -541,7 +542,9 @@ def _bar_by_dim(df, m: Measure, dim: str, agg: str, assets: Path, labels=None) -
     title = f"{agg_lbl}: {mlabel} по «{_ds(labels, dim)}»"
     ax.set_title(title, fontsize=11)
     ax.set_xlabel(unit); ax.set_ylabel(""); ax.grid(axis="x", alpha=.3)
-    chart = _save(fig, assets, f"focus_{agg}_{m.col}_{dim}")
+    spec = render.spec_barh(tbl[dim].tolist(), tbl["v"].tolist(), title=title, unit=unit,
+                            color="neut", pct=pct)
+    chart = _save(fig, assets, f"focus_{agg}_{m.col}_{dim}", spec)
     facts = {"agg": agg_lbl, "measure": m.label, "dim": _dt(labels, dim),
              "leader": fmt_val(s.index[0]), "leader_val": _fmt_unit(float(s.iloc[0]), unit),
              "leader_share": round(float(s.iloc[0]) / total * 100, 1) if agg != "avg" and total else None,
@@ -561,7 +564,10 @@ def _trend(df, date, m: Measure, assets: Path) -> AnalysisResult | None:
     ax.set_title(f"Динамика: {m.label} по месяцам")
     ax.set_xlabel(""); ax.set_ylabel(m.unit)
     ax.grid(True, alpha=.3)
-    chart = _save(fig, assets, f"trend_{m.col}")
+    spec = render.spec_line([d.strftime("%Y-%m") for d in ts.index],
+                            {m.label: [float(v) for v in ts.values]},
+                            title=f"Динамика: {m.label} по месяцам", unit=m.unit)
+    chart = _save(fig, assets, f"trend_{m.col}", spec)
     first, last = float(ts.iloc[0]), float(ts.iloc[-1])
     growth = ((last - first) / abs(first) * 100) if first else 0
     facts = {"direction": "рост" if growth > 5 else ("снижение" if growth < -5 else "стабильно"),
@@ -612,7 +618,10 @@ def _entity_top(df, ent: str, weight: Measure | None, assets: Path,
     ent_lbl = _ds(labels, ent)
     ax.set_title(f"ТОП по «{ent_lbl}» ({val_name})", fontsize=11)
     ax.set_xlabel(unit); ax.set_ylabel(""); ax.grid(axis="x", alpha=.3)
-    chart = _save(fig, assets, f"ent_{ent}_{weight.col if weight else 'cnt'}")
+    spec = render.spec_barh(tbl[ent].tolist(), tbl["v"].tolist(),
+                            title=f"ТОП по «{ent_lbl}» ({val_name})", unit=unit,
+                            color="gain", pct=(kind == "rate"))
+    chart = _save(fig, assets, f"ent_{ent}_{weight.col if weight else 'cnt'}", spec)
     facts = {"entity": ent_lbl, "leader": fmt_val(g.index[0]),
              "leader_val": _fmt_unit(float(g.iloc[0]), unit),
              "leader_share": round(float(g.iloc[0]) / total * 100, 1),
@@ -706,7 +715,11 @@ def _bar_vs_baseline(df, f: Finding, measures, assets, labels=None) -> str | Non
     ttl = f"{m.label} по «{_ds(labels, d)}»" + (" (пунктир — среднее)" if m.kind == "rate" else "")
     ax.set_title(ttl, fontsize=11)
     ax.set_xlabel(m.unit); ax.set_ylabel(""); ax.grid(axis="x", alpha=.3)
-    return _save(fig, assets, f"mine_{f.kind}_{m.col}_{d}")
+    spec = render.spec_barh(tbl[d].tolist(), tbl["v"].tolist(), title=ttl, unit=m.unit,
+                            color=("loss" if m.kind == "rate" else "neut"),
+                            baseline=(float(df[m.col].mean() * 100) if m.kind == "rate" else None),
+                            pct=(m.kind == "rate"))
+    return _save(fig, assets, f"mine_{f.kind}_{m.col}_{d}", spec)
 
 
 def _heatmap(df, f: Finding, measures, assets, labels=None) -> str | None:
@@ -733,4 +746,8 @@ def _heatmap(df, f: Finding, measures, assets, labels=None) -> str | None:
     ax.set_xlabel(""); ax.set_ylabel("")
     ax.set_xticklabels(ax.get_xticklabels(), rotation=35, ha="right", fontsize=8)
     ax.set_yticklabels(ax.get_yticklabels(), rotation=0, fontsize=8)
-    return _save(fig, assets, f"mine_heat_{m.col}_{da}_{db}")
+    z = [[None if pd.isna(v) else float(v) for v in row] for row in piv.values]
+    spec = render.spec_heatmap(z, list(piv.columns), list(piv.index),
+                               title=f"{m.label}: {_ds(labels, da)} × {_ds(labels, db)}",
+                               unit=m.unit, scale=("Reds" if m.kind == "rate" else "Blues"))
+    return _save(fig, assets, f"mine_heat_{m.col}_{da}_{db}", spec)

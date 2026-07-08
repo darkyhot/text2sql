@@ -101,8 +101,8 @@
       "is_outcome": true
     },
     {
-      "name": "Доля задач с эскалацией",
-      "label": "Доля задач с эскалацией",
+      "name": "Доля эскалаций",
+      "label": "Доля эскалаций",
       "column": "__rate_3",
       "agg": "mean",
       "kind": "rate",
@@ -113,62 +113,38 @@
       "is_outcome": true
     },
     {
-      "name": "Доля задач в пайплайне",
-      "label": "Доля задач в пайплайне",
-      "column": "__rate_4",
+      "name": "Просрочка закрытия",
+      "label": "Просрочка закрытия",
+      "column": "__overdue_4",
       "agg": "mean",
       "kind": "rate",
       "unit": "percent",
-      "good_direction": "none",
+      "good_direction": "down",
       "priority": 5,
       "scope_mask": null,
       "is_outcome": true
     },
     {
-      "name": "Просрочка закрытия",
-      "label": "Просрочка закрытия",
-      "column": "__overdue_5",
+      "name": "Срок отработки, дн",
+      "label": "Срок отработки, дн",
+      "column": "__dur_5",
       "agg": "mean",
-      "kind": "rate",
-      "unit": "percent",
-      "good_direction": "down",
+      "kind": "duration",
+      "unit": "days",
+      "good_direction": "none",
       "priority": 6,
       "scope_mask": null,
       "is_outcome": true
     },
     {
-      "name": "Срок отработки задачи, дн",
-      "label": "Срок отработки задачи, дн",
-      "column": "__dur_6",
-      "agg": "mean",
-      "kind": "duration",
-      "unit": "days",
-      "good_direction": "none",
-      "priority": 7,
-      "scope_mask": null,
-      "is_outcome": true
-    },
-    {
       "name": "fact_staff_deal_qty",
-      "label": "Фактическое привлечение сотрудников",
+      "label": "Фактическое привлечение",
       "column": "fact_staff_deal_qty",
       "agg": "sum",
       "kind": "count",
       "unit": "people",
       "good_direction": "none",
-      "priority": 8,
-      "scope_mask": null,
-      "is_outcome": false
-    },
-    {
-      "name": "plan_staff_deal_qty",
-      "label": "Плановое привлечение сотрудников",
-      "column": "plan_staff_deal_qty",
-      "agg": "sum",
-      "kind": "count",
-      "unit": "people",
-      "good_direction": "none",
-      "priority": 9,
+      "priority": 7,
       "scope_mask": null,
       "is_outcome": false
     },
@@ -180,7 +156,19 @@
       "kind": "count",
       "unit": "count",
       "good_direction": "up",
-      "priority": 10,
+      "priority": 8,
+      "scope_mask": null,
+      "is_outcome": false
+    },
+    {
+      "name": "plan_staff_deal_qty",
+      "label": "Плановое привлечение",
+      "column": "plan_staff_deal_qty",
+      "agg": "sum",
+      "kind": "count",
+      "unit": "people",
+      "good_direction": "none",
+      "priority": 9,
       "scope_mask": null,
       "is_outcome": false
     }
@@ -222,45 +210,6 @@
       ]
     },
     {
-      "name": "manager_fio",
-      "label": "ФИО руководителя",
-      "card": 2,
-      "kind": "category",
-      "id_partner": null,
-      "top_values": [
-        "Иванов Иван Иванович",
-        "Сидоров Петр Николаевич"
-      ]
-    },
-    {
-      "name": "isu_struct_saphr_id",
-      "label": "Табельный номер сотрудника",
-      "card": 3,
-      "kind": "category",
-      "id_partner": null,
-      "top_values": [
-        "30002",
-        "30001",
-        "30155"
-      ]
-    },
-    {
-      "name": "emp_fio",
-      "label": "ФИО сотрудника",
-      "card": 7,
-      "kind": "category",
-      "id_partner": null,
-      "top_values": [
-        "Кузнецова Ольга Викторовна",
-        "Петрова Мария Сергеевна",
-        "Волков Д.А.",
-        "Зайцева О.Н.",
-        "Соколова Е.В.",
-        "Морозов И.С.",
-        "Новиков А.П."
-      ]
-    },
-    {
       "name": "emp_post",
       "label": "Должность сотрудника",
       "card": 2,
@@ -295,7 +244,7 @@
     },
     {
       "name": "src_task_business",
-      "label": "Бизнес-источник задачи",
+      "label": "Бизнес-источник",
       "card": 1,
       "kind": "source",
       "id_partner": null,
@@ -305,7 +254,7 @@
     },
     {
       "name": "segment_name",
-      "label": "Наименование сегмента",
+      "label": "Сегмент",
       "card": 4,
       "kind": "category",
       "id_partner": null,
@@ -369,40 +318,48 @@
       "top_values": [
         "В работе"
       ]
-    },
-    {
-      "name": "campaign_code",
-      "label": "Код кампании",
-      "card": 1,
-      "kind": "category",
-      "id_partner": null,
-      "top_values": [
-        "CAMP-2024-Q2"
-      ]
-    },
-    {
-      "name": "task_text_status",
-      "label": "Текстовый статус задачи",
-      "card": 1,
-      "kind": "status",
-      "id_partner": null,
-      "top_values": [
-        "Решено"
-      ]
     }
   ],
   "entities": [
     {
+      "name": "manager_fio",
+      "label": "ФИО руководителя",
+      "key_col": "tb_id",
+      "name_col": "manager_fio",
+      "value_col": "unrealized_deal_potential"
+    },
+    {
+      "name": "isu_struct_saphr_id",
+      "label": "Табельный номер ИСУ",
+      "key_col": "isu_struct_saphr_id",
+      "name_col": null,
+      "value_col": "unrealized_deal_potential"
+    },
+    {
       "name": "task_struct_saphr_id",
-      "label": "Идентификатор второго участника",
+      "label": "Идентификатор структуры задачи",
       "key_col": "task_struct_saphr_id",
       "name_col": null,
       "value_col": "unrealized_deal_potential"
     },
     {
+      "name": "emp_fio",
+      "label": "ФИО сотрудника",
+      "key_col": "tb_id",
+      "name_col": "emp_fio",
+      "value_col": "unrealized_deal_potential"
+    },
+    {
       "name": "inn",
-      "label": "ИНН клиента",
+      "label": "ИНН",
       "key_col": "inn",
+      "name_col": null,
+      "value_col": "unrealized_deal_potential"
+    },
+    {
+      "name": "task_code",
+      "label": "Код задачи",
+      "key_col": "task_code",
       "name_col": null,
       "value_col": "unrealized_deal_potential"
     }
@@ -413,9 +370,8 @@
     "__rate_1",
     "__rate_2",
     "__rate_3",
-    "__rate_4",
-    "__overdue_5",
-    "__dur_6"
+    "__overdue_4",
+    "__dur_5"
   ],
   "tool_flags": [
     "is_in_pipeline",
@@ -425,7 +381,7 @@
   "question_bank": [
     "Как «Количество задач» распределён по «Наименование ТБ»?",
     "Где «Доля закрытых задач» хуже среднего?",
-    "Кто ключевые «Идентификатор второго участника» и какая концентрация?",
+    "Кто ключевые «ФИО руководителя» и какая концентрация?",
     "Насколько эффективен инструмент (сравнить с/без)?"
   ],
   "human_overrides": {}

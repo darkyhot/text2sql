@@ -39,8 +39,9 @@ def check(md: str, res: dict, case: dict) -> list[tuple[str, bool, str]]:
         ("бизнес-язык (без матжаргона)", not _MATH_JARGON.search(md),
          (_MATH_JARGON.search(md).group(0) if _MATH_JARGON.search(md) else "")),
         ("выводы непустые", md.count("![") >= 3 and len(md) > 800, f"len={len(md)}"),
-        ("HTML со встроенными картинками", html.count("data:image/png;base64") >= 3,
-         f"imgs={html.count('data:image/png;base64')}"),
+        ("HTML со встроенными графиками (Plotly/PNG)",
+         html.count("T2S.plot(") + html.count("data:image/png;base64") >= 3,
+         f"plotly={html.count('T2S.plot(')}, png={html.count('data:image/png;base64')}"),
         ("имя файла с префиксом таблицы", "_business_report" in Path(res["md_path"]).name, ""),
     ]
     if case.get("want_entity"):

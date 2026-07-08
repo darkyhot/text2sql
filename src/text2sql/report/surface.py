@@ -1,11 +1,10 @@
-"""Поверхность `/playbook` (этап D, §8.1 routing) — доводит семмодель + плейбуки до РАБОТЫ:
-вопрос → загрузка (1 запрос) → SemanticTable → выбор плейбука → executor примитивов → HTML+MD.
+"""Поверхность плейбуков (§8.1 routing + §5.5–5.6 render) — доводит семмодель + плейбуки
+до РАБОТЫ: вопрос → LLM-FRAME (тип + параметры) → executor примитивов → интерактивный
+офлайн-HTML (Plotly-графики + Tabulator-таблицы, вшитые в файл).
 
-Роутинг (§8.1): impact-плейбук, если вопрос про эффективность И у таблицы есть tool_flag;
-иначе дефолтный `loss_attribution` (где/кто/почему/когда). Параметры плейбука (bindings)
-выводятся ИЗ СЕММОДЕЛИ детерминированно (target/разрез/сущность/причина/дата или flag/outcome/
-время/cutoff) — это и есть «FRAME» без отдельного LLM-вызова (честное упрощение §7.1 FRAME:
-классификацию/привязку делаем эвристикой по модели, а не LLM).
+FRAME теперь через LLM (`frame_llm`): классифицирует расследование и привязывает параметры
+к колонкам семмодели; эвристика `_bindings` — детерминированный фолбэк, если LLM недоступен
+или что-то не заполнил.
 """
 
 from __future__ import annotations
@@ -18,22 +17,20 @@ from pathlib import Path
 import pandas as pd
 
 from ..config import PATHS
-from . import plans, semantics
+from . import plans, render, semantics
 from .core import _fmt
-from .interactive import enhance as _enhance
 from .labels import fmt_val
 from .store import FrameStore
 
 logger = logging.getLogger(__name__)
 _ID_RE = re.compile(r"(^inn$|_inn$|_id$|_code$|saphr|epk|ogrn|kpp)", re.I)
 _OUTCOME_FLAG_RE = re.compile(r"(success|closed|закрыт|успех|выполн|resolve)", re.I)
+_COL_KEYS = {"flag", "outcome", "time_col", "strata", "placebo",
+             "target", "dim", "entity", "reason", "date"}
 
 
 def _pick_target(df: pd.DataFrame) -> str | None:
-    """Целевая величина потерь: числовая не-id колонка с самой большой ВАЛОВОЙ убылью
-    (сумма отрицательных значений). Валовая, а не net — иначе метрика с net-приростом,
-    но реальными потерями (diff с положительным итогом) не выбирается. Если убыли нет —
-    самая материальная по |сумме|."""
+    """Целевая величина потерь: числовая не-id колонка с самой большой ВАЛОВОЙ убылью."""
     gross_loss, mag = {}, {}
     for c in df.columns:
         if pd.api.types.is_numeric_dtype(df[c]) and not _ID_RE.search(c):
@@ -58,26 +55,29 @@ def _num01_ok(s: pd.Series) -> bool:
 
 
 def _bindings(pb: plans.Playbook, model: semantics.SemanticTable, df: pd.DataFrame) -> dict:
+    """Детерминированный fallback FRAME: параметры плейбука из семмодели."""
     if pb.name == "impact":
         tcol = next((t for t in model.time if t.is_reporting), model.time[0] if model.time else None)
         cutoff = _median_date(df, tcol.name) if tcol else None
         b = semantics.impact_bindings(model, cutoff=cutoff) or {}
-        # outcome: ПРЕДПОЧИТАЕМ интерпретируемый бинарный исход (is_*success/closed) анонимной
-        # производной ставке (__rate_N) — его видно в вердикте и он однозначен для DiD.
         succ = (next((c for c in df.columns if re.search(r"(success|успех)", c, re.I) and _num01_ok(df[c])), None)
                 or next((c for c in df.columns if _OUTCOME_FLAG_RE.search(c) and _num01_ok(df[c])), None))
         out = b.get("outcome")
         bad = out and (out not in df.columns or pd.to_numeric(df[out], errors="coerce").notna().sum() == 0)
         if succ and (bad or str(out).startswith("__")):
             b["outcome"] = succ
-        # treatment-флаг: в df и бинарный
         fl = b.get("flag")
         if fl and (fl not in df.columns or not _num01_ok(df[fl])):
             alt = next((c for c in model.tool_flags if c in df.columns and _num01_ok(df[c])), None)
             if alt:
                 b["flag"] = alt
+        # страта для stratified_compare: интерпретируемый разрез малой кардинальности
+        if not b.get("strata"):
+            strat = next((d.name for d in model.dimensions if d.name in df.columns
+                          and d.kind in ("geo", "category", "status")
+                          and 2 <= df[d.name].nunique(dropna=True) <= 30), None)
+            b["strata"] = strat
         return b
-    # loss_attribution (и дефолт)
     dims = [d for d in model.dimensions if d.name in df.columns]
     primary = next((d.name for d in dims if d.kind in ("geo", "category", "status")
                     and 2 <= df[d.name].nunique(dropna=True) <= 60), dims[0].name if dims else None)
@@ -88,13 +88,79 @@ def _bindings(pb: plans.Playbook, model: semantics.SemanticTable, df: pd.DataFra
             "reason": reason, "date": date, "side": "loss"}
 
 
+# ---------------- LLM-FRAME (§7.1) ----------------
+_FRAME_SYS = (
+    "Ты — модуль FRAME аналитического ядра. По ВОПРОСУ и СЕММОДЕЛИ таблицы определи тип "
+    "расследования и параметры. Значения параметров — СТРОГО имена колонок из семмодели.\n"
+    "playbook:\n"
+    " • impact — вопрос про ЭФФЕКТИВНОСТЬ / влияние / пользу / пилот инструмента, И у таблицы "
+    "есть булев признак-лечение (tool_flag) и мера-исход;\n"
+    " • loss_attribution — вопрос про то, ГДЕ и ПОЧЕМУ потеряли / упал показатель / отток.\n"
+    "Для impact заполни: flag (булев tool_flag-лечение), outcome (мера-исход, предпочти бинарную "
+    "success/closed), time_col (отчётная дата), cutoff (дата внедрения из ВОПРОСА в формате "
+    "YYYY-MM-DD, иначе null), strata (разрез для стратификации: территория/тип/сегмент), "
+    "placebo (мера, на которую инструмент влиять НЕ должен, иначе null).\n"
+    "Для loss_attribution заполни: target (числовая мера убыли), dim (главный разрез), "
+    "entity (сущность-ключ), reason (разрез-причина), date (отчётная дата), side ('loss'|'gain').\n"
+    "Верни JSON со ВСЕМИ ключами: playbook, flag, outcome, time_col, cutoff, strata, placebo, "
+    "target, dim, entity, reason, side. Ненужные для выбранного playbook — null."
+)
+
+
+def _model_brief(model: semantics.SemanticTable, df: pd.DataFrame) -> str:
+    def col(c):
+        return c if c in df.columns else f"{c}(нет в данных)"
+    meas = "; ".join(f"{m.name}[{m.kind}/{m.unit}]" for m in model.measures[:20])
+    dims = "; ".join(f"{d.name}({d.kind},card={getattr(d, 'card', '?')})" for d in model.dimensions[:20])
+    ents = "; ".join(f"{e.key_col}" + (f"←{e.name_col}" if e.name_col else "") for e in model.entities[:6])
+    times = "; ".join(f"{t.name}({'отчётная' if t.is_reporting else 'событийная'})" for t in model.time[:6])
+    return (f"Таблица: {model.label or model.fqn}\n"
+            f"Меры: {meas}\nРазрезы: {dims}\nСущности: {ents}\nДаты: {times}\n"
+            f"tool_flags(лечения): {', '.join(model.tool_flags) or '—'}\n"
+            f"outcome_measures(исходы): {', '.join(model.outcome_measures) or '—'}\n"
+            f"Все колонки: {', '.join(map(str, df.columns))}")
+
+
+def frame_llm(llm, question: str, model: semantics.SemanticTable, df: pd.DataFrame) -> dict | None:
+    """LLM-FRAME: тип расследования + привязка параметров к колонкам. Валидирует по данным."""
+    if llm is None:
+        return None
+    try:
+        out = llm.complete_json(_FRAME_SYS, f"Вопрос: {question}\n\nСеммодель:\n{_model_brief(model, df)}",
+                                max_tokens=1400, node="playbook_frame")
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("FRAME LLM не удался (%s) — фолбэк на эвристику", exc)
+        return None
+    cols = set(df.columns)
+    res: dict = {}
+    pb = out.get("playbook")
+    res["playbook"] = pb if pb in ("impact", "loss_attribution") else None
+    for k in _COL_KEYS:
+        v = out.get(k)
+        if isinstance(v, str) and v in cols:
+            res[k] = v
+    cutoff = out.get("cutoff")
+    if isinstance(cutoff, str) and re.match(r"\d{4}-\d{2}", cutoff):
+        res["cutoff"] = cutoff
+    if out.get("side") in ("loss", "gain"):
+        res["side"] = out["side"]
+    return res
+
+
 def run_playbook(df: pd.DataFrame, model: semantics.SemanticTable, pb: plans.Playbook, question: str,
                  *, table_desc: str, fqn: str, out_dir: Path | None = None,
-                 progress=lambda m: None) -> dict:
-    """Исполнить ДАННЫЙ плейбук на уже подготовленных df+model → HTML+MD. Вызывается
-    роутером `/investigate` (§8.1): загрузку/профилирование/выбор плейбука делает он."""
+                 progress=lambda m: None, frame: dict | None = None) -> dict:
+    """Исполнить плейбук: эвристические bindings, поверх — валидные значения LLM-FRAME."""
     out_dir = out_dir or PATHS.workspace_dir
     binds = _bindings(pb, model, df)
+    if frame:                                        # LLM-FRAME перекрывает эвристику
+        for k in list(binds):
+            fv = frame.get(k)
+            if not fv:
+                continue
+            if k in _COL_KEYS and fv not in df.columns:
+                continue
+            binds[k] = fv
     progress(f"плейбук «{pb.name}»: исполняю шаги…")
     run = plans.run_plan(FrameStore(df), pb.plan, binds)
     verdict = plans.impact_verdict(run) if pb.name == "impact" else None
@@ -106,7 +172,7 @@ def run_playbook(df: pd.DataFrame, model: semantics.SemanticTable, pb: plans.Pla
     ctx = dict(model=model, pb=pb, binds=binds, run=run, verdict=verdict,
                question=question, table_desc=table_desc, fqn=fqn, nrows=len(df))
     md_path.write_text(_assemble_md(**ctx), encoding="utf-8")
-    html_path.write_text(_enhance(_assemble_html(**ctx)), encoding="utf-8")
+    html_path.write_text(_assemble_html(**ctx), encoding="utf-8")
     return {"md_path": str(md_path), "html_path": str(html_path), "playbook": pb.name,
             "verdict": (verdict[0] if verdict else None), "skipped": run.skipped, "rows": len(df)}
 
@@ -144,7 +210,7 @@ def _frame_md(frame: pd.DataFrame, limit: int = 8) -> str:
 def _assemble_md(*, model, pb, binds, run, verdict, question, table_desc, fqn, nrows) -> str:
     L = [f"# 🎛️ Плейбук «{pb.name}»: {table_desc}", f"**Вопрос:** {question}\n"]
     L.append(f"**Таблица:** `{fqn}` · **строк:** {nrows:,}".replace(",", " "))
-    L.append(f"**Параметры (из семмодели):** " + ", ".join(f"{k}={v}" for k, v in binds.items() if v) + "\n")
+    L.append(f"**Параметры (FRAME):** " + ", ".join(f"{k}={v}" for k, v in binds.items() if v) + "\n")
     if verdict:
         L.append(f"## ✅ Вердикт: {verdict[0]}\n{verdict[1]}\n")
     for sid, res in run.results.items():
@@ -160,14 +226,58 @@ def _assemble_md(*, model, pb, binds, run, verdict, question, table_desc, fqn, n
     return "\n".join(L)
 
 
-_CSS = ("body{font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:960px;margin:0 auto;"
-        "padding:28px 22px;color:#1f2933;background:#f7f9fc;line-height:1.55}"
-        "h1{font-size:24px;color:#12263f}h2{font-size:19px;margin:26px 0 8px;border-bottom:2px solid #e3e8ef;"
-        "padding-bottom:5px;color:#12263f}.card{background:#fff;border:1px solid #e3e8ef;border-radius:12px;"
-        "padding:14px 18px;margin:12px 0}.verdict{background:#eef7ee;border-color:#bfe3bf}.meta{color:#616e7c;"
-        "font-size:13px}table{border-collapse:collapse;width:100%;font-size:13px;margin-top:8px}"
-        "th,td{border:1px solid #e3e8ef;padding:6px 10px;text-align:left}th{background:#f0f4f8}"
-        "ul{margin:6px 0 0 18px}")
+# базовые токены/компоненты приходят из render.THEME_CSS (page() их добавляет); здесь — только
+# специфика плейбук-страницы
+_CSS = ".verdict h2{color:var(--good)}"
+
+
+def _pp(v):
+    return round(float(v) * 100, 1)
+
+
+def _step_widget(sid: str, res, binds: dict) -> str:
+    """Plotly-виджет под конкретный шаг (интерактив в браузере)."""
+    f = res.facts
+    cid = f"plot_{sid}"
+    try:
+        if sid == "adoption":
+            return render.indicator(cid, _pp(f.get("total", 0)), title="Охват инструмента, %", suffix=" %")
+        if sid == "naive":
+            return render.bar(cid, ["с инструментом", "без инструмента"],
+                              [round(f.get("with", 0), 3), round(f.get("without", 0), 3)],
+                              title="Наивное сравнение исхода", horizontal=False, color="neut")
+        if sid == "strat":
+            return render.bar(cid, [f"взвеш. эффект ({f.get('n_strata', 0)} страт)"],
+                              [round(f.get("weighted_effect", 0), 4)],
+                              title="Стратифицированный эффект", horizontal=False, color="gain")
+        if sid == "did":
+            fr = res.frame
+            if fr is not None and {"group", "before", "after"}.issubset(fr.columns):
+                byg = {str(r["group"]): r for _, r in fr.iterrows()}
+                series = {g: [float(byg[g]["before"]), float(byg[g]["after"])] for g in byg}
+                return render.grouped_bar(cid, ["до внедрения", "после"], series,
+                                          title="DiD: пилот vs контроль (до/после)")
+        if sid == "selection":
+            return render.indicator(cid, _pp(f.get("pre_gap", 0)),
+                                    title="Разрыв пилота ДО внедрения (самоотбор)", suffix=" п.п.")
+        if sid == "placebo":
+            return render.indicator(cid, _pp(f.get("placebo_did", 0)),
+                                    title="Плацебо-эффект (норма ≈ 0)", suffix=" п.п.")
+        if sid == "extrapolate":
+            return render.indicator(cid, round(f.get("projected", 0), 0),
+                                    title="Доп. исходов при полном охвате")
+        # loss_attribution
+        if sid == "where" and res.frame is not None and "contrib" in getattr(res.frame, "columns", []):
+            fr = res.frame.head(12)
+            return render.bar(cid, list(fr.iloc[:, 0].map(fmt_val)), list(fr["contrib"].astype(float)),
+                              title="Вклад в потери", color="loss")
+        if sid == "when" and res.frame is not None and "value" in getattr(res.frame, "columns", []):
+            fr = res.frame
+            return render.line(cid, list(fr.iloc[:, 0]), {"target": list(fr["value"].astype(float))},
+                               title="Динамика по периодам", marker_x=f.get("break_period"))
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("plotly-виджет %s не построен: %s", sid, exc)
+    return ""
 
 
 def _facts_html(facts: dict) -> str:
@@ -177,36 +287,25 @@ def _facts_html(facts: dict) -> str:
     return f"<ul>{items}</ul>" if items else ""
 
 
-def _frame_html(frame: pd.DataFrame, limit: int = 8) -> str:
-    md = _frame_md(frame, limit)
-    if not md:
-        return ""
-    rows = [r for r in md.splitlines() if r.strip().startswith("|")]
-    if len(rows) < 2:
-        return ""
-    cells = lambda r: [c.strip() for c in r.strip().strip("|").split("|")]
-    th = "".join(f"<th>{_html.escape(c)}</th>" for c in cells(rows[0]))
-    body = "".join("<tr>" + "".join(f"<td>{_html.escape(c)}</td>" for c in cells(r)) + "</tr>"
-                   for r in rows[2:])
-    return f"<table><thead><tr>{th}</tr></thead><tbody>{body}</tbody></table>"
-
-
 def _assemble_html(*, model, pb, binds, run, verdict, question, table_desc, fqn, nrows) -> str:
-    H = ["<!doctype html><html lang='ru'><head><meta charset='utf-8'>",
-         f"<title>Плейбук {_html.escape(pb.name)}</title><style>{_CSS}</style></head><body>",
-         f"<h1>🎛️ Плейбук «{_html.escape(pb.name)}»: {_html.escape(table_desc)}</h1>",
+    B = [f"<h1>🎛️ Плейбук «{_html.escape(pb.name)}»: {_html.escape(table_desc)}</h1>",
          f"<p class='meta'>Вопрос: {_html.escape(question)}</p>",
          f"<p class='meta'>Таблица: <code>{_html.escape(fqn)}</code> · строк: {nrows:,}".replace(",", " ") + "</p>",
-         f"<p class='meta'>Параметры из семмодели: "
+         f"<p class='meta'>Параметры FRAME: "
          + _html.escape(", ".join(f"{k}={v}" for k, v in binds.items() if v)) + "</p>"]
     if verdict:
-        H.append(f"<div class='card verdict'><h2 style='border:none;margin-top:0'>✅ Вердикт: "
+        B.append(f"<div class='card verdict'><h2 style='border:none;margin-top:0'>✅ Вердикт: "
                  f"{_html.escape(verdict[0])}</h2><p>{_html.escape(verdict[1])}</p></div>")
     for sid, res in run.results.items():
-        H.append(f"<h2>{_html.escape(_STEP_TITLES.get(sid, sid))}</h2><div class='card'>"
-                 + _facts_html(res.facts) + _frame_html(res.frame) + "</div>")
+        B.append(f"<h2>{_html.escape(_STEP_TITLES.get(sid, sid))}</h2><div class='card'>")
+        B.append(_facts_html(res.facts))
+        B.append(_step_widget(sid, res, binds))
+        B.append(render.df_table(res.frame,
+                                 fmt=lambda c, v: _fmt(v) if isinstance(v, float) else fmt_val(v)))
+        B.append("</div>")
     if run.skipped:
-        H.append(f"<p class='meta'>Шаги пропущены (нет данных/колонки): "
+        B.append(f"<p class='meta'>Шаги пропущены (нет данных/колонки): "
                  f"{_html.escape(', '.join(run.skipped))}.</p>")
-    H.append("<p class='meta'>Плейбук: примитивы на pandas + семантическая модель.</p></body></html>")
-    return "\n".join(H)
+    B.append("<p class='meta'>Плейбук: примитивы на pandas + семантическая модель; "
+             "графики Plotly, таблицы Tabulator — вшиты в файл.</p>")
+    return render.page(f"Плейбук {pb.name}", "".join(B), css=_CSS, plotly=True, tabulator=True)

@@ -53,8 +53,8 @@
       "top_share_pct": null
     },
     {
-      "name": "Доля задач с эскалацией",
-      "label": "Доля задач с эскалацией",
+      "name": "Доля с запросом эскалации",
+      "label": "Доля с запросом эскалации",
       "column": "__rate_3",
       "kind": "rate",
       "unit": "%",
@@ -65,9 +65,21 @@
       "top_share_pct": null
     },
     {
+      "name": "Доля в пайплайне",
+      "label": "Доля в пайплайне",
+      "column": "__rate_4",
+      "kind": "rate",
+      "unit": "%",
+      "agg": "mean",
+      "total": 0.25,
+      "top_dim": null,
+      "top_value": null,
+      "top_share_pct": null
+    },
+    {
       "name": "Просрочка закрытия",
       "label": "Просрочка закрытия",
-      "column": "__overdue_4",
+      "column": "__overdue_5",
       "kind": "rate",
       "unit": "%",
       "agg": "mean",
@@ -79,7 +91,7 @@
     {
       "name": "Срок отработки задачи, дн",
       "label": "Срок отработки задачи, дн",
-      "column": "__dur_5",
+      "column": "__dur_6",
       "kind": "duration",
       "unit": "дн",
       "agg": "mean",
@@ -101,18 +113,6 @@
       "top_share_pct": 100.0
     },
     {
-      "name": "plan_staff_deal_qty",
-      "label": "Плановое привлечение",
-      "column": "plan_staff_deal_qty",
-      "kind": "count",
-      "unit": "чел.",
-      "agg": "sum",
-      "total": 21398.0,
-      "top_dim": "Категория задачи",
-      "top_value": "Предложение",
-      "top_share_pct": 100.0
-    },
-    {
       "name": "unrealized_deal_potential",
       "label": "Нереализованный потенциал",
       "column": "unrealized_deal_potential",
@@ -120,6 +120,18 @@
       "unit": "",
       "agg": "sum",
       "total": 9598611.0,
+      "top_dim": "Категория задачи",
+      "top_value": "Предложение",
+      "top_share_pct": 100.0
+    },
+    {
+      "name": "plan_staff_deal_qty",
+      "label": "Плановое привлечение",
+      "column": "plan_staff_deal_qty",
+      "kind": "count",
+      "unit": "чел.",
+      "agg": "sum",
+      "total": 21398.0,
       "top_dim": "Категория задачи",
       "top_value": "Предложение",
       "top_share_pct": 100.0
@@ -138,7 +150,7 @@
     },
     {
       "column": "saphr_gosb_id",
-      "label": "Номер ГОСБ сотрудника",
+      "label": "Номер ГОСБ",
       "cardinality": 2
     },
     {
@@ -157,8 +169,13 @@
       "cardinality": 2
     },
     {
+      "column": "src_task_business",
+      "label": "Бизнес-источник",
+      "cardinality": 1
+    },
+    {
       "column": "segment_name",
-      "label": "Наименование сегмента",
+      "label": "Сегмент клиента",
       "cardinality": 4
     },
     {
@@ -175,6 +192,26 @@
       "column": "task_subtype",
       "label": "Подтип задачи",
       "cardinality": 2
+    },
+    {
+      "column": "last_active_type",
+      "label": "Тип последней активности",
+      "cardinality": 1
+    },
+    {
+      "column": "last_active_status",
+      "label": "Статус последней активности",
+      "cardinality": 1
+    },
+    {
+      "column": "campaign_code",
+      "label": "Код кампании",
+      "cardinality": 1
+    },
+    {
+      "column": "task_text_status",
+      "label": "Текстовый статус",
+      "cardinality": 1
     }
   ],
   "entities": [
@@ -182,11 +219,6 @@
       "column": "manager_fio",
       "label": "ФИО руководителя",
       "cardinality": 2
-    },
-    {
-      "column": "task_struct_saphr_id",
-      "label": "Табельный номер второго участника",
-      "cardinality": 924
     },
     {
       "column": "emp_fio",

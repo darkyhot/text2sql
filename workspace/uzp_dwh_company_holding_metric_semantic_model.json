@@ -5,20 +5,8 @@
   "row_count": 4000,
   "measures": [
     {
-      "name": "Актуальность данных, дн",
-      "label": "Актуальность данных, дн",
-      "column": "__dur_0",
-      "kind": "duration",
-      "unit": "дн",
-      "agg": "mean",
-      "total": 227.03,
-      "top_dim": null,
-      "top_value": null,
-      "top_share_pct": null
-    },
-    {
       "name": "ul_outflow_qty",
-      "label": "Отток юридических лиц",
+      "label": "Отток юрлиц",
       "column": "ul_outflow_qty",
       "kind": "count",
       "unit": "",
@@ -30,7 +18,7 @@
     },
     {
       "name": "fl_outflow_qty",
-      "label": "Отток физических лиц",
+      "label": "Отток физлиц",
       "column": "fl_outflow_qty",
       "kind": "count",
       "unit": "чел.",
@@ -90,7 +78,7 @@
     },
     {
       "name": "current_fl_qty",
-      "label": "Текущие получатели зарплаты",
+      "label": "Текущие физлица",
       "column": "current_fl_qty",
       "kind": "count",
       "unit": "чел.",
@@ -102,7 +90,7 @@
     },
     {
       "name": "fl_y_1_diff_qty",
-      "label": "Изменение получателей зарплаты",
+      "label": "Изменение физлиц",
       "column": "fl_y_1_diff_qty",
       "kind": "count",
       "unit": "чел.",
@@ -126,7 +114,7 @@
     },
     {
       "name": "total_emp_qty",
-      "label": "Общее количество сотрудников",
+      "label": "Всего сотрудников",
       "column": "total_emp_qty",
       "kind": "count",
       "unit": "чел.",
@@ -150,7 +138,7 @@
     },
     {
       "name": "new_fl_cnt",
-      "label": "Новые физические лица",
+      "label": "Новых физлиц",
       "column": "new_fl_cnt",
       "kind": "count",
       "unit": "чел.",
@@ -174,7 +162,7 @@
     },
     {
       "name": "new_fl_cnt_next_month",
-      "label": "Новые ФЛ в следующем месяце",
+      "label": "Новых физлиц след. месяц",
       "column": "new_fl_cnt_next_month",
       "kind": "count",
       "unit": "чел.",
@@ -186,7 +174,7 @@
     },
     {
       "name": "np_cnt_next_month",
-      "label": "НП в следующем месяце",
+      "label": "Количество НП след. месяц",
       "column": "np_cnt_next_month",
       "kind": "count",
       "unit": "",
@@ -318,7 +306,7 @@
     },
     {
       "name": "pu_consumer_loan_available_cnt",
-      "label": "Доступно ПУ Потребительский кредит",
+      "label": "Доступно ПУ Потребкредит",
       "column": "pu_consumer_loan_available_cnt",
       "kind": "count",
       "unit": "",
@@ -330,7 +318,7 @@
     },
     {
       "name": "pu_consumer_loan_give_cnt",
-      "label": "Назначено ПУ Потребительский кредит",
+      "label": "Назначено ПУ Потребкредит",
       "column": "pu_consumer_loan_give_cnt",
       "kind": "count",
       "unit": "",

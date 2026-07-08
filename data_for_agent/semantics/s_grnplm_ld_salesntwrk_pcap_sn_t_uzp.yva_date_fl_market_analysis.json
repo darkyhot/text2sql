@@ -6,8 +6,16 @@
   "grain": "",
   "row_meaning": "",
   "audience_hint": "",
-  "row_count": 2776,
-  "time": [],
+  "row_count": 2778,
+  "time": [
+    {
+      "name": "task_dt",
+      "label": "Дата задачи",
+      "is_reporting": false,
+      "granularity": "day",
+      "fresh_until": "2026-06-25"
+    }
+  ],
   "measures": [
     {
       "name": "Количество компаний",
@@ -23,7 +31,7 @@
     },
     {
       "name": "fl_26_qty",
-      "label": "Физлица в доле рынка 2026",
+      "label": "Физлица за 2026 год",
       "column": "fl_26_qty",
       "agg": "sum",
       "kind": "count",
@@ -35,7 +43,7 @@
     },
     {
       "name": "fl_25_qty",
-      "label": "Физлица в доле рынка 2025",
+      "label": "Физлица за 2025 год",
       "column": "fl_25_qty",
       "agg": "sum",
       "kind": "count",
@@ -47,7 +55,7 @@
     },
     {
       "name": "diff_fl_26_25_qty",
-      "label": "Разница физлиц 2026/2025",
+      "label": "Разница физлиц 2026-2025",
       "column": "diff_fl_26_25_qty",
       "agg": "sum",
       "kind": "count",
@@ -98,8 +106,8 @@
       "label": "Потенциал 1 кв. 2026",
       "column": "potential_1q_26",
       "agg": "sum",
-      "kind": "count",
-      "unit": "count",
+      "kind": "money",
+      "unit": "money",
       "good_direction": "up",
       "priority": 7,
       "scope_mask": null,
@@ -110,8 +118,8 @@
       "label": "Потенциал 4 кв. 2025",
       "column": "potential_4q_25",
       "agg": "sum",
-      "kind": "count",
-      "unit": "count",
+      "kind": "money",
+      "unit": "money",
       "good_direction": "up",
       "priority": 8,
       "scope_mask": null,
@@ -122,8 +130,8 @@
       "label": "Потенциал 3 кв. 2025",
       "column": "potential_3q_25",
       "agg": "sum",
-      "kind": "count",
-      "unit": "count",
+      "kind": "money",
+      "unit": "money",
       "good_direction": "up",
       "priority": 9,
       "scope_mask": null,
@@ -131,7 +139,7 @@
     },
     {
       "name": "fl_self_emplyeed_25_qty",
-      "label": "Самозанятые 2025",
+      "label": "Самозанятые за 2025",
       "column": "fl_self_emplyeed_25_qty",
       "agg": "sum",
       "kind": "count",
@@ -143,7 +151,7 @@
     },
     {
       "name": "fl_gpx_25_qty",
-      "label": "Физлица ГПХ 2025",
+      "label": "ГПХ за 2025 год",
       "column": "fl_gpx_25_qty",
       "agg": "sum",
       "kind": "count",
@@ -155,7 +163,7 @@
     },
     {
       "name": "fl_self_emplyeed_26_qty",
-      "label": "Самозанятые 2026",
+      "label": "Самозанятые за 2026",
       "column": "fl_self_emplyeed_26_qty",
       "agg": "sum",
       "kind": "count",
@@ -167,7 +175,7 @@
     },
     {
       "name": "fl_gpx_26_qty",
-      "label": "Физлица ГПХ 2026",
+      "label": "ГПХ за 2026 год",
       "column": "fl_gpx_26_qty",
       "agg": "sum",
       "kind": "count",
@@ -179,40 +187,6 @@
     }
   ],
   "dimensions": [
-    {
-      "name": "gosb_name",
-      "label": "Название ГОСБ",
-      "card": 2532,
-      "kind": "geo",
-      "id_partner": null,
-      "top_values": [
-        "ГОСБ Москва",
-        "YVA-gosb-00000000",
-        "YVA-gosb-00000001",
-        "YVA-gosb-00000002",
-        "YVA-gosb-00000003",
-        "YVA-gosb-00000004",
-        "YVA-gosb-00000007",
-        "YVA-gosb-00000008",
-        "YVA-gosb-00000010",
-        "YVA-gosb-00000011",
-        "YVA-gosb-00000012",
-        "YVA-gosb-00000013",
-        "YVA-gosb-00000014",
-        "YVA-gosb-00000015",
-        "YVA-gosb-00000016",
-        "YVA-gosb-00000017",
-        "YVA-gosb-00000018",
-        "YVA-gosb-00000019",
-        "YVA-gosb-00000020",
-        "YVA-gosb-00000021",
-        "YVA-gosb-00000022",
-        "YVA-gosb-00000024",
-        "YVA-gosb-00000026",
-        "YVA-gosb-00000027",
-        "YVA-gosb-00000028"
-      ]
-    },
     {
       "name": "holding_name",
       "label": "Название холдинга",
@@ -226,7 +200,7 @@
     },
     {
       "name": "segment_name_bp",
-      "label": "Сегмент",
+      "label": "Сегмент бизнеса",
       "card": 5,
       "kind": "category",
       "id_partner": null,
@@ -267,9 +241,16 @@
   "entities": [
     {
       "name": "company_name",
-      "label": "Название компании",
+      "label": "Название организации",
       "key_col": "inn",
       "name_col": "company_name",
+      "value_col": "potential_1q_26"
+    },
+    {
+      "name": "gosb_name",
+      "label": "Наименование ГОСБ",
+      "key_col": "gosb_name",
+      "name_col": "gosb_name",
       "value_col": "potential_1q_26"
     },
     {
@@ -285,8 +266,8 @@
   "tool_flags": [],
   "boring_cols": [],
   "question_bank": [
-    "Как «Количество компаний» распределён по «Название ГОСБ»?",
-    "Кто ключевые «Название компании» и какая концентрация?",
+    "Как «Потенциал 1 кв. 2026» распределён по «Название холдинга»?",
+    "Кто ключевые «Название организации» и какая концентрация?",
     "Насколько эффективен инструмент (сравнить с/без)?"
   ],
   "human_overrides": {}

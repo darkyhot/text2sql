@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import pandas as pd
 
+from . import render
 from .core import AnalysisResult, _fmt, _md_table, _save, agg_for, Roles
 
 _MONTHS = {1: "январь", 2: "февраль", 3: "март", 4: "апрель", 5: "май", 6: "июнь",
@@ -81,7 +82,11 @@ def seasonality(df, date, entity, assets, label=None) -> AnalysisResult | None:
         sns.barplot(data=tbl.head(12), y="месяц", x="сезонных_сущностей", ax=ax, color="#E8A33D")
         ax.set_title("Сезонность: сколько сущностей повторяется по месяцам")
         ax.set_xlabel(""); ax.set_ylabel("")
-        chart = _save(fig, assets, f"season_{entity}")
+        h = tbl.head(12)
+        spec = render.spec_barh(h["месяц"].tolist(), h["сезонных_сущностей"].tolist(),
+                                title="Сезонность: сколько сущностей повторяется по месяцам",
+                                color="#E8A33D")
+        chart = _save(fig, assets, f"season_{entity}", spec)
     except Exception:  # noqa: BLE001
         chart = None
     facts = {"seasonal_count": int(ent_seasonal), "total_entities": int(total),

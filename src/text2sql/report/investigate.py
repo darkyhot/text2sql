@@ -32,7 +32,7 @@ import pandas as pd
 import seaborn as sns
 
 from ..config import PATHS
-from . import core, interactive, labels as labels_mod, metrics, plan
+from . import core, interactive, labels as labels_mod, metrics, plan, render
 from .builder import (_HTML_CSS, _img_b64, _load, _load_columns, _md_block_to_html,
                       _md_inline_to_html, _meta_for, _rel_chart)
 from .core import _fmt, _save
@@ -200,6 +200,89 @@ def _frame(llm, question, prep: Prep) -> Frame:
         value=(out.get("value") if out.get("value") in numset else None),
         restated=str(out.get("restated") or question).strip(),
     )
+
+
+# ---------- методология: «книги портфеля» (что входит/не входит в метрику) ----------
+_BOOKS_SYS = (
+    "Ты выделяешь «КНИГИ ПОРТФЕЛЯ» для анализа год-к-году по ОПИСАНИЯМ числовых колонок. "
+    "Книга — показатель с фактами за ДВА года (y25=2025, y26=2026) и/или колонкой-дельтой (delta_col). "
+    "role: 'headline' — ОСНОВНАЯ метрика портфеля (напр. ФЛ доля рынка, ФЛ КПЭ); "
+    "'excluded' — категория, ИСКЛЮЧЁННАЯ из основной метрики доли (напр. ГПХ, самозанятые); "
+    "'other' — прочее (пропусти). Значения y25/y26/delta_col — СТРОГО имена колонок из списка "
+    "(или null). note: одна короткая фраза про методологию — что НЕ входит в долю и почему это "
+    "важно для вывода. Верни JSON: {\"books\":[{\"label\":..,\"y25\":..,\"y26\":..,"
+    "\"delta_col\":..,\"role\":..}],\"note\":..}"
+)
+
+
+@dataclass
+class Book:
+    label: str
+    role: str            # headline | excluded
+    v25: float
+    v26: float
+    delta: float
+
+
+def _portfolio_books(df: pd.DataFrame, prep: Prep, llm) -> dict | None:
+    """Методологический слой: по описаниям колонок делим числа на «книги портфеля» —
+    основные метрики (доля/КПЭ) и ИСКЛЮЧЁННЫЕ из них категории (ГПХ/самозанятые). Считаем Δ
+    год-к-году по каждой (детерминированно) + Δ по сегментам для headline-книг. Ключ анализа:
+    нельзя смешивать метрики с разными знаменателями (напр. отток ГПХ не входит в долю)."""
+    num_cols = [c for c in df.columns if pd.api.types.is_numeric_dtype(df[c])
+                and not _ID_ENT.search(c)]
+    if len(num_cols) < 4:
+        return None
+    listing = "\n".join(f"- {c}: {prep.meta.get(c, {}).get('desc', '') or prep.lbls.of(c)}"
+                        for c in num_cols)
+    try:
+        out = llm.complete_json(_BOOKS_SYS, f"Таблица: {prep.table_desc}\n\nЧисловые колонки:\n{listing}",
+                                max_tokens=1500, node="investigate_books")
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("investigate: книги портфеля не выделены (%s)", exc)
+        return None
+    books: list[Book] = []
+    for b in (out.get("books") or []):
+        if not isinstance(b, dict) or b.get("role") not in ("headline", "excluded"):
+            continue
+        y25, y26, dc = b.get("y25"), b.get("y26"), b.get("delta_col")
+        v25 = float(pd.to_numeric(df[y25], errors="coerce").sum()) if y25 in df.columns else None
+        v26 = float(pd.to_numeric(df[y26], errors="coerce").sum()) if y26 in df.columns else None
+        if dc in df.columns:
+            delta = float(pd.to_numeric(df[dc], errors="coerce").sum())
+        elif v25 is not None and v26 is not None:
+            delta = v26 - v25
+        else:
+            continue
+        books.append(Book(label=str(b.get("label") or y26 or dc), role=b["role"],
+                          v25=v25 if v25 is not None else float("nan"),
+                          v26=v26 if v26 is not None else float("nan"), delta=delta))
+    heads = [b for b in books if b.role == "headline"]
+    excl = [b for b in books if b.role == "excluded"]
+    if not heads or not (len(heads) >= 2 or excl):    # неинтересно, если нет методологии
+        return None
+    # Δ по сегментам для headline-книг (за счёт чего изменение по каждой метрике)
+    seg = next((d for d in prep.roles.dimensions if re.search(r"segment|сегмент", d, re.I)
+                and d in df.columns), None)
+    if seg is None:
+        seg = next((d for d in prep.roles.dimensions if d in df.columns
+                    and 2 <= df[d].nunique(dropna=True) <= 12), None)
+    seg_series: dict = {}
+    if seg:
+        for b in heads:
+            bb = next((x for x in (out.get("books") or []) if x.get("label") == b.label), {})
+            y25, y26, dc = bb.get("y25"), bb.get("y26"), bb.get("delta_col")
+            if dc in df.columns:
+                s = pd.to_numeric(df[dc], errors="coerce").groupby(df[seg]).sum()
+            elif y25 in df.columns and y26 in df.columns:
+                s = (pd.to_numeric(df[y26], errors="coerce").groupby(df[seg]).sum()
+                     - pd.to_numeric(df[y25], errors="coerce").groupby(df[seg]).sum())
+            else:
+                continue
+            seg_series[b.label] = s.sort_values()
+    return {"books": books, "note": str(out.get("note") or "").strip(), "seg": seg,
+            "seg_series": seg_series,
+            "head_sum": sum(b.delta for b in heads), "excl_sum": sum(b.delta for b in excl)}
 
 
 # ---------- декомпозиция вклада ----------
@@ -408,7 +491,10 @@ def _contrib_chart(c: Contrib, frame: Frame, assets, lbls, *, path_len=0, tag="l
         ttl = f"Вклад в {side}: {lbls.of(frame.target)} по «{lbls.of(c.dim)}»"
         ax.set_title(ttl, fontsize=11)
         ax.grid(axis="x", alpha=.3)
-        return _save(fig, assets, f"inv_{tag}{path_len}_{c.dim}")
+        bar_cols = (["loss" if v < 0 else "gain" for v in vals] if frame.mode == "change"
+                    else ["neut"] * len(vals))
+        spec = render.spec_barh(names, [float(v) for v in vals], title=ttl, colors=bar_cols)
+        return _save(fig, assets, f"inv_{tag}{path_len}_{c.dim}", spec)
     except Exception as exc:  # noqa: BLE001
         logger.warning("investigate: график вклада не построен: %s", exc)
         return None
@@ -425,9 +511,12 @@ def _entity_chart(top: pd.Series, ent: str, frame: Frame, assets, lbls) -> str |
             ax.text(v, i, f" {_fmt(abs(v))}", va="center", ha="right" if v < 0 else "left",
                     fontsize=8, color="#334")
         ax.axvline(0, color="#888", lw=1); ax.margins(x=0.16)
-        ax.set_title(f"Кто: ТОП по «{lbls.of(ent)}» ({lbls.of(frame.target)})", fontsize=11)
+        ttl = f"Кто: ТОП по «{lbls.of(ent)}» ({lbls.of(frame.target)})"
+        ax.set_title(ttl, fontsize=11)
         ax.grid(axis="x", alpha=.3)
-        return _save(fig, assets, f"inv_who_{ent}")
+        spec = render.spec_barh([_tick(x) for x in t.index], [float(v) for v in vals], title=ttl,
+                                color=("loss" if frame.mode == "change" else "neut"))
+        return _save(fig, assets, f"inv_who_{ent}", spec)
     except Exception:  # noqa: BLE001
         return None
 
@@ -556,8 +645,22 @@ def _treemap_chart(tree: list[Node], frame: Frame, assets, lbls, top_dim, entity
                     f"{name} · {_fmt(abs(node.contrib))}", ha="center", va="top",
                     fontsize=9, fontweight="bold", color="#111")
         ax.set_xlim(0, W); ax.set_ylim(0, H); ax.axis("off")
-        ax.set_title(f"Дерево потерь: «{lbls.of(top_dim)}» → «{lbls.of(entity)}» (площадь = вклад)", fontsize=12)
-        return _save(fig, assets, "inv_treemap")
+        ttl = f"Дерево потерь: «{lbls.of(top_dim)}» → «{lbls.of(entity)}» (площадь = вклад)"
+        ax.set_title(ttl, fontsize=12)
+        ids_, labs, pars, vals_ = [], [], [], []       # Plotly treemap: сегмент→компании
+        for n in tree:
+            children = [(c.label, abs(c.contrib)) for c in n.children if abs(c.contrib) > 0]
+            if n.tail_count:
+                children.append((f"прочие ({n.tail_count})", abs(n.tail_contrib)))
+            seg_val = sum(v for _, v in children) or abs(n.contrib)
+            if seg_val <= 0:
+                continue
+            sid = f"seg::{n.label}"
+            ids_.append(sid); labs.append(n.label); pars.append(""); vals_.append(seg_val)
+            for cl, cv in children:
+                ids_.append(f"{sid}::{cl}"); labs.append(cl); pars.append(sid); vals_.append(cv)
+        spec = render.spec_treemap(labs, pars, vals_, ids=ids_, title=ttl) if ids_ else None
+        return _save(fig, assets, "inv_treemap", spec)
     except Exception as exc:  # noqa: BLE001
         logger.warning("investigate: treemap не построен: %s", exc)
         return None
@@ -584,9 +687,11 @@ def _waterfall_chart(df, frame: Frame, dim, side, assets, lbls) -> str | None:
         ax.text(len(vals), run, _fmt(run), ha="center", va="bottom", fontsize=8, fontweight="bold")
         ax.axhline(0, color="#888", lw=1)
         ax.set_xticks(range(len(labels_))); ax.set_xticklabels(labels_, rotation=35, ha="right", fontsize=8)
-        ax.set_title(f"Как складывается {lbls.of(frame.target)} по «{lbls.of(dim)}»", fontsize=11)
+        ttl = f"Как складывается {lbls.of(frame.target)} по «{lbls.of(dim)}»"
+        ax.set_title(ttl, fontsize=11)
         ax.grid(axis="y", alpha=.3)
-        return _save(fig, assets, f"inv_waterfall_{dim}")
+        spec = render.spec_waterfall(labels_, vals + [sum(vals)], title=ttl)
+        return _save(fig, assets, f"inv_waterfall_{dim}", spec)
     except Exception as exc:  # noqa: BLE001
         logger.warning("investigate: водопад не построен: %s", exc)
         return None
@@ -609,9 +714,13 @@ def _pareto_curve(df, frame: Frame, entity, side, assets, lbls) -> tuple[str | N
         ax.axhline(80, color="gray", ls="--", lw=1); ax.axvline(n80, color="gray", ls=":", lw=1)
         ax.set_ylim(0, 105); ax.set_xlabel(f"число «{lbls.of(entity)}» (по убыванию вклада)")
         ax.set_ylabel("накопленная доля потерь, %")
-        ax.set_title(f"Концентрация: топ-{n80} «{lbls.of(entity)}» = 80% потерь", fontsize=11)
+        ttl = f"Концентрация: топ-{n80} «{lbls.of(entity)}» = 80% потерь"
+        ax.set_title(ttl, fontsize=11)
         ax.grid(alpha=.3)
-        chart = _save(fig, assets, f"inv_pareto_{entity}")
+        spec = render.spec_line(list(range(1, len(cum) + 1)),
+                                {"накопленная доля потерь, %": [float(v) for v in cum]},
+                                title=ttl, unit="%", marker_x=n80)
+        chart = _save(fig, assets, f"inv_pareto_{entity}", spec)
         return chart, {"n_for_80": n80, "total": int(len(vals)), "top10_share": round(top10, 1)}
     except Exception as exc:  # noqa: BLE001
         logger.warning("investigate: Парето-кривая не построена: %s", exc)
@@ -632,10 +741,15 @@ def _crosstab_heatmap(df, frame: Frame, da, db, side, assets, lbls) -> str | Non
         fig, ax = plt.subplots(figsize=(min(12, 1.3 * len(piv.columns) + 3), min(8, 0.6 * len(piv.index) + 2)))
         sns.heatmap(piv / 1000, annot=True, fmt=".0f", cmap="RdYlGn", center=0, ax=ax,
                     cbar_kws={"label": f"{lbls.of(frame.target)}, тыс"}, linewidths=.5, annot_kws={"fontsize": 8})
-        ax.set_title(f"{lbls.of(frame.target)}: «{lbls.of(da)}» × «{lbls.of(db)}»", fontsize=11)
+        ttl = f"{lbls.of(frame.target)}: «{lbls.of(da)}» × «{lbls.of(db)}»"
+        ax.set_title(ttl, fontsize=11)
         ax.set_xlabel(""); ax.set_ylabel("")
         ax.set_xticklabels(ax.get_xticklabels(), rotation=35, ha="right", fontsize=8)
-        return _save(fig, assets, f"inv_heat_{da}_{db}")
+        pv = piv / 1000
+        z = [[None if pd.isna(v) else round(float(v), 1) for v in row] for row in pv.values]
+        spec = render.spec_heatmap(z, list(pv.columns), list(pv.index), title=ttl,
+                                   unit=f"{lbls.of(frame.target)}, тыс", scale="RdYlGn")
+        return _save(fig, assets, f"inv_heat_{da}_{db}", spec)
     except Exception as exc:  # noqa: BLE001
         logger.warning("investigate: кросс-таб не построен: %s", exc)
         return None
@@ -662,9 +776,13 @@ def _quadrant_chart(df, frame: Frame, entity, value, side, assets, lbls) -> str 
             ax.annotate(_tick(i), (d.loc[i, "loss"], d.loc[i, "val"]), fontsize=7,
                         xytext=(3, 3), textcoords="offset points")
         ax.set_xlabel(f"убыль ({lbls.of(frame.target)})"); ax.set_ylabel(lbls.of(value))
-        ax.set_title(f"Приоритет возврата: убыль × «{lbls.of(value)}» по «{lbls.of(entity)}»", fontsize=11)
+        ttl = f"Приоритет возврата: убыль × «{lbls.of(value)}» по «{lbls.of(entity)}»"
+        ax.set_title(ttl, fontsize=11)
         ax.grid(alpha=.3)
-        return _save(fig, assets, f"inv_quadrant_{entity}")
+        spec = render.spec_scatter(d["loss"].tolist(), d["val"].tolist(), [_tick(i) for i in d.index],
+                                   title=ttl, xlab=f"убыль ({lbls.of(frame.target)})", ylab=lbls.of(value),
+                                   vline=float(d["loss"].median()), hline=float(d["val"].median()))
+        return _save(fig, assets, f"inv_quadrant_{entity}", spec)
     except Exception as exc:  # noqa: BLE001
         logger.warning("investigate: квадрант не построен: %s", exc)
         return None
@@ -684,6 +802,10 @@ _SYNTH_SYS = (
     "• Сущности из facts.кто называй их ТИПОМ (facts.кто.сущность, напр. «компании по ИНН», "
     "«клиенты»), и НЕ путай с целевой величиной (facts.целевая) — ИНН это компания, а не физлицо.\n"
     "• Числа и названия — только из фактов.\n"
+    "• ВАЖНО про МЕТОДОЛОГИЮ: если есть facts.методология_книги — НАЧНИ answer с неё: какие "
+    "метрики выросли/упали и что реальное снижение сидит в ИСКЛЮЧЁННЫХ из доли категориях "
+    "(ГПХ/самозанятые); подчеркни, что метрики с разными знаменателями смешивать нельзя. Только "
+    "потом переходи к тому, где сосредоточено изменение внутри основной метрики.\n"
     "ЗАПРЕЩЕНО: матжаргон. Если потери РАЗМАЗАНЫ (нет доминирующего разреза) — честно скажи "
     "это в answer. Верни JSON: {\"answer\":\"...\",\"chain\":[...],\"actions\":[...]}"
 )
@@ -738,9 +860,13 @@ def _when_chart(ts: pd.Series, brk, frame: Frame, assets, lbls) -> str | None:
         ax.axhline(0, color="#888", lw=1)
         ax.set_xticks(range(len(labels_)))
         ax.set_xticklabels(labels_, rotation=90, fontsize=7)
-        ax.set_title(f"Динамика «{lbls.of(frame.target)}» по месяцам", fontsize=11)
+        ttl = f"Динамика «{lbls.of(frame.target)}» по месяцам"
+        ax.set_title(ttl, fontsize=11)
         ax.grid(axis="y", alpha=.3)
-        return _save(fig, assets, "inv_when")
+        bar_cols = ["neut" if p == brk else ("loss" if v < 0 else "gain")
+                    for p, v in zip(ts.index, vals)]
+        spec = render.spec_bar_v(labels_, vals, title=ttl, colors=bar_cols)
+        return _save(fig, assets, "inv_when", spec)
     except Exception as exc:  # noqa: BLE001
         logger.warning("investigate: динамика не построена: %s", exc)
         return None
@@ -759,9 +885,9 @@ def _synthesize(llm, question, facts: dict) -> dict:
 
 
 # ---------- оркестратор ----------
-def _route_playbook(fqn, prep, question, catalog, out_dir, progress):
-    """§8.1 роутинг внутри /investigate: строим семмодель, и если сработал НЕ-дефолтный
-    плейбук (сейчас — impact) — исполняем его и возвращаем результат; иначе None (обычный путь).
+def _route_playbook(fqn, prep, question, catalog, out_dir, progress, llm):
+    """§8.1 роутинг внутри /investigate: строим семмодель, LLM-FRAME определяет тип; если
+    сработал НЕ-дефолтный плейбук (сейчас — impact) — исполняем его; иначе None (обычный путь).
     Дефолтный loss_attribution оставляем текущей (отлаженной) реализации расследования."""
     try:
         from . import plans, semantics, surface
@@ -771,12 +897,20 @@ def _route_playbook(fqn, prep, question, catalog, out_dir, progress):
             semantics.save(model)
         except Exception as exc:  # noqa: BLE001
             logger.warning("investigate: семмодель не сохранена: %s", exc)
-        pb = plans.select_playbook(question, has_flag=bool(model.tool_flags))
+        progress("FRAME: определяю тип расследования…")
+        frame = surface.frame_llm(llm, question, model, prep.df) or {}
+        pb = None
+        if frame.get("playbook"):                         # выбор плейбука по LLM-FRAME
+            pb = next((p for p in plans.load_playbooks() if p.name == frame["playbook"]), None)
+        if pb is None:                                    # фолбэк: ключевой роутинг §8.1
+            pb = plans.select_playbook(question, has_flag=bool(model.tool_flags))
         if pb is None or pb.name == "loss_attribution":
             return None                                   # дефолт — обычное расследование
+        if pb.name == "impact" and not model.tool_flags:
+            return None                                   # impact без tool_flag неприменим
         progress(f"вопрос распознан как «{pb.name}» — исполняю плейбук…")
         return surface.run_playbook(prep.df, model, pb, question, table_desc=prep.table_desc,
-                                    fqn=fqn, out_dir=out_dir, progress=progress)
+                                    fqn=fqn, out_dir=out_dir, progress=progress, frame=frame)
     except Exception as exc:  # noqa: BLE001  (роутинг не должен ронять обычное расследование)
         logger.warning("investigate: роутинг в плейбук не удался (%s) — обычный путь", exc)
         return None
@@ -796,12 +930,14 @@ def investigate(db, catalog, llm, fqn: str, question: str, *, where: str | None 
 
     # РОУТИНГ (§8.1): вопрос про эффективность инструмента + есть tool_flag → impact-плейбук;
     # иначе — дефолтное расследование «где/почему/кто» ниже. Отдельных команд НЕ плодим.
-    routed = _route_playbook(fqn, prep, question, catalog, out_dir, progress)
+    routed = _route_playbook(fqn, prep, question, catalog, out_dir, progress, llm)
     if routed is not None:
         return routed
 
     progress("формулирую цель расследования…")
     frame = _frame(llm, question, prep)
+    progress("проверяю методологию: книги портфеля (что входит/не входит)…")
+    books = _portfolio_books(df, prep, llm)
     s = pd.to_numeric(df[frame.target], errors="coerce")
     net = float(s.sum())
     gross_loss = float(s[s < 0].sum()) if frame.mode == "change" else None
@@ -848,6 +984,13 @@ def investigate(db, catalog, llm, fqn: str, question: str, *, where: str | None 
 
     facts = _facts_for_synth(frame, prep.lbls, net, gross_loss, gross_gain, unit, tree, why,
                              comps, who_tbl, pareto_facts, primary, when_facts, drill_facts)
+    if books:                                        # методология в синтез (ведёт ответ)
+        facts["методология_книги"] = {
+            "note": books["note"],
+            "книги": [{"книга": b.label, "роль": b.role, "дельта": _fmt_u(b.delta, unit)}
+                      for b in books["books"]],
+            "итог_основные": _fmt_u(books["head_sum"], unit),
+            "итог_исключённые": _fmt_u(books["excl_sum"], unit)}
     progress("собираю причинную цепочку и действия…")
     synth = _synthesize(llm, question, facts)
     if df.attrs.get("sample_note"):                  # плашка о сэмпле (гейт памяти)
@@ -859,7 +1002,8 @@ def investigate(db, catalog, llm, fqn: str, question: str, *, where: str | None 
                waterfall=waterfall, pareto_chart=pareto_chart, pareto_facts=pareto_facts,
                tree=tree, treemap=treemap, why=why, heat=heat, comps=comps,
                who_tbl=who_tbl, who_chart=who_chart, quadrant=quadrant,
-               when_chart=when_chart, when_facts=when_facts, drill_facts=drill_facts, synth=synth)
+               when_chart=when_chart, when_facts=when_facts, drill_facts=drill_facts,
+               books=books, synth=synth)
     md_path = out_dir / f"{table}_investigation.md"
     html_path = out_dir / f"{table}_investigation.html"
     md_path.write_text(_assemble_md(**ctx), encoding="utf-8")
@@ -918,9 +1062,71 @@ def _facts_for_synth(frame, lbls, net, gloss, ggain, unit, tree, why, comps, who
 
 
 # ---------- рендер ----------
+_ROLE_RU = {"headline": "основная метрика", "excluded": "исключена из доли"}
+
+
+def _books_takeaway(books, unit) -> str:
+    """Детерминированный вывод методологии: основные метрики vs исключённые категории."""
+    hs, es = books["head_sum"], books["excl_sum"]
+    hw = "выросли" if hs > 0 else ("упали" if hs < 0 else "без изменений")
+    parts = [f"Основные метрики портфеля {hw} на {_fmt_u(hs, unit)}"]
+    if any(b.role == "excluded" for b in books["books"]):
+        ew = "снизились" if es < 0 else "выросли"
+        parts.append(f"а исключённые из доли категории (ГПХ/самозанятые) {ew} на {_fmt_u(es, unit)}")
+    tail = ("— то есть реальное снижение портфеля вне доли; смешивать метрики нельзя."
+            if hs >= 0 > es else "— методологии не смешиваем.")
+    return ", ".join(parts) + " " + tail
+
+
+def _books_md(books, unit) -> str:
+    L = ["## 📐 Методология: книги портфеля"]
+    if books["note"]:
+        L.append(f"_{books['note']}_\n")
+    L.append("| Книга | 2025 | 2026 | Δ | Роль |")
+    L.append("|---|---|---|---|---|")
+    for b in books["books"]:
+        v25 = _fmt_u(b.v25, unit) if b.v25 == b.v25 else "—"
+        v26 = _fmt_u(b.v26, unit) if b.v26 == b.v26 else "—"
+        L.append(f"| {b.label} | {v25} | {v26} | {_fmt_u(b.delta, unit)} | {_ROLE_RU.get(b.role, b.role)} |")
+    L.append(f"\n**Вывод:** {_books_takeaway(books, unit)}\n")
+    return "\n".join(L)
+
+
+def _books_html(books, unit) -> str:
+    import html as _h
+    rows = "".join(
+        f"<tr><td>{_h.escape(b.label)}</td>"
+        f"<td>{_h.escape(_fmt_u(b.v25, unit) if b.v25 == b.v25 else '—')}</td>"
+        f"<td>{_h.escape(_fmt_u(b.v26, unit) if b.v26 == b.v26 else '—')}</td>"
+        f"<td>{_h.escape(_fmt_u(b.delta, unit))}</td>"
+        f"<td>{_h.escape(_ROLE_RU.get(b.role, b.role))}</td></tr>" for b in books["books"])
+    H = ["<h2>📐 Методология: книги портфеля</h2><div class='card'>"]
+    if books["note"]:
+        H.append(f"<p class='factline'>{_h.escape(books['note'])}</p>")
+    H.append("<table><thead><tr><th>Книга</th><th>2025</th><th>2026</th><th>Δ</th><th>Роль</th>"
+             f"</tr></thead><tbody>{rows}</tbody></table>")
+    # Δ по каждой книге (headline=нейтраль, excluded=красный)
+    labels = [b.label for b in books["books"]]
+    vals = [round(b.delta, 1) for b in books["books"]]
+    cols = ["neut" if b.role == "headline" else "loss" for b in books["books"]]
+    spec = render.spec_bar_v(labels, vals, title="Δ по книгам портфеля (год к году)", colors=cols)
+    H.append(render.chart("pl_books_delta", spec["traces"], spec["layout"], height=320))
+    # Δ по сегментам для основных метрик
+    ss = books.get("seg_series") or {}
+    if ss:
+        cats = list(next(iter(ss.values())).index)
+        series = {lbl: [float(s.reindex(cats).fillna(0).loc[c]) for c in cats] for lbl, s in ss.items()}
+        H.append(render.grouped_bar("pl_books_seg", [fmt_val(c) for c in cats], series,
+                                    title="Δ по сегментам: основные метрики", unit=unit))
+    H.append(f"<p class='insight'>💡 {_h.escape(_books_takeaway(books, unit))}</p>")
+    H.append("</div>")
+    return "".join(H)
+
+
 def _assemble_md(prep, frame, table, fqn, question, where, net, gross_loss, gross_gain, unit,
                  primary, waterfall, pareto_chart, pareto_facts, tree, treemap, why, heat,
-                 comps, who_tbl, who_chart, quadrant, when_chart, when_facts, drill_facts, synth) -> str:
+                 comps, who_tbl, who_chart, quadrant, when_chart, when_facts, drill_facts,
+                 books, synth) -> str:
     T = table + "_investigate"
     lb = prep.lbls
     def im(ch, alt=""):
@@ -932,6 +1138,8 @@ def _assemble_md(prep, frame, table, fqn, question, where, net, gross_loss, gros
     L.append(meta + "\n")
     if synth.get("answer"):
         L.append("## 🎯 Ответ\n" + synth["answer"] + "\n")
+    if books:
+        L.append(_books_md(books, unit))
     # масштаб: net vs gross
     L.append("## 📊 Масштаб")
     if gross_loss is not None:
@@ -997,7 +1205,7 @@ def _assemble_md(prep, frame, table, fqn, question, where, net, gross_loss, gros
                 line += (f" {_fmt(float(row['value']))} |" if pd.notna(row['value']) else " — |")
             L.append(line)
         L.append("")
-        L.append(im(quadrant, "квадрант")); L.append(im(who_chart, "кто"))
+        L.append(im(quadrant, "квадрант"))          # who_chart убран: дублирует таблицу
     if synth.get("chain"):
         L.append("## 🧭 Причинная цепочка")
         L += [f"{i}. {x}" for i, x in enumerate(synth["chain"], 1)]
@@ -1012,14 +1220,15 @@ def _assemble_md(prep, frame, table, fqn, question, where, net, gross_loss, gros
 
 def _assemble_html(prep, frame, table, fqn, question, where, net, gross_loss, gross_gain, unit,
                    primary, waterfall, pareto_chart, pareto_facts, tree, treemap, why, heat,
-                   comps, who_tbl, who_chart, quadrant, when_chart, when_facts, drill_facts, synth) -> str:
+                   comps, who_tbl, who_chart, quadrant, when_chart, when_facts, drill_facts,
+                   books, synth) -> str:
     import html as _h
     lb = prep.lbls
     def im(ch):
-        b = _img_b64(ch)
-        return f"<img src='{b}'>" if b else ""
+        return render.embed(ch)                      # Plotly (сайдкар) или base64-PNG
     H = ["<!doctype html><html lang='ru'><head><meta charset='utf-8'>",
-         f"<title>Расследование: {_h.escape(table)}</title><style>{_HTML_CSS}</style></head><body>",
+         f"<title>Расследование: {_h.escape(table)}</title><style>{_HTML_CSS}</style>",
+         render.plotly_head(), "</head><body>",
          f"<h1>🔎 Расследование: {_h.escape(prep.table_desc)}</h1>",
          f"<p class='angle'>{_h.escape(question)}</p>"]
     meta = f"Таблица: <code>{_h.escape(fqn)}</code> · строк: {len(prep.df):,}".replace(",", " ")
@@ -1029,6 +1238,8 @@ def _assemble_html(prep, frame, table, fqn, question, where, net, gross_loss, gr
     if synth.get("answer"):
         H.append(f"<div class='card summary'><h2 style='border:none;margin-top:0'>🎯 Ответ</h2>"
                  f"<p class='insight'>{_h.escape(synth['answer'])}</p></div>")
+    if books:
+        H.append(_books_html(books, unit))
     # масштаб
     H.append("<h2>📊 Масштаб</h2><div class='card'>")
     if gross_loss is not None:
@@ -1091,7 +1302,7 @@ def _assemble_html(prep, frame, table, fqn, question, where, net, gross_loss, gr
         head = (f"<th>{_h.escape(lb.of(frame.entity))}</th><th>{_h.escape(lb.of(frame.target))}</th>"
                 + (f"<th>{_h.escape(lb.of(frame.value))}</th>" if has_val else ""))
         H.append(f"<table><thead><tr>{head}</tr></thead><tbody>{rows}</tbody></table>")
-        H.append(im(quadrant) + im(who_chart) + "</div>")
+        H.append(im(quadrant) + "</div>")          # who_chart убран: дублирует таблицу
     if synth.get("chain"):
         H.append("<h2>🧭 Причинная цепочка</h2><div class='card'><ol>"
                  + "".join(f"<li>{_h.escape(x)}</li>" for x in synth["chain"]) + "</ol></div>")

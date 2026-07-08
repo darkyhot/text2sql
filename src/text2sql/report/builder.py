@@ -364,7 +364,7 @@ def _assemble_html(table_desc, fqn, table, where, focus, angle, nrows, summary, 
                 H.append(f"<p class='factline'>{_md_inline_to_html(r.facts['_line'])}</p>")
             if r.insight:
                 H.append(f"<p class='insight'>💡 {_html.escape(r.insight)}</p>")
-            H.append(render.embed(r.chart))          # Plotly (сайдкар) или base64-PNG
+            H.append(render.embed(r.chart))          # ECharts (сайдкар) или base64-PNG
             if r.table_md:
                 H.append(_md_block_to_html(r.table_md))
             H.append("</div>")

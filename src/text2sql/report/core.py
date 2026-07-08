@@ -202,7 +202,7 @@ def profile(df: pd.DataFrame, meta: dict[str, dict]) -> Roles:
 
 # ---------- графики ----------
 def _save(fig, assets: Path, name: str, spec: dict | None = None) -> str:
-    """Сохранить matplotlib-PNG (для MD/фолбэка). Если передан `spec` (Plotly-фигура) —
+    """Сохранить matplotlib-PNG (для MD/фолбэка). Если передан `spec` (ECharts-опция) —
     кладём сайдкар `<name>.chart.json`, и HTML-рендер отдаст интерактивный ECharts (§12)."""
     assets.mkdir(parents=True, exist_ok=True)
     path = assets / f"{name}.png"

@@ -460,13 +460,12 @@ def embed(chart_path: str | None) -> str:
     return ""
 
 
-def page(title: str, body: str, *, css: str = "", plotly: bool = True, tabulator: bool = True) -> str:
-    """Собрать автономную HTML-страницу с вшитыми библиотеками (одна на файл).
-    (Параметр `plotly` сохранён по имени для совместимости — теперь включает ECharts.)"""
+def page(title: str, body: str, *, css: str = "", charts: bool = True, tabulator: bool = True) -> str:
+    """Собрать автономную HTML-страницу с вшитыми библиотеками (одна на файл)."""
     head = [f"<!doctype html><html lang='ru'><head><meta charset='utf-8'>",
             f"<meta name='viewport' content='width=device-width,initial-scale=1'>",
             f"<title>{_html.escape(title)}</title><style>{THEME_CSS}{css}</style>"]
-    if plotly:
+    if charts:
         head.append(charts_head())
     if tabulator:
         head.append(tabulator_head())

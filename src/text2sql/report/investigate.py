@@ -755,7 +755,7 @@ def _treemap_chart(tree: list[Node], frame: Frame, assets, lbls, top_dim, entity
         ax.set_xlim(0, W); ax.set_ylim(0, H); ax.axis("off")
         ttl = f"Дерево потерь: «{lbls.of(top_dim)}» → «{lbls.of(entity)}» (площадь = вклад)"
         ax.set_title(ttl, fontsize=12)
-        ids_, labs, pars, vals_ = [], [], [], []       # Plotly treemap: сегмент→компании
+        ids_, labs, pars, vals_ = [], [], [], []       # ECharts treemap: сегмент→компании
         for n in tree:
             children = [(c.label, abs(c.contrib)) for c in n.children if abs(c.contrib) > 0]
             if n.tail_count:
@@ -1354,7 +1354,7 @@ def _assemble_html(prep, frame, table, fqn, question, where, net, gross_loss, gr
     import html as _h
     lb = prep.lbls
     def im(ch):
-        return render.embed(ch)                      # Plotly (сайдкар) или base64-PNG
+        return render.embed(ch)                      # ECharts (сайдкар) или base64-PNG
     H = ["<!doctype html><html lang='ru'><head><meta charset='utf-8'>",
          f"<title>Расследование: {_h.escape(table)}</title><style>{_HTML_CSS}</style>",
          render.charts_head(), "</head><body>",

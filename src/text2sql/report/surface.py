@@ -1,6 +1,6 @@
 """Поверхность плейбуков (§8.1 routing + §5.5–5.6 render) — доводит семмодель + плейбуки
 до РАБОТЫ: вопрос → LLM-FRAME (тип + параметры) → executor примитивов → интерактивный
-офлайн-HTML (Plotly-графики + Tabulator-таблицы, вшитые в файл).
+офлайн-HTML (ECharts-графики + Tabulator-таблицы, вшитые в файл).
 
 FRAME теперь через LLM (`frame_llm`): классифицирует расследование и привязывает параметры
 к колонкам семмодели; эвристика `_bindings` — детерминированный фолбэк, если LLM недоступен
@@ -236,7 +236,7 @@ def _pp(v):
 
 
 def _step_widget(sid: str, res, binds: dict) -> str:
-    """Plotly-виджет под конкретный шаг (интерактив в браузере)."""
+    """ECharts-виджет под конкретный шаг (интерактив в браузере)."""
     f = res.facts
     cid = f"plot_{sid}"
     try:
@@ -276,7 +276,7 @@ def _step_widget(sid: str, res, binds: dict) -> str:
             return render.line(cid, list(fr.iloc[:, 0]), {"target": list(fr["value"].astype(float))},
                                title="Динамика по периодам", marker_x=f.get("break_period"))
     except Exception as exc:  # noqa: BLE001
-        logger.warning("plotly-виджет %s не построен: %s", sid, exc)
+        logger.warning("echarts-виджет %s не построен: %s", sid, exc)
     return ""
 
 
@@ -307,5 +307,5 @@ def _assemble_html(*, model, pb, binds, run, verdict, question, table_desc, fqn,
         B.append(f"<p class='meta'>Шаги пропущены (нет данных/колонки): "
                  f"{_html.escape(', '.join(run.skipped))}.</p>")
     B.append("<p class='meta'>Плейбук: примитивы на pandas + семантическая модель; "
-             "графики Plotly, таблицы Tabulator — вшиты в файл.</p>")
-    return render.page(f"Плейбук {pb.name}", "".join(B), css=_CSS, plotly=True, tabulator=True)
+             "графики ECharts, таблицы Tabulator — вшиты в файл.</p>")
+    return render.page(f"Плейбук {pb.name}", "".join(B), css=_CSS, charts=True, tabulator=True)

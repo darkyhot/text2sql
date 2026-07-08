@@ -1,0 +1,19 @@
+{
+  "name": "loss_attribution",
+  "description": "Дефолтный плейбук расследования: где и почему потеряли (§7.1). Собран из тех же примитивов.",
+  "when": {
+    "question_patterns": ["где потер", "почему упал", "почему снизил", "отток", "куда делись", "куда ушли", "потеряли"]
+  },
+  "params": ["target", "dim", "entity", "reason", "date", "side"],
+  "plan": {
+    "question": "Где и почему потеряли",
+    "steps": [
+      {"id": "scale", "primitive": "aggregate", "params": {"measure": "$target", "agg": "sum"}},
+      {"id": "where", "primitive": "decompose", "params": {"measure": "$target", "dim": "$dim", "side": "$side"}},
+      {"id": "who", "primitive": "pareto", "params": {"measure": "$target", "entity": "$entity", "side": "$side"}},
+      {"id": "why", "primitive": "lift_profile", "params": {"measure": "$target", "dim": "$reason", "side": "$side"}},
+      {"id": "when", "primitive": "trend_break", "params": {"measure": "$target", "date": "$date", "side": "$side"}}
+    ],
+    "verdict_template": "Ответ → Где сосредоточено ({where}) → Кто ({who}) → Почему ({why}) → Когда ({when})"
+  }
+}

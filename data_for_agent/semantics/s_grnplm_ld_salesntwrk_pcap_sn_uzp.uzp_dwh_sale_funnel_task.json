@@ -1,0 +1,432 @@
+{
+  "schema_version": "text2sql.semantic_model/2",
+  "fqn": "s_grnplm_ld_salesntwrk_pcap_sn_uzp.uzp_dwh_sale_funnel_task",
+  "table": "uzp_dwh_sale_funnel_task",
+  "label": "Воронка продаж по всем задачам УЗП",
+  "grain": "",
+  "row_meaning": "",
+  "audience_hint": "",
+  "row_count": 4000,
+  "time": [
+    {
+      "name": "report_dt",
+      "label": "Отчетная дата",
+      "is_reporting": true,
+      "granularity": "day",
+      "fresh_until": "2026-06-25"
+    },
+    {
+      "name": "task_create_dt",
+      "label": "Дата создания задачи",
+      "is_reporting": false,
+      "granularity": "day",
+      "fresh_until": "2026-06-25"
+    },
+    {
+      "name": "plan_close_task_dttm",
+      "label": "Плановая дата закрытия",
+      "is_reporting": false,
+      "granularity": "day",
+      "fresh_until": "2026-07-02"
+    },
+    {
+      "name": "fact_close_task_dttm",
+      "label": "Фактическая дата закрытия",
+      "is_reporting": false,
+      "granularity": "day",
+      "fresh_until": "2026-07-22"
+    },
+    {
+      "name": "last_active_dttm",
+      "label": "Дата последней активности",
+      "is_reporting": true,
+      "granularity": "day",
+      "fresh_until": "2026-05-19"
+    },
+    {
+      "name": "deal_create_dttm",
+      "label": "Дата создания сделки",
+      "is_reporting": false,
+      "granularity": "day",
+      "fresh_until": "2026-07-12"
+    }
+  ],
+  "measures": [
+    {
+      "name": "Количество задач",
+      "label": "Количество задач",
+      "column": "__row",
+      "agg": "count",
+      "kind": "count",
+      "unit": "count",
+      "good_direction": "none",
+      "priority": 0,
+      "scope_mask": null,
+      "is_outcome": false
+    },
+    {
+      "name": "Доля закрытых задач",
+      "label": "Доля закрытых задач",
+      "column": "__rate_0",
+      "agg": "mean",
+      "kind": "rate",
+      "unit": "percent",
+      "good_direction": "up",
+      "priority": 1,
+      "scope_mask": null,
+      "is_outcome": true
+    },
+    {
+      "name": "Доля успешно закрытых задач",
+      "label": "Доля успешно закрытых задач",
+      "column": "__rate_1",
+      "agg": "mean",
+      "kind": "rate",
+      "unit": "percent",
+      "good_direction": "up",
+      "priority": 2,
+      "scope_mask": null,
+      "is_outcome": true
+    },
+    {
+      "name": "Доля задач в работе",
+      "label": "Доля задач в работе",
+      "column": "__rate_2",
+      "agg": "mean",
+      "kind": "rate",
+      "unit": "percent",
+      "good_direction": "none",
+      "priority": 3,
+      "scope_mask": null,
+      "is_outcome": true
+    },
+    {
+      "name": "Доля задач с эскалацией",
+      "label": "Доля задач с эскалацией",
+      "column": "__rate_3",
+      "agg": "mean",
+      "kind": "rate",
+      "unit": "percent",
+      "good_direction": "down",
+      "priority": 4,
+      "scope_mask": null,
+      "is_outcome": true
+    },
+    {
+      "name": "Доля задач в пайплайне",
+      "label": "Доля задач в пайплайне",
+      "column": "__rate_4",
+      "agg": "mean",
+      "kind": "rate",
+      "unit": "percent",
+      "good_direction": "none",
+      "priority": 5,
+      "scope_mask": null,
+      "is_outcome": true
+    },
+    {
+      "name": "Просрочка закрытия",
+      "label": "Просрочка закрытия",
+      "column": "__overdue_5",
+      "agg": "mean",
+      "kind": "rate",
+      "unit": "percent",
+      "good_direction": "down",
+      "priority": 6,
+      "scope_mask": null,
+      "is_outcome": true
+    },
+    {
+      "name": "Срок отработки задачи, дн",
+      "label": "Срок отработки задачи, дн",
+      "column": "__dur_6",
+      "agg": "mean",
+      "kind": "duration",
+      "unit": "days",
+      "good_direction": "none",
+      "priority": 7,
+      "scope_mask": null,
+      "is_outcome": true
+    },
+    {
+      "name": "fact_staff_deal_qty",
+      "label": "Фактическое привлечение сотрудников",
+      "column": "fact_staff_deal_qty",
+      "agg": "sum",
+      "kind": "count",
+      "unit": "people",
+      "good_direction": "none",
+      "priority": 8,
+      "scope_mask": null,
+      "is_outcome": false
+    },
+    {
+      "name": "plan_staff_deal_qty",
+      "label": "Плановое привлечение сотрудников",
+      "column": "plan_staff_deal_qty",
+      "agg": "sum",
+      "kind": "count",
+      "unit": "people",
+      "good_direction": "none",
+      "priority": 9,
+      "scope_mask": null,
+      "is_outcome": false
+    },
+    {
+      "name": "unrealized_deal_potential",
+      "label": "Нереализованный потенциал",
+      "column": "unrealized_deal_potential",
+      "agg": "sum",
+      "kind": "count",
+      "unit": "count",
+      "good_direction": "up",
+      "priority": 10,
+      "scope_mask": null,
+      "is_outcome": false
+    }
+  ],
+  "dimensions": [
+    {
+      "name": "tb_name",
+      "label": "Наименование ТБ",
+      "card": 3,
+      "kind": "category",
+      "id_partner": "tb_id",
+      "top_values": [
+        "Уральский банк",
+        "Дальневосточный банк",
+        "Московский банк"
+      ]
+    },
+    {
+      "name": "gosb_name",
+      "label": "Наименование ГОСБ",
+      "card": 3,
+      "kind": "geo",
+      "id_partner": "gosb_id",
+      "top_values": [
+        "ГОСБ Урал",
+        "ГОСБ Дальний Восток",
+        "Свердловское ГОСБ № 7003"
+      ]
+    },
+    {
+      "name": "saphr_gosb_id",
+      "label": "Номер ГОСБ сотрудника",
+      "card": 2,
+      "kind": "geo",
+      "id_partner": null,
+      "top_values": [
+        "202",
+        "101"
+      ]
+    },
+    {
+      "name": "manager_fio",
+      "label": "ФИО руководителя",
+      "card": 2,
+      "kind": "category",
+      "id_partner": null,
+      "top_values": [
+        "Иванов Иван Иванович",
+        "Сидоров Петр Николаевич"
+      ]
+    },
+    {
+      "name": "isu_struct_saphr_id",
+      "label": "Табельный номер сотрудника",
+      "card": 3,
+      "kind": "category",
+      "id_partner": null,
+      "top_values": [
+        "30002",
+        "30001",
+        "30155"
+      ]
+    },
+    {
+      "name": "emp_fio",
+      "label": "ФИО сотрудника",
+      "card": 7,
+      "kind": "category",
+      "id_partner": null,
+      "top_values": [
+        "Кузнецова Ольга Викторовна",
+        "Петрова Мария Сергеевна",
+        "Волков Д.А.",
+        "Зайцева О.Н.",
+        "Соколова Е.В.",
+        "Морозов И.С.",
+        "Новиков А.П."
+      ]
+    },
+    {
+      "name": "emp_post",
+      "label": "Должность сотрудника",
+      "card": 2,
+      "kind": "category",
+      "id_partner": "emp_post_id",
+      "top_values": [
+        "Специалист по работе с клиентами",
+        "Менеджер по продаже зарплатных проектов"
+      ]
+    },
+    {
+      "name": "role_code",
+      "label": "Код роли",
+      "card": 2,
+      "kind": "category",
+      "id_partner": null,
+      "top_values": [
+        "МЗП",
+        "СПР"
+      ]
+    },
+    {
+      "name": "src_task_as_code",
+      "label": "Код источника задачи",
+      "card": 2,
+      "kind": "source",
+      "id_partner": null,
+      "top_values": [
+        "Филиал",
+        "ЦА (УЗП)"
+      ]
+    },
+    {
+      "name": "src_task_business",
+      "label": "Бизнес-источник задачи",
+      "card": 1,
+      "kind": "source",
+      "id_partner": null,
+      "top_values": [
+        "Продажа продуктов"
+      ]
+    },
+    {
+      "name": "segment_name",
+      "label": "Наименование сегмента",
+      "card": 4,
+      "kind": "category",
+      "id_partner": null,
+      "top_values": [
+        "Крупные",
+        "Средние",
+        "Микро",
+        "Крупнейшие"
+      ]
+    },
+    {
+      "name": "task_category",
+      "label": "Категория задачи",
+      "card": 2,
+      "kind": "category",
+      "id_partner": null,
+      "top_values": [
+        "Предложение",
+        "Задача"
+      ]
+    },
+    {
+      "name": "task_type",
+      "label": "Тип задачи",
+      "card": 3,
+      "kind": "category",
+      "id_partner": null,
+      "top_values": [
+        "Отток",
+        "Жалоба",
+        "Привлечение"
+      ]
+    },
+    {
+      "name": "task_subtype",
+      "label": "Подтип задачи",
+      "card": 2,
+      "kind": "category",
+      "id_partner": null,
+      "top_values": [
+        "Качество обслуживания",
+        "Фактический отток"
+      ]
+    },
+    {
+      "name": "last_active_type",
+      "label": "Тип последней активности",
+      "card": 1,
+      "kind": "category",
+      "id_partner": null,
+      "top_values": [
+        "Комментарий"
+      ]
+    },
+    {
+      "name": "last_active_status",
+      "label": "Статус последней активности",
+      "card": 1,
+      "kind": "status",
+      "id_partner": null,
+      "top_values": [
+        "В работе"
+      ]
+    },
+    {
+      "name": "campaign_code",
+      "label": "Код кампании",
+      "card": 1,
+      "kind": "category",
+      "id_partner": null,
+      "top_values": [
+        "CAMP-2024-Q2"
+      ]
+    },
+    {
+      "name": "task_text_status",
+      "label": "Текстовый статус задачи",
+      "card": 1,
+      "kind": "status",
+      "id_partner": null,
+      "top_values": [
+        "Решено"
+      ]
+    }
+  ],
+  "entities": [
+    {
+      "name": "task_struct_saphr_id",
+      "label": "Идентификатор второго участника",
+      "key_col": "task_struct_saphr_id",
+      "name_col": null,
+      "value_col": "unrealized_deal_potential"
+    },
+    {
+      "name": "inn",
+      "label": "ИНН клиента",
+      "key_col": "inn",
+      "name_col": null,
+      "value_col": "unrealized_deal_potential"
+    }
+  ],
+  "joins": [],
+  "outcome_measures": [
+    "__rate_0",
+    "__rate_1",
+    "__rate_2",
+    "__rate_3",
+    "__rate_4",
+    "__overdue_5",
+    "__dur_6"
+  ],
+  "tool_flags": [
+    "is_in_pipeline",
+    "is_escalation_need"
+  ],
+  "boring_cols": [],
+  "question_bank": [
+    "Как «Количество задач» распределён по «Наименование ТБ»?",
+    "Где «Доля закрытых задач» хуже среднего?",
+    "Кто ключевые «Идентификатор второго участника» и какая концентрация?",
+    "Насколько эффективен инструмент (сравнить с/без)?"
+  ],
+  "human_overrides": {}
+}

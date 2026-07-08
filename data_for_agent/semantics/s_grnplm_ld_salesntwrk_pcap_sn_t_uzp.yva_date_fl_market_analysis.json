@@ -1,0 +1,293 @@
+{
+  "schema_version": "text2sql.semantic_model/2",
+  "fqn": "s_grnplm_ld_salesntwrk_pcap_sn_t_uzp.yva_date_fl_market_analysis",
+  "table": "yva_date_fl_market_analysis",
+  "label": "Аналитическое представление для сравнения количества физлиц по периодам 2025 и 2026 гг., включая данные по сегментам, потенциалу, статусам активности и причинам оттока",
+  "grain": "",
+  "row_meaning": "",
+  "audience_hint": "",
+  "row_count": 2776,
+  "time": [],
+  "measures": [
+    {
+      "name": "Количество компаний",
+      "label": "Количество компаний",
+      "column": "__row",
+      "agg": "count",
+      "kind": "count",
+      "unit": "count",
+      "good_direction": "none",
+      "priority": 0,
+      "scope_mask": null,
+      "is_outcome": false
+    },
+    {
+      "name": "fl_26_qty",
+      "label": "Физлица в доле рынка 2026",
+      "column": "fl_26_qty",
+      "agg": "sum",
+      "kind": "count",
+      "unit": "people",
+      "good_direction": "none",
+      "priority": 1,
+      "scope_mask": null,
+      "is_outcome": false
+    },
+    {
+      "name": "fl_25_qty",
+      "label": "Физлица в доле рынка 2025",
+      "column": "fl_25_qty",
+      "agg": "sum",
+      "kind": "count",
+      "unit": "people",
+      "good_direction": "none",
+      "priority": 2,
+      "scope_mask": null,
+      "is_outcome": false
+    },
+    {
+      "name": "diff_fl_26_25_qty",
+      "label": "Разница физлиц 2026/2025",
+      "column": "diff_fl_26_25_qty",
+      "agg": "sum",
+      "kind": "count",
+      "unit": "people",
+      "good_direction": "none",
+      "priority": 3,
+      "scope_mask": null,
+      "is_outcome": false
+    },
+    {
+      "name": "fl_unic_25_qty",
+      "label": "Физлица в КПЭ 2025",
+      "column": "fl_unic_25_qty",
+      "agg": "sum",
+      "kind": "count",
+      "unit": "people",
+      "good_direction": "none",
+      "priority": 4,
+      "scope_mask": null,
+      "is_outcome": false
+    },
+    {
+      "name": "fl_unic_26_qty",
+      "label": "Физлица в КПЭ 2026",
+      "column": "fl_unic_26_qty",
+      "agg": "sum",
+      "kind": "count",
+      "unit": "people",
+      "good_direction": "none",
+      "priority": 5,
+      "scope_mask": null,
+      "is_outcome": false
+    },
+    {
+      "name": "diff_fl_unic_26_25_qty",
+      "label": "Разница физлиц в КПЭ",
+      "column": "diff_fl_unic_26_25_qty",
+      "agg": "sum",
+      "kind": "count",
+      "unit": "people",
+      "good_direction": "none",
+      "priority": 6,
+      "scope_mask": null,
+      "is_outcome": false
+    },
+    {
+      "name": "potential_1q_26",
+      "label": "Потенциал 1 кв. 2026",
+      "column": "potential_1q_26",
+      "agg": "sum",
+      "kind": "count",
+      "unit": "count",
+      "good_direction": "up",
+      "priority": 7,
+      "scope_mask": null,
+      "is_outcome": false
+    },
+    {
+      "name": "potential_4q_25",
+      "label": "Потенциал 4 кв. 2025",
+      "column": "potential_4q_25",
+      "agg": "sum",
+      "kind": "count",
+      "unit": "count",
+      "good_direction": "up",
+      "priority": 8,
+      "scope_mask": null,
+      "is_outcome": false
+    },
+    {
+      "name": "potential_3q_25",
+      "label": "Потенциал 3 кв. 2025",
+      "column": "potential_3q_25",
+      "agg": "sum",
+      "kind": "count",
+      "unit": "count",
+      "good_direction": "up",
+      "priority": 9,
+      "scope_mask": null,
+      "is_outcome": false
+    },
+    {
+      "name": "fl_self_emplyeed_25_qty",
+      "label": "Самозанятые 2025",
+      "column": "fl_self_emplyeed_25_qty",
+      "agg": "sum",
+      "kind": "count",
+      "unit": "people",
+      "good_direction": "none",
+      "priority": 10,
+      "scope_mask": null,
+      "is_outcome": false
+    },
+    {
+      "name": "fl_gpx_25_qty",
+      "label": "Физлица ГПХ 2025",
+      "column": "fl_gpx_25_qty",
+      "agg": "sum",
+      "kind": "count",
+      "unit": "people",
+      "good_direction": "none",
+      "priority": 11,
+      "scope_mask": null,
+      "is_outcome": false
+    },
+    {
+      "name": "fl_self_emplyeed_26_qty",
+      "label": "Самозанятые 2026",
+      "column": "fl_self_emplyeed_26_qty",
+      "agg": "sum",
+      "kind": "count",
+      "unit": "people",
+      "good_direction": "none",
+      "priority": 12,
+      "scope_mask": null,
+      "is_outcome": false
+    },
+    {
+      "name": "fl_gpx_26_qty",
+      "label": "Физлица ГПХ 2026",
+      "column": "fl_gpx_26_qty",
+      "agg": "sum",
+      "kind": "count",
+      "unit": "people",
+      "good_direction": "none",
+      "priority": 13,
+      "scope_mask": null,
+      "is_outcome": false
+    }
+  ],
+  "dimensions": [
+    {
+      "name": "gosb_name",
+      "label": "Название ГОСБ",
+      "card": 2532,
+      "kind": "geo",
+      "id_partner": null,
+      "top_values": [
+        "ГОСБ Москва",
+        "YVA-gosb-00000000",
+        "YVA-gosb-00000001",
+        "YVA-gosb-00000002",
+        "YVA-gosb-00000003",
+        "YVA-gosb-00000004",
+        "YVA-gosb-00000007",
+        "YVA-gosb-00000008",
+        "YVA-gosb-00000010",
+        "YVA-gosb-00000011",
+        "YVA-gosb-00000012",
+        "YVA-gosb-00000013",
+        "YVA-gosb-00000014",
+        "YVA-gosb-00000015",
+        "YVA-gosb-00000016",
+        "YVA-gosb-00000017",
+        "YVA-gosb-00000018",
+        "YVA-gosb-00000019",
+        "YVA-gosb-00000020",
+        "YVA-gosb-00000021",
+        "YVA-gosb-00000022",
+        "YVA-gosb-00000024",
+        "YVA-gosb-00000026",
+        "YVA-gosb-00000027",
+        "YVA-gosb-00000028"
+      ]
+    },
+    {
+      "name": "holding_name",
+      "label": "Название холдинга",
+      "card": 2,
+      "kind": "org",
+      "id_partner": null,
+      "top_values": [
+        "Холдинг Б",
+        "Холдинг А"
+      ]
+    },
+    {
+      "name": "segment_name_bp",
+      "label": "Сегмент",
+      "card": 5,
+      "kind": "category",
+      "id_partner": null,
+      "top_values": [
+        "ММБ",
+        "КФИ",
+        "КСБ",
+        "РГС",
+        "СКМ"
+      ]
+    },
+    {
+      "name": "last_activity_status",
+      "label": "Статус активности",
+      "card": 3,
+      "kind": "status",
+      "id_partner": null,
+      "top_values": [
+        "Прочее",
+        "Не указано",
+        "Основные"
+      ]
+    },
+    {
+      "name": "outflow_reason",
+      "label": "Причина оттока",
+      "card": 4,
+      "kind": "reason",
+      "id_partner": null,
+      "top_values": [
+        "Не указано",
+        "Прочее",
+        "Основные",
+        "Закрытие расчётного счёта"
+      ]
+    }
+  ],
+  "entities": [
+    {
+      "name": "company_name",
+      "label": "Название компании",
+      "key_col": "inn",
+      "name_col": "company_name",
+      "value_col": "potential_1q_26"
+    },
+    {
+      "name": "inn",
+      "label": "ИНН компании",
+      "key_col": "inn",
+      "name_col": null,
+      "value_col": "potential_1q_26"
+    }
+  ],
+  "joins": [],
+  "outcome_measures": [],
+  "tool_flags": [],
+  "boring_cols": [],
+  "question_bank": [
+    "Как «Количество компаний» распределён по «Название ГОСБ»?",
+    "Кто ключевые «Название компании» и какая концентрация?",
+    "Насколько эффективен инструмент (сравнить с/без)?"
+  ],
+  "human_overrides": {}
+}

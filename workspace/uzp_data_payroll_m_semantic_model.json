@@ -5,16 +5,16 @@
   "row_count": 6000,
   "measures": [
     {
-      "name": "Количество зачислений",
-      "label": "Количество зачислений",
+      "name": "Количество ведомостей",
+      "label": "Количество ведомостей",
       "column": "__row",
       "kind": "count",
       "unit": "",
       "agg": "count",
       "total": 6000.0,
-      "top_dim": "Системный номер ОСБ",
-      "top_value": "VISA",
-      "top_share_pct": 39.5
+      "top_dim": "Номер договора",
+      "top_value": "AGR-6789",
+      "top_share_pct": 44.7
     },
     {
       "name": "Доля силовых структур",
@@ -29,25 +29,37 @@
       "top_share_pct": null
     },
     {
-      "name": "Срок договора, дн",
-      "label": "Срок договора, дн",
+      "name": "Срок от договора до отчета",
+      "label": "Срок от договора до отчета",
       "column": "__dur_1",
       "kind": "duration",
       "unit": "дн",
       "agg": "mean",
-      "total": 179.74,
+      "total": 179.92,
       "top_dim": null,
       "top_value": null,
       "top_share_pct": null
     },
     {
-      "name": "Срок с открытия счета, дн",
-      "label": "Срок с открытия счета, дн",
+      "name": "Возраст счета",
+      "label": "Возраст счета",
       "column": "__dur_2",
       "kind": "duration",
       "unit": "дн",
       "agg": "mean",
-      "total": 174.12,
+      "total": 174.0,
+      "top_dim": null,
+      "top_value": null,
+      "top_share_pct": null
+    },
+    {
+      "name": "Срок открытия до договора",
+      "label": "Срок открытия до договора",
+      "column": "__dur_3",
+      "kind": "duration",
+      "unit": "дн",
+      "agg": "mean",
+      "total": 172.82,
       "top_dim": null,
       "top_value": null,
       "top_share_pct": null
@@ -59,28 +71,16 @@
       "kind": "money",
       "unit": "₽",
       "agg": "sum",
-      "total": 58854940.8,
-      "top_dim": "Системный номер ОСБ",
-      "top_value": "VISA",
-      "top_share_pct": 39.9
-    },
-    {
-      "name": "transaction_qty",
-      "label": "Количество транзакций",
-      "column": "transaction_qty",
-      "kind": "count",
-      "unit": "",
-      "agg": "sum",
-      "total": 6000.0,
-      "top_dim": "Системный номер ОСБ",
-      "top_value": "VISA",
-      "top_share_pct": 39.5
+      "total": 58870768.22,
+      "top_dim": "Номер договора",
+      "top_value": "AGR-6789",
+      "top_share_pct": 44.8
     }
   ],
   "dimensions": [
     {
       "column": "acc_subtype",
-      "label": "Подтип кода счета",
+      "label": "Подтип счета",
       "cardinality": 3
     },
     {
@@ -90,13 +90,18 @@
     },
     {
       "column": "actual_client_tid",
-      "label": "Актуальный ID клиента",
+      "label": "Идентификатор клиента",
       "cardinality": 3
     },
     {
       "column": "client_category",
       "label": "Категория клиента",
       "cardinality": 4
+    },
+    {
+      "column": "agrmnt_num",
+      "label": "Номер договора",
+      "cardinality": 2
     },
     {
       "column": "enrollment_transcription",
@@ -119,9 +124,19 @@
       "cardinality": 28
     },
     {
+      "column": "sys_gosb_id",
+      "label": "Системный номер ГОСБ",
+      "cardinality": 4
+    },
+    {
       "column": "ipt_name",
-      "label": "Системный номер ОСБ",
+      "label": "Имя ОСБ",
       "cardinality": 2
+    },
+    {
+      "column": "sys_osb_id",
+      "label": "Номер ОСБ",
+      "cardinality": 4
     },
     {
       "column": "card_type",
@@ -134,8 +149,18 @@
       "cardinality": 12
     },
     {
+      "column": "sys_tb_id",
+      "label": "Системный номер ТБ",
+      "cardinality": 4
+    },
+    {
       "column": "vsp_id",
       "label": "ВСП",
+      "cardinality": 4
+    },
+    {
+      "column": "sys_vsp_id",
+      "label": "Системный номер ВСП",
       "cardinality": 4
     },
     {
@@ -155,7 +180,7 @@
     },
     {
       "column": "src_system_name",
-      "label": "Система источник",
+      "label": "Система-источник",
       "cardinality": 1
     }
   ],
@@ -168,6 +193,11 @@
     {
       "column": "inn",
       "label": "ИНН",
+      "cardinality": 300
+    },
+    {
+      "column": "inn_parsing",
+      "label": "ИНН (парсинг)",
       "cardinality": 300
     }
   ],

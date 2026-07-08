@@ -17,8 +17,8 @@
       "top_share_pct": 51.3
     },
     {
-      "name": "Доля силовых организаций",
-      "label": "Доля силовых организаций",
+      "name": "Доля организаций с задачей",
+      "label": "Доля организаций с задачей",
       "column": "__rate_0",
       "kind": "rate",
       "unit": "%",
@@ -29,8 +29,8 @@
       "top_share_pct": null
     },
     {
-      "name": "Доля записей с задачей",
-      "label": "Доля записей с задачей",
+      "name": "Доля силовых организаций",
+      "label": "Доля силовых организаций",
       "column": "__rate_1",
       "kind": "rate",
       "unit": "%",
@@ -41,26 +41,38 @@
       "top_share_pct": null
     },
     {
+      "name": "Доля организаций с ОКТМО",
+      "label": "Доля организаций с ОКТМО",
+      "column": "__rate_2",
+      "kind": "rate",
+      "unit": "%",
+      "agg": "mean",
+      "total": 0.38,
+      "top_dim": null,
+      "top_value": null,
+      "top_share_pct": null
+    },
+    {
       "name": "Потери от оттока, руб",
       "label": "Потери от оттока, руб",
-      "column": "__impact_2",
+      "column": "__impact_3",
       "kind": "money",
       "unit": "₽",
       "agg": "sum",
-      "total": 16969607534.18,
+      "total": 16943321688.75,
       "top_dim": "Код ОКТМО",
       "top_value": "40000000",
       "top_share_pct": 52.0
     },
     {
       "name": "outflow_qty",
-      "label": "Число ушедших клиентов",
+      "label": "outflow_qty",
       "column": "outflow_qty",
       "kind": "count",
-      "unit": "чел.",
+      "unit": "",
       "agg": "sum",
-      "total": 262469.0,
-      "top_dim": "Код поселения ОКТМО",
+      "total": 262386.0,
+      "top_dim": "Код ОКТМО субъекта РФ",
       "top_value": "78000000000",
       "top_share_pct": 52.4
     },
@@ -78,34 +90,46 @@
     },
     {
       "name": "fact_payee_qty",
-      "label": "Фактическое число получателей",
+      "label": "fact_payee_qty",
       "column": "fact_payee_qty",
       "kind": "count",
-      "unit": "чел.",
+      "unit": "",
       "agg": "sum",
-      "total": 1444700.0,
+      "total": 1444500.0,
       "top_dim": "Код ОКТМО",
       "top_value": "40000000",
       "top_share_pct": 51.3
     },
     {
+      "name": "plan_payee_qty",
+      "label": "plan_payee_qty",
+      "column": "plan_payee_qty",
+      "kind": "count",
+      "unit": "",
+      "agg": "sum",
+      "total": 1458050.0,
+      "top_dim": "Код ОКТМО",
+      "top_value": "40000000",
+      "top_share_pct": 51.2
+    },
+    {
       "name": "calc_fl_qty",
-      "label": "Расчётное число получателей",
+      "label": "calc_fl_qty",
       "column": "calc_fl_qty",
       "kind": "count",
-      "unit": "чел.",
+      "unit": "",
       "agg": "sum",
-      "total": 1422300.0,
+      "total": 1422800.0,
       "top_dim": "Код ОКТМО",
       "top_value": "40000000",
       "top_share_pct": 51.7
     },
     {
       "name": "prev_m_overflow_qty",
-      "label": "Перешедшие из других организаций",
+      "label": "Кол-во ФЛ",
       "column": "prev_m_overflow_qty",
       "kind": "count",
-      "unit": "чел.",
+      "unit": "",
       "agg": "sum",
       "total": 0.0,
       "top_dim": null,
@@ -113,73 +137,61 @@
       "top_share_pct": null
     },
     {
-      "name": "plan_payee_qty",
-      "label": "Плановое число получателей",
-      "column": "plan_payee_qty",
-      "kind": "count",
-      "unit": "чел.",
-      "agg": "sum",
-      "total": 1458150.0,
-      "top_dim": "Код ОКТМО",
-      "top_value": "40000000",
-      "top_share_pct": 51.3
-    },
-    {
       "name": "m_avg_salary_amt",
-      "label": "Средняя зарплата за месяц",
+      "label": "Средняя зарплата в отчетный месяц",
       "column": "m_avg_salary_amt",
       "kind": "money",
       "unit": "₽",
       "agg": "mean",
-      "total": 127198.59,
+      "total": 127053.52,
       "top_dim": null,
       "top_value": null,
       "top_share_pct": null
     },
     {
       "name": "prev_m_avg_salary_amt",
-      "label": "Средняя зарплата предыдущего месяца",
+      "label": "Средняя зарплата в предыдущий месяц",
       "column": "prev_m_avg_salary_amt",
       "kind": "money",
       "unit": "₽",
       "agg": "mean",
-      "total": 78390.0,
+      "total": 78421.25,
       "top_dim": null,
       "top_value": null,
       "top_share_pct": null
     },
     {
       "name": "next_m_avg_salary_amt",
-      "label": "Средняя зарплата следующего месяца",
+      "label": "Средняя зарплата в следующий месяц",
       "column": "next_m_avg_salary_amt",
       "kind": "money",
       "unit": "₽",
       "agg": "mean",
-      "total": 80960.25,
+      "total": 81051.0,
       "top_dim": null,
       "top_value": null,
       "top_share_pct": null
     },
     {
       "name": "prev_m_fl_val",
-      "label": "Численность ФЛ предыдущего месяца",
+      "label": "Численность ФЛ в предыдущий месяц",
       "column": "prev_m_fl_val",
       "kind": "count",
-      "unit": "чел.",
+      "unit": "",
       "agg": "sum",
-      "total": 1453950.0,
-      "top_dim": "Код ОКТМО",
-      "top_value": "40000000",
+      "total": 1451050.0,
+      "top_dim": "Код ОКТМО субъекта РФ",
+      "top_value": "78000000000",
       "top_share_pct": 51.2
     },
     {
       "name": "next_m_fl_val",
-      "label": "Численность ФЛ следующего месяца",
+      "label": "Численность ФЛ в следующий месяц",
       "column": "next_m_fl_val",
       "kind": "count",
-      "unit": "чел.",
+      "unit": "",
       "agg": "sum",
-      "total": 1454010.0,
+      "total": 1455285.0,
       "top_dim": "Код ОКТМО",
       "top_value": "40000000",
       "top_share_pct": 51.1
@@ -203,17 +215,17 @@
     },
     {
       "column": "oktmo_subject_code",
-      "label": "Код субъекта ОКТМО",
+      "label": "oktmo_subject_code",
       "cardinality": 2
     },
     {
       "column": "oktmo_subject_district_code",
-      "label": "Код района ОКТМО",
+      "label": "Код субъекта РФ",
       "cardinality": 2
     },
     {
       "column": "oktmo_subject_district_city_code",
-      "label": "Код поселения ОКТМО",
+      "label": "Код ОКТМО субъекта РФ",
       "cardinality": 2
     },
     {
@@ -225,17 +237,17 @@
   "entities": [
     {
       "column": "inn",
-      "label": "ИНН организации",
+      "label": "ИНН",
       "cardinality": 300
     },
     {
       "column": "mzp_fio",
-      "label": "ФИО закреплённого МЗП",
+      "label": "ФИО закрепленного МЗП",
       "cardinality": 9
     },
     {
       "column": "other_inn_emp_perc",
-      "label": "Доля выплат по другим ИНН",
+      "label": "other_inn_emp_perc",
       "cardinality": 300
     }
   ],

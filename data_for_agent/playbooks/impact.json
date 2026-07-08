@@ -1,0 +1,22 @@
+{
+  "name": "impact",
+  "description": "Доказательство эффективности инструмента (§8.3): adoption → наивное сравнение → DiD. Причинные шаги (стратификация/selection/placebo/extrapolate) — расширение примитивами.",
+  "when": {
+    "question_patterns": ["эффективн", "докаж", "влия", "пилот", "помогает ли", "стоит ли внедр", "работает ли инструмент"],
+    "requires_flag": true
+  },
+  "params": ["flag", "outcome", "time_col", "cutoff", "strata", "placebo"],
+  "plan": {
+    "question": "Доказать эффективность инструмента",
+    "steps": [
+      {"id": "adoption", "primitive": "aggregate", "params": {"measure": "$flag", "agg": "mean"}},
+      {"id": "naive", "primitive": "compare_groups", "params": {"measure": "$outcome", "flag": "$flag"}},
+      {"id": "strat", "primitive": "stratified_compare", "params": {"measure": "$outcome", "flag": "$flag", "strata": "$strata"}},
+      {"id": "did", "primitive": "did", "params": {"measure": "$outcome", "flag": "$flag", "time_col": "$time_col", "cutoff": "$cutoff"}},
+      {"id": "selection", "primitive": "selection_check", "params": {"measure": "$outcome", "flag": "$flag", "time_col": "$time_col", "cutoff": "$cutoff"}},
+      {"id": "placebo", "primitive": "placebo_check", "params": {"placebo_measure": "$placebo", "flag": "$flag", "time_col": "$time_col", "cutoff": "$cutoff"}},
+      {"id": "extrapolate", "primitive": "extrapolate", "params": {"uplift": "$did.facts.did", "adoption": "$adoption.facts.total"}}
+    ],
+    "verdict_template": "Эффект подтверждается, если DiD>0 и согласуется с наивным сравнением; иначе — self-selection/недостаточно данных"
+  }
+}

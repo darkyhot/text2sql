@@ -32,7 +32,7 @@ import pandas as pd
 import seaborn as sns
 
 from ..config import PATHS
-from . import core, labels as labels_mod, metrics, plan
+from . import core, interactive, labels as labels_mod, metrics, plan
 from .builder import (_HTML_CSS, _img_b64, _load, _load_columns, _md_block_to_html,
                       _md_inline_to_html, _meta_for, _rel_chart)
 from .core import _fmt, _save
@@ -759,6 +759,29 @@ def _synthesize(llm, question, facts: dict) -> dict:
 
 
 # ---------- оркестратор ----------
+def _route_playbook(fqn, prep, question, catalog, out_dir, progress):
+    """§8.1 роутинг внутри /investigate: строим семмодель, и если сработал НЕ-дефолтный
+    плейбук (сейчас — impact) — исполняем его и возвращаем результат; иначе None (обычный путь).
+    Дефолтный loss_attribution оставляем текущей (отлаженной) реализации расследования."""
+    try:
+        from . import plans, semantics, surface
+        model = semantics.build_semantic_table(fqn, prep.table_desc, prep.df, prep.roles,
+                                               prep.measures, prep.lbls, meta=prep.meta, catalog=catalog)
+        try:
+            semantics.save(model)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("investigate: семмодель не сохранена: %s", exc)
+        pb = plans.select_playbook(question, has_flag=bool(model.tool_flags))
+        if pb is None or pb.name == "loss_attribution":
+            return None                                   # дефолт — обычное расследование
+        progress(f"вопрос распознан как «{pb.name}» — исполняю плейбук…")
+        return surface.run_playbook(prep.df, model, pb, question, table_desc=prep.table_desc,
+                                    fqn=fqn, out_dir=out_dir, progress=progress)
+    except Exception as exc:  # noqa: BLE001  (роутинг не должен ронять обычное расследование)
+        logger.warning("investigate: роутинг в плейбук не удался (%s) — обычный путь", exc)
+        return None
+
+
 def investigate(db, catalog, llm, fqn: str, question: str, *, where: str | None = None,
                 out_dir: Path | None = None, progress=lambda m: None) -> dict:
     schema, table = fqn.split(".", 1)
@@ -769,9 +792,16 @@ def investigate(db, catalog, llm, fqn: str, question: str, *, where: str | None 
         shutil.rmtree(assets, ignore_errors=True)
 
     prep = _prepare(db, catalog, llm, fqn, where, progress)
+    df = prep.df
+
+    # РОУТИНГ (§8.1): вопрос про эффективность инструмента + есть tool_flag → impact-плейбук;
+    # иначе — дефолтное расследование «где/почему/кто» ниже. Отдельных команд НЕ плодим.
+    routed = _route_playbook(fqn, prep, question, catalog, out_dir, progress)
+    if routed is not None:
+        return routed
+
     progress("формулирую цель расследования…")
     frame = _frame(llm, question, prep)
-    df = prep.df
     s = pd.to_numeric(df[frame.target], errors="coerce")
     net = float(s.sum())
     gross_loss = float(s[s < 0].sum()) if frame.mode == "change" else None
@@ -1069,4 +1099,4 @@ def _assemble_html(prep, frame, table, fqn, question, where, net, gross_loss, gr
         H.append("<div class='card attention'><h2 style='border:none;margin-top:0'>✅ Что делать</h2><ul>"
                  + "".join(f"<li>{_h.escape(a)}</li>" for a in synth["actions"]) + "</ul></div>")
     H.append("<p class='meta'>Расследование: pandas-декомпозиция + LLM-синтез.</p></body></html>")
-    return "\n".join(H)
+    return interactive.enhance("\n".join(H))     # сортировка + фильтр таблиц (self-contained JS)

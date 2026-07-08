@@ -236,6 +236,15 @@ def inject_signals(table: str, row: dict) -> None:
         else:                              # база
             put("is_task_closed", random.random() < 0.7)
             put("is_task_closed_success", random.random() < 0.55)
+        # ИНСТРУМЕНТ is_in_pipeline (для impact-плейбука): охват ~25% (НЕ по силе сотрудника —
+        # чтобы не было самоотбора), внедрение с 2025-10; у пилота ПОСЛЕ внедрения выше успех
+        # (честный uplift ~+0.10..0.13 п.п., детектируемый DiD, а не наивной разницей).
+        in_pipe = random.random() < 0.25
+        put("is_in_pipeline", in_pipe)
+        rdt = row.get("report_dt")                         # ось анализа, которую берёт семмодель
+        if in_pipe and isinstance(rdt, dt.date) and rdt >= dt.date(2025, 9, 15) \
+                and row.get("is_task_closed_success") is False and random.random() < 0.30:
+            put("is_task_closed_success", True)
             late = random.random() < 0.20
             put("fact_close_task_dttm",
                 plan + dt.timedelta(days=random.randint(1, 10)) if late

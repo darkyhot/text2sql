@@ -13,7 +13,7 @@ from pathlib import Path
 import pandas as pd
 
 from ..config import PATHS
-from . import core, labels, metrics, mining, patterns, plan, scoring, semantic
+from . import core, interactive, labels, metrics, mining, patterns, plan, scoring, semantic
 from .store import FrameStore
 
 logger = logging.getLogger(__name__)
@@ -393,4 +393,4 @@ def _assemble_html(table_desc, fqn, table, where, focus, angle, nrows, summary, 
         H.append("</ul></div>")
     H.append("<p class='meta'>Все расчёты — pandas, графики — seaborn. Сгенерировано автоматически.</p>")
     H.append("</body></html>")
-    return "\n".join(H)
+    return interactive.enhance("\n".join(H))     # сортировка + фильтр таблиц (self-contained JS)

@@ -86,6 +86,7 @@ s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,task_text,character 
 s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,task_comment,character varying,False,Комментарий по задаче,False,67.83,22.16,,label
 s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,task_questionnaire,character varying,False,Анкета по задаче,False,9.84,4.13,,label
 s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,is_escalation_need,boolean,False,Признак запроса на эскалацию в задаче,False,0.05,0.0,False|True,flag
+s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,is_in_pipeline,boolean,False,Признак: задача ведётся в инструменте пайплайна,False,100.0,0.0,True|False,flag
 s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,src_update_dttm,timestamp without time zone,False,Дата-время обновления источника,False,100.0,0.0,2026-07-03 04:00:57.978001,date
 s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dwh_sale_funnel_task,update_dttm,timestamp without time zone,False,Дата-время обновления,False,100.0,0.0,2026-07-03 08:00:27.499803,date
 s_grnplm_ld_salesntwrk_pcap_sn_uzp,uzp_dim_gosb,tb_id,integer,False,Номер ТБ,True,100.0,6.63,44|38|2|54|42|52|13|40|70|18|55|16,join_key

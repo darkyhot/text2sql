@@ -12,9 +12,9 @@
       "unit": "",
       "agg": "count",
       "total": 4000.0,
-      "top_dim": "Подтип задачи",
-      "top_value": "Качество обслуживания",
-      "top_share_pct": 55.4
+      "top_dim": "Тип задачи",
+      "top_value": "Отток",
+      "top_share_pct": 54.7
     },
     {
       "name": "Доля закрытых задач",
@@ -23,7 +23,7 @@
       "kind": "rate",
       "unit": "%",
       "agg": "mean",
-      "total": 0.73,
+      "total": 0.74,
       "top_dim": null,
       "top_value": null,
       "top_share_pct": null
@@ -35,7 +35,19 @@
       "kind": "rate",
       "unit": "%",
       "agg": "mean",
-      "total": 0.51,
+      "total": 0.52,
+      "top_dim": null,
+      "top_value": null,
+      "top_share_pct": null
+    },
+    {
+      "name": "Доля задач в работе",
+      "label": "Доля задач в работе",
+      "column": "__rate_2",
+      "kind": "rate",
+      "unit": "%",
+      "agg": "mean",
+      "total": 0.37,
       "top_dim": null,
       "top_value": null,
       "top_share_pct": null
@@ -43,7 +55,7 @@
     {
       "name": "Доля задач с эскалацией",
       "label": "Доля задач с эскалацией",
-      "column": "__rate_2",
+      "column": "__rate_3",
       "kind": "rate",
       "unit": "%",
       "agg": "mean",
@@ -55,35 +67,23 @@
     {
       "name": "Просрочка закрытия",
       "label": "Просрочка закрытия",
-      "column": "__overdue_3",
+      "column": "__overdue_4",
       "kind": "rate",
       "unit": "%",
       "agg": "mean",
-      "total": 0.28,
+      "total": 0.73,
       "top_dim": null,
       "top_value": null,
       "top_share_pct": null
     },
     {
-      "name": "Срок отработки, дн",
-      "label": "Срок отработки, дн",
-      "column": "__dur_4",
+      "name": "Срок отработки задачи, дн",
+      "label": "Срок отработки задачи, дн",
+      "column": "__dur_5",
       "kind": "duration",
       "unit": "дн",
       "agg": "mean",
-      "total": 8.91,
-      "top_dim": null,
-      "top_value": null,
-      "top_share_pct": null
-    },
-    {
-      "name": "Доля задач в работе",
-      "label": "Доля задач в работе",
-      "column": "__rate_5",
-      "kind": "rate",
-      "unit": "%",
-      "agg": "mean",
-      "total": 0.36,
+      "total": 189.68,
       "top_dim": null,
       "top_value": null,
       "top_share_pct": null
@@ -95,7 +95,7 @@
       "kind": "count",
       "unit": "чел.",
       "agg": "sum",
-      "total": 18871.0,
+      "total": 19966.0,
       "top_dim": "Категория задачи",
       "top_value": "Предложение",
       "top_share_pct": 100.0
@@ -107,7 +107,7 @@
       "kind": "count",
       "unit": "чел.",
       "agg": "sum",
-      "total": 20462.0,
+      "total": 21398.0,
       "top_dim": "Категория задачи",
       "top_value": "Предложение",
       "top_share_pct": 100.0
@@ -119,7 +119,7 @@
       "kind": "count",
       "unit": "",
       "agg": "sum",
-      "total": 9532184.0,
+      "total": 9598611.0,
       "top_dim": "Категория задачи",
       "top_value": "Предложение",
       "top_share_pct": 100.0
@@ -142,11 +142,6 @@
       "cardinality": 2
     },
     {
-      "column": "manager_fio",
-      "label": "ФИО руководителя",
-      "cardinality": 2
-    },
-    {
       "column": "emp_post",
       "label": "Должность сотрудника",
       "cardinality": 2
@@ -160,11 +155,6 @@
       "column": "src_task_as_code",
       "label": "Код источника задачи",
       "cardinality": 2
-    },
-    {
-      "column": "src_task_business",
-      "label": "Бизнес-источник задачи",
-      "cardinality": 1
     },
     {
       "column": "segment_name",
@@ -185,33 +175,18 @@
       "column": "task_subtype",
       "label": "Подтип задачи",
       "cardinality": 2
-    },
-    {
-      "column": "last_active_type",
-      "label": "Тип последней активности",
-      "cardinality": 1
-    },
-    {
-      "column": "last_active_status",
-      "label": "Статус последней активности",
-      "cardinality": 1
-    },
-    {
-      "column": "campaign_code",
-      "label": "Код кампании",
-      "cardinality": 1
-    },
-    {
-      "column": "task_text_status",
-      "label": "Текстовый статус задачи",
-      "cardinality": 1
     }
   ],
   "entities": [
     {
+      "column": "manager_fio",
+      "label": "ФИО руководителя",
+      "cardinality": 2
+    },
+    {
       "column": "task_struct_saphr_id",
-      "label": "Идентификатор участника задачи",
-      "cardinality": 907
+      "label": "Табельный номер второго участника",
+      "cardinality": 924
     },
     {
       "column": "emp_fio",
@@ -220,7 +195,7 @@
     },
     {
       "column": "inn",
-      "label": "ИНН",
+      "label": "ИНН клиента",
       "cardinality": 300
     }
   ],

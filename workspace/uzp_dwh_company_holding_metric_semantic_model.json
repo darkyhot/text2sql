@@ -5,28 +5,52 @@
   "row_count": 4000,
   "measures": [
     {
+      "name": "Актуальность данных, дн",
+      "label": "Актуальность данных, дн",
+      "column": "__dur_0",
+      "kind": "duration",
+      "unit": "дн",
+      "agg": "mean",
+      "total": 227.03,
+      "top_dim": null,
+      "top_value": null,
+      "top_share_pct": null
+    },
+    {
+      "name": "ul_outflow_qty",
+      "label": "Отток юридических лиц",
+      "column": "ul_outflow_qty",
+      "kind": "count",
+      "unit": "",
+      "agg": "sum",
+      "total": 10018205.0,
+      "top_dim": "Тип организации",
+      "top_value": "Прочее",
+      "top_share_pct": 34.3
+    },
+    {
+      "name": "fl_outflow_qty",
+      "label": "Отток физических лиц",
+      "column": "fl_outflow_qty",
+      "kind": "count",
+      "unit": "чел.",
+      "agg": "sum",
+      "total": 9845420.0,
+      "top_dim": "Тип организации",
+      "top_value": "Основные",
+      "top_share_pct": 33.8
+    },
+    {
       "name": "fot_outflow_amt",
       "label": "Отток ФОТ",
       "column": "fot_outflow_amt",
       "kind": "money",
       "unit": "₽",
       "agg": "sum",
-      "total": 10051324195.74,
+      "total": 10052222730.09,
       "top_dim": "Тип организации",
       "top_value": "Прочее",
-      "top_share_pct": 34.0
-    },
-    {
-      "name": "current_fot_amt",
-      "label": "Текущий ФОТ",
-      "column": "current_fot_amt",
-      "kind": "money",
-      "unit": "₽",
-      "agg": "sum",
-      "total": 10186857587.46,
-      "top_dim": "Уровень загрузки",
-      "top_value": "Прочее",
-      "top_share_pct": 35.1
+      "top_share_pct": 34.2
     },
     {
       "name": "emp_potential_qty",
@@ -35,10 +59,58 @@
       "kind": "count",
       "unit": "чел.",
       "agg": "sum",
-      "total": 10012968.0,
+      "total": 10038802.0,
+      "top_dim": "Тип организации",
+      "top_value": "Прочее",
+      "top_share_pct": 34.9
+    },
+    {
+      "name": "current_fot_amt",
+      "label": "Текущий ФОТ",
+      "column": "current_fot_amt",
+      "kind": "money",
+      "unit": "₽",
+      "agg": "sum",
+      "total": 10178181387.99,
       "top_dim": "Уровень загрузки",
       "top_value": "Прочее",
-      "top_share_pct": 34.8
+      "top_share_pct": 34.9
+    },
+    {
+      "name": "fot_y_1_diff_amt",
+      "label": "Изменение ФОТ год к году",
+      "column": "fot_y_1_diff_amt",
+      "kind": "money",
+      "unit": "₽",
+      "agg": "sum",
+      "total": 10108557231.5,
+      "top_dim": "Тип организации",
+      "top_value": "Прочее",
+      "top_share_pct": 34.3
+    },
+    {
+      "name": "current_fl_qty",
+      "label": "Текущие получатели зарплаты",
+      "column": "current_fl_qty",
+      "kind": "count",
+      "unit": "чел.",
+      "agg": "sum",
+      "total": 10011156.0,
+      "top_dim": "Уровень загрузки",
+      "top_value": "Прочее",
+      "top_share_pct": 35.1
+    },
+    {
+      "name": "fl_y_1_diff_qty",
+      "label": "Изменение получателей зарплаты",
+      "column": "fl_y_1_diff_qty",
+      "kind": "count",
+      "unit": "чел.",
+      "agg": "sum",
+      "total": 9946160.0,
+      "top_dim": "Уровень загрузки",
+      "top_value": "Прочее",
+      "top_share_pct": 34.6
     },
     {
       "name": "fot_potential_amt",
@@ -47,86 +119,26 @@
       "kind": "money",
       "unit": "₽",
       "agg": "sum",
-      "total": 10116043501.56,
+      "total": 10151830915.18,
       "top_dim": "Уровень загрузки",
       "top_value": "Прочее",
-      "top_share_pct": 35.0
-    },
-    {
-      "name": "ul_outflow_qty",
-      "label": "Отток ЮЛ",
-      "column": "ul_outflow_qty",
-      "kind": "count",
-      "unit": "",
-      "agg": "sum",
-      "total": 10036416.0,
-      "top_dim": "Уровень загрузки",
-      "top_value": "Прочее",
-      "top_share_pct": 34.2
-    },
-    {
-      "name": "fl_outflow_qty",
-      "label": "Отток ФЛ",
-      "column": "fl_outflow_qty",
-      "kind": "count",
-      "unit": "чел.",
-      "agg": "sum",
-      "total": 9835764.0,
-      "top_dim": "Тип организации",
-      "top_value": "Основные",
-      "top_share_pct": 33.7
-    },
-    {
-      "name": "fot_y_1_diff_amt",
-      "label": "Изменение ФОТ г/г",
-      "column": "fot_y_1_diff_amt",
-      "kind": "money",
-      "unit": "₽",
-      "agg": "sum",
-      "total": 10116541252.15,
-      "top_dim": "Уровень загрузки",
-      "top_value": "Прочее",
-      "top_share_pct": 34.0
-    },
-    {
-      "name": "current_fl_qty",
-      "label": "Текущие ФЛ",
-      "column": "current_fl_qty",
-      "kind": "count",
-      "unit": "чел.",
-      "agg": "sum",
-      "total": 10016026.0,
-      "top_dim": "Уровень загрузки",
-      "top_value": "Прочее",
-      "top_share_pct": 35.2
-    },
-    {
-      "name": "fl_y_1_diff_qty",
-      "label": "Изменение ФЛ г/г",
-      "column": "fl_y_1_diff_qty",
-      "kind": "count",
-      "unit": "чел.",
-      "agg": "sum",
-      "total": 9922884.0,
-      "top_dim": "Уровень загрузки",
-      "top_value": "Прочее",
-      "top_share_pct": 34.7
+      "top_share_pct": 34.8
     },
     {
       "name": "total_emp_qty",
-      "label": "Всего сотрудников",
+      "label": "Общее количество сотрудников",
       "column": "total_emp_qty",
       "kind": "count",
       "unit": "чел.",
       "agg": "sum",
-      "total": 10000572.0,
-      "top_dim": "Уровень загрузки",
+      "total": 9989517.0,
+      "top_dim": "Тип организации",
       "top_value": "Прочее",
-      "top_share_pct": 34.4
+      "top_share_pct": 34.7
     },
     {
       "name": "zp_fl_perc",
-      "label": "Доля получателей ЗП",
+      "label": "Доля получателей зарплаты",
       "column": "zp_fl_perc",
       "kind": "rate",
       "unit": "%",
@@ -138,15 +150,15 @@
     },
     {
       "name": "new_fl_cnt",
-      "label": "Новые ФЛ",
+      "label": "Новые физические лица",
       "column": "new_fl_cnt",
       "kind": "count",
       "unit": "чел.",
       "agg": "sum",
-      "total": 9936686.0,
+      "total": 9954737.0,
       "top_dim": "Уровень загрузки",
       "top_value": "Прочее",
-      "top_share_pct": 34.3
+      "top_share_pct": 34.1
     },
     {
       "name": "np_cnt",
@@ -155,34 +167,34 @@
       "kind": "count",
       "unit": "",
       "agg": "sum",
-      "total": 10061445.0,
-      "top_dim": "Уровень загрузки",
+      "total": 10073918.0,
+      "top_dim": "Тип организации",
       "top_value": "Прочее",
-      "top_share_pct": 33.9
+      "top_share_pct": 34.3
     },
     {
       "name": "new_fl_cnt_next_month",
-      "label": "Новые ФЛ (след. месяц)",
+      "label": "Новые ФЛ в следующем месяце",
       "column": "new_fl_cnt_next_month",
       "kind": "count",
       "unit": "чел.",
       "agg": "sum",
-      "total": 10145514.0,
-      "top_dim": "Уровень загрузки",
+      "total": 10154435.0,
+      "top_dim": "Тип организации",
       "top_value": "Прочее",
-      "top_share_pct": 34.1
+      "top_share_pct": 34.3
     },
     {
       "name": "np_cnt_next_month",
-      "label": "НП (след. месяц)",
+      "label": "НП в следующем месяце",
       "column": "np_cnt_next_month",
       "kind": "count",
       "unit": "",
       "agg": "sum",
-      "total": 10238918.0,
+      "total": 10205080.0,
       "top_dim": "Уровень загрузки",
       "top_value": "Прочее",
-      "top_share_pct": 35.0
+      "top_share_pct": 34.8
     },
     {
       "name": "pu_sber1_available_cnt",
@@ -191,10 +203,10 @@
       "kind": "count",
       "unit": "",
       "agg": "sum",
-      "total": 9958834.0,
+      "total": 9982545.0,
       "top_dim": "Уровень загрузки",
       "top_value": "Прочее",
-      "top_share_pct": 34.4
+      "top_share_pct": 34.3
     },
     {
       "name": "pu_sber1_give_cnt",
@@ -203,10 +215,10 @@
       "kind": "count",
       "unit": "",
       "agg": "sum",
-      "total": 9995861.0,
+      "total": 9992083.0,
       "top_dim": "Тип организации",
       "top_value": "Прочее",
-      "top_share_pct": 34.5
+      "top_share_pct": 34.7
     },
     {
       "name": "pu_premier_available_cnt",
@@ -215,10 +227,10 @@
       "kind": "count",
       "unit": "",
       "agg": "sum",
-      "total": 9920198.0,
+      "total": 9892835.0,
       "top_dim": "Уровень загрузки",
       "top_value": "Прочее",
-      "top_share_pct": 34.9
+      "top_share_pct": 34.6
     },
     {
       "name": "pu_premier_give_cnt",
@@ -227,10 +239,10 @@
       "kind": "count",
       "unit": "",
       "agg": "sum",
-      "total": 10045523.0,
+      "total": 10032596.0,
       "top_dim": "Уровень загрузки",
       "top_value": "Прочее",
-      "top_share_pct": 34.0
+      "top_share_pct": 33.8
     },
     {
       "name": "pu_praim_available_cnt",
@@ -239,10 +251,10 @@
       "kind": "count",
       "unit": "",
       "agg": "sum",
-      "total": 9922329.0,
+      "total": 9941078.0,
       "top_dim": "Уровень загрузки",
       "top_value": "Прочее",
-      "top_share_pct": 33.7
+      "top_share_pct": 33.8
     },
     {
       "name": "pu_praim_give_cnt",
@@ -251,10 +263,10 @@
       "kind": "count",
       "unit": "",
       "agg": "sum",
-      "total": 10026393.0,
+      "total": 10036162.0,
       "top_dim": "Уровень загрузки",
       "top_value": "Прочее",
-      "top_share_pct": 34.9
+      "top_share_pct": 34.8
     },
     {
       "name": "pu_praim_mass_available_cnt",
@@ -263,10 +275,10 @@
       "kind": "count",
       "unit": "",
       "agg": "sum",
-      "total": 10058496.0,
+      "total": 10061906.0,
       "top_dim": "Уровень загрузки",
       "top_value": "Прочее",
-      "top_share_pct": 34.4
+      "top_share_pct": 34.5
     },
     {
       "name": "pu_praim_mass_give_cnt",
@@ -275,7 +287,7 @@
       "kind": "count",
       "unit": "",
       "agg": "sum",
-      "total": 10067459.0,
+      "total": 10058724.0,
       "top_dim": "Уровень загрузки",
       "top_value": "Прочее",
       "top_share_pct": 35.0
@@ -287,8 +299,8 @@
       "kind": "count",
       "unit": "",
       "agg": "sum",
-      "total": 9949834.0,
-      "top_dim": "Уровень загрузки",
+      "total": 9909461.0,
+      "top_dim": "Тип организации",
       "top_value": "Прочее",
       "top_share_pct": 34.0
     },
@@ -299,10 +311,10 @@
       "kind": "count",
       "unit": "",
       "agg": "sum",
-      "total": 9929914.0,
-      "top_dim": "Уровень загрузки",
-      "top_value": "Прочее",
-      "top_share_pct": 34.5
+      "total": 9965343.0,
+      "top_dim": "Тип организации",
+      "top_value": "Основные",
+      "top_share_pct": 34.4
     },
     {
       "name": "pu_consumer_loan_available_cnt",
@@ -311,7 +323,7 @@
       "kind": "count",
       "unit": "",
       "agg": "sum",
-      "total": 10148082.0,
+      "total": 10153469.0,
       "top_dim": "Уровень загрузки",
       "top_value": "Прочее",
       "top_share_pct": 34.3
@@ -323,7 +335,7 @@
       "kind": "count",
       "unit": "",
       "agg": "sum",
-      "total": 9938640.0,
+      "total": 9932518.0,
       "top_dim": "Уровень загрузки",
       "top_value": "Прочее",
       "top_share_pct": 34.3
@@ -344,8 +356,8 @@
   "entities": [
     {
       "column": "org_id",
-      "label": "ID организации",
-      "cardinality": 979
+      "label": "Идентификатор организации",
+      "cardinality": 978
     }
   ],
   "dates": [

@@ -122,6 +122,11 @@ _FRAME_SYS = (
     "Бери ТОЛЬКО имена из предложенных списков."
 )
 
+# вопрос про ИЗМЕНЕНИЕ/динамику → target обязан быть дельта-метрикой со знаком (не уровнем)
+_CHANGE_Q = re.compile(r"сниж|паден|отток|динамик|год.?к.?году|yoy|измен|прирост|убыл|сокращ|\bрост", re.I)
+# мусорные значения-бакеты: как «драйвер причины» бесполезны
+_NOISE_VAL = re.compile(r"^\s*(проч|не\s*указан|нет\s*данных|н/?д|unknown|other|пусто|основн|итого|всего|—|-|\(?пуст)", re.I)
+
 
 def _frame(llm, question, prep: Prep) -> Frame:
     df = prep.df
@@ -153,9 +158,22 @@ def _frame(llm, question, prep: Prep) -> Frame:
         target = None
     if target is None:
         raise ValueError("Не найдено числовой величины для расследования.")
+    # ГАРД: вопрос про ИЗМЕНЕНИЕ/снижение ⇒ target обязан быть дельта-метрикой со знаком,
+    # а не положительным уровнем (потенциал/остаток). Ловит дрейф LLM на level-колонки.
+    if _CHANGE_Q.search(question):
+        signed = [c for c in measures
+                  if (pd.to_numeric(df[c], errors="coerce").min() or 0) < 0]
+        deltas = [c for c in signed if _DELTA_RE.search(c)
+                  or _DELTA_RE.search(prep.meta.get(c, {}).get("desc", "") or "")]
+        pool = deltas or signed
+        cur_min = pd.to_numeric(df[target], errors="coerce").min()
+        if pool and not (cur_min is not None and cur_min < 0):     # текущий target — уровень
+            target = max(pool, key=lambda c: abs(float(pd.to_numeric(df[c], errors="coerce").sum())))
     s = pd.to_numeric(df[target], errors="coerce")
     mode = out.get("mode") if out.get("mode") in ("change", "magnitude") else \
         ("change" if (s.min() is not None and s.min() < 0) else "magnitude")
+    if _CHANGE_Q.search(question) and s.min() is not None and s.min() < 0:
+        mode = "change"                       # target со знаком + вопрос про изменение ⇒ режим изменения
     # СУЩНОСТЬ-ОРГАНИЗАЦИЯ: у неё есть ИМЯ (company_name) и ИД (ИНН). Подпись всегда
     # «Название (ИНН)», а КЛЮЧУЕМ по самой ГРАНУЛЯРНОЙ колонке — обычно ИНН (300 организаций)
     # точнее названия (25 в синтетике/грубый пул), иначе теряем разбор по организациям.
@@ -224,43 +242,128 @@ class Book:
     delta: float
 
 
-def _portfolio_books(df: pd.DataFrame, prep: Prep, llm) -> dict | None:
-    """Методологический слой: по описаниям колонок делим числа на «книги портфеля» —
-    основные метрики (доля/КПЭ) и ИСКЛЮЧЁННЫЕ из них категории (ГПХ/самозанятые). Считаем Δ
-    год-к-году по каждой (детерминированно) + Δ по сегментам для headline-книг. Ключ анализа:
-    нельзя смешивать метрики с разными знаменателями (напр. отток ГПХ не входит в долю)."""
-    num_cols = [c for c in df.columns if pd.api.types.is_numeric_dtype(df[c])
-                and not _ID_ENT.search(c)]
-    if len(num_cols) < 4:
-        return None
+# --- разметка колонок в «книги» (единственное место, где нужна семантика таблицы) ---
+_YEAR_TOK = re.compile(r"(?<!\d)(2025|2026|25|26)(?!\d)")
+_DELTA_RE = re.compile(r"diff|delta|дельт|razn|разн|_izm|измен", re.I)
+_EXCL_RE = re.compile(r"гпх|gpx|gph|самозанят|self.?empl|self.?emp", re.I)
+
+
+def _year_of(col: str) -> int | None:
+    m = _YEAR_TOK.search(col)
+    return None if not m else (26 if m.group(1) in ("26", "2026") else 25)
+
+
+def _book_label(col: str, desc: str) -> str:
+    t = (col + " " + (desc or "")).lower()
+    if re.search(r"гпх|gpx|gph", t):
+        return "ГПХ"
+    if re.search(r"самозанят|self.?empl", t):
+        return "Самозанятые"
+    if re.search(r"кпэ|unic|уник|kpi|кпи", t):
+        return "ФЛ КПЭ"
+    if "дол" in t or "market" in t or "share" in t:
+        return "ФЛ доля"
+    return re.sub(r"[_\s]+", " ", _YEAR_TOK.sub("", col)).strip() or col
+
+
+def _books_specs_llm(df: pd.DataFrame, prep: Prep, llm, num_cols: list[str]) -> tuple[list[dict], str]:
+    """LLM размечает числовые колонки в книги. Возвращает (specs, note) — сырьё для _books_compute.
+    Обобщается на любую таблицу: семантика («что не входит в долю») берётся из описаний колонок."""
     listing = "\n".join(f"- {c}: {prep.meta.get(c, {}).get('desc', '') or prep.lbls.of(c)}"
                         for c in num_cols)
     try:
         out = llm.complete_json(_BOOKS_SYS, f"Таблица: {prep.table_desc}\n\nЧисловые колонки:\n{listing}",
-                                max_tokens=1500, node="investigate_books")
+                                max_tokens=4000, node="investigate_books")
     except Exception as exc:  # noqa: BLE001
-        logger.warning("investigate: книги портфеля не выделены (%s)", exc)
+        logger.warning("investigate: LLM-разметка книг не удалась (%s)", exc)
+        return [], ""
+    specs = [{"label": str(b.get("label") or b.get("y26") or b.get("delta_col")),
+              "role": b["role"], "y25": b.get("y25"), "y26": b.get("y26"),
+              "delta_col": b.get("delta_col")}
+             for b in (out.get("books") or [])
+             if isinstance(b, dict) and b.get("role") in ("headline", "excluded")]
+    return specs, str(out.get("note") or "").strip()
+
+
+def _books_specs_heuristic(df: pd.DataFrame, prep: Prep, num_cols: list[str]) -> tuple[list[dict], str]:
+    """Детерминированный фолбэк без LLM: пары колонок *_25/*_26 → книги; роль excluded по
+    сигналам ГПХ/самозанятые в имени/описании. Ловит методологию, когда LLM недоступен/промолчал."""
+    pairs: dict[str, dict[int, str]] = {}
+    for c in num_cols:
+        if _DELTA_RE.search(c):
+            continue
+        y = _year_of(c)
+        if y is None:
+            continue
+        pairs.setdefault(_YEAR_TOK.sub("¤", c, count=1), {})[y] = c
+    heads, excl = [], []
+    for d in pairs.values():
+        if 25 not in d or 26 not in d:
+            continue
+        col = d[26]
+        desc = prep.meta.get(col, {}).get("desc", "") or prep.meta.get(d[25], {}).get("desc", "")
+        spec = {"label": _book_label(col, desc), "y25": d[25], "y26": d[26], "delta_col": None}
+        if _EXCL_RE.search(col + " " + (desc or "")):
+            spec["role"] = "excluded"; excl.append(spec)
+        else:
+            spec["role"] = "headline"; heads.append(spec)
+    note = ("Внимание: ГПХ и самозанятые не входят в ФЛ долю — их отток нельзя смешивать с долей."
+            if excl else "")
+    return heads + excl, note
+
+
+def _valid_specs(specs: list[dict], df: pd.DataFrame) -> list[dict]:
+    """Оставляем только книги с существующими колонками и вычислимой Δ."""
+    return [s for s in specs
+            if (s.get("y25") in df.columns and s.get("y26") in df.columns)
+            or s.get("delta_col") in df.columns]
+
+
+def _specs_ok(specs: list[dict]) -> bool:
+    heads = [s for s in specs if s["role"] == "headline"]
+    excl = [s for s in specs if s["role"] == "excluded"]
+    return bool(heads) and (len(heads) >= 2 or bool(excl))
+
+
+def _portfolio_books(df: pd.DataFrame, prep: Prep, llm) -> dict | None:
+    """Методологический слой: делим числа на «книги портфеля» — основные метрики (доля/КПЭ)
+    и ИСКЛЮЧЁННЫЕ из них категории (ГПХ/самозанятые). Разметку даёт LLM (обобщается на любую
+    таблицу), при осечке — детерминированный эвристический фолбэк. Дальше ВСЁ детерминированно
+    (_books_compute): Δ год-к-году по книге + Δ по сегментам. Ключ: метрики с разными
+    знаменателями (отток ГПХ не входит в долю) смешивать нельзя."""
+    num_cols = [c for c in df.columns if pd.api.types.is_numeric_dtype(df[c])
+                and not _ID_ENT.search(c)]
+    if len(num_cols) < 4:
+        return None
+    specs, note = _books_specs_llm(df, prep, llm, num_cols)
+    specs = _valid_specs(specs, df)
+    if not _specs_ok(specs):                          # LLM пусто/невалидно → детерминированный фолбэк
+        specs, note = _books_specs_heuristic(df, prep, num_cols)
+        specs = _valid_specs(specs, df)
+    return _books_compute(df, prep, specs, note)
+
+
+def _books_compute(df: pd.DataFrame, prep: Prep, specs: list[dict], note: str) -> dict | None:
+    """Чистая арифметика поверх разметки: суммы 25/26, Δ по книге, Δ по сегментам. Без LLM."""
+    if not _specs_ok(specs):                          # нет методологии — блок не строим
         return None
     books: list[Book] = []
-    for b in (out.get("books") or []):
-        if not isinstance(b, dict) or b.get("role") not in ("headline", "excluded"):
-            continue
-        y25, y26, dc = b.get("y25"), b.get("y26"), b.get("delta_col")
-        v25 = float(pd.to_numeric(df[y25], errors="coerce").sum()) if y25 in df.columns else None
-        v26 = float(pd.to_numeric(df[y26], errors="coerce").sum()) if y26 in df.columns else None
+    for s in specs:
+        y25, y26, dc = s.get("y25"), s.get("y26"), s.get("delta_col")
+        v25 = float(pd.to_numeric(df[y25], errors="coerce").sum()) if y25 in df.columns else float("nan")
+        v26 = float(pd.to_numeric(df[y26], errors="coerce").sum()) if y26 in df.columns else float("nan")
         if dc in df.columns:
             delta = float(pd.to_numeric(df[dc], errors="coerce").sum())
-        elif v25 is not None and v26 is not None:
+        elif v25 == v25 and v26 == v26:
             delta = v26 - v25
         else:
             continue
-        books.append(Book(label=str(b.get("label") or y26 or dc), role=b["role"],
-                          v25=v25 if v25 is not None else float("nan"),
-                          v26=v26 if v26 is not None else float("nan"), delta=delta))
+        books.append(Book(label=s["label"], role=s["role"], v25=v25, v26=v26, delta=delta))
     heads = [b for b in books if b.role == "headline"]
     excl = [b for b in books if b.role == "excluded"]
-    if not heads or not (len(heads) >= 2 or excl):    # неинтересно, если нет методологии
+    if not heads or not (len(heads) >= 2 or excl):
         return None
+    spec_by_label = {s["label"]: s for s in specs}
     # Δ по сегментам для headline-книг (за счёт чего изменение по каждой метрике)
     seg = next((d for d in prep.roles.dimensions if re.search(r"segment|сегмент", d, re.I)
                 and d in df.columns), None)
@@ -270,18 +373,17 @@ def _portfolio_books(df: pd.DataFrame, prep: Prep, llm) -> dict | None:
     seg_series: dict = {}
     if seg:
         for b in heads:
-            bb = next((x for x in (out.get("books") or []) if x.get("label") == b.label), {})
-            y25, y26, dc = bb.get("y25"), bb.get("y26"), bb.get("delta_col")
+            s = spec_by_label.get(b.label, {})
+            y25, y26, dc = s.get("y25"), s.get("y26"), s.get("delta_col")
             if dc in df.columns:
-                s = pd.to_numeric(df[dc], errors="coerce").groupby(df[seg]).sum()
+                sr = pd.to_numeric(df[dc], errors="coerce").groupby(df[seg]).sum()
             elif y25 in df.columns and y26 in df.columns:
-                s = (pd.to_numeric(df[y26], errors="coerce").groupby(df[seg]).sum()
-                     - pd.to_numeric(df[y25], errors="coerce").groupby(df[seg]).sum())
+                sr = (pd.to_numeric(df[y26], errors="coerce").groupby(df[seg]).sum()
+                      - pd.to_numeric(df[y25], errors="coerce").groupby(df[seg]).sum())
             else:
                 continue
-            seg_series[b.label] = s.sort_values()
-    return {"books": books, "note": str(out.get("note") or "").strip(), "seg": seg,
-            "seg_series": seg_series,
+            seg_series[b.label] = sr.sort_values()
+    return {"books": books, "note": note, "seg": seg, "seg_series": seg_series,
             "head_sum": sum(b.delta for b in heads), "excl_sum": sum(b.delta for b in excl)}
 
 
@@ -426,7 +528,13 @@ def _why(df, frame: Frame, assets, lbls, ref, side="auto") -> list[tuple[str, di
             bs = float(rows.get(val, 0)) / total_rows
             recs.append((val, ls, bs, (ls / bs) if bs > 0 else 0.0))
         material = [r for r in recs if r[1] >= 0.05] or recs
-        best = max(material, key=lambda r: r[3])                        # макс. lift среди материальных
+        # мусорные бакеты (Прочее/Не указано/пусто) — не «драйвер»: как инсайт бесполезны.
+        # Есть осмысленная категория — берём её; если ВЕСЬ драйвер мусорный — разрез пропускаем
+        # (лучше не показать, чем выдать «Прочее — 100% потерь»).
+        meaningful = [r for r in material if not _NOISE_VAL.search(str(r[0]))]
+        if not meaningful:
+            continue
+        best = max(meaningful, key=lambda r: r[3])                      # макс. lift среди осмысленных
         info = {"value": fmt_val(best[0]), "loss_share": round(best[1] * 100, 1),
                 "base_share": round(best[2] * 100, 1), "lift": round(best[3], 1)}
         out.append((d, info, _contrib_chart(c, frame, assets, lbls, tag="why")))
@@ -993,6 +1101,8 @@ def investigate(db, catalog, llm, fqn: str, question: str, *, where: str | None 
             "итог_исключённые": _fmt_u(books["excl_sum"], unit)}
     progress("собираю причинную цепочку и действия…")
     synth = _synthesize(llm, question, facts)
+    if books:                                        # детерминированная методологическая шапка — первой
+        synth["answer"] = _books_lead(books, unit) + "\n\n" + (synth.get("answer") or "")
     if df.attrs.get("sample_note"):                  # плашка о сэмпле (гейт памяти)
         synth["answer"] = "⚠️ " + df.attrs["sample_note"] + "\n\n" + (synth.get("answer") or "")
 
@@ -1076,6 +1186,25 @@ def _books_takeaway(books, unit) -> str:
     tail = ("— то есть реальное снижение портфеля вне доли; смешивать метрики нельзя."
             if hs >= 0 > es else "— методологии не смешиваем.")
     return ", ".join(parts) + " " + tail
+
+
+def _books_lead(books, unit) -> str:
+    """Детерминированная методологическая ШАПКА ответа: всегда первой строкой и с ВЕРНЫМ знаком,
+    чтобы вывод не переворачивался (нельзя писать «снижение», если целевые метрики выросли)."""
+    hs, es = books["head_sum"], books["excl_sum"]
+    heads = [b.label for b in books["books"] if b.role == "headline"]
+    excl = [b.label for b in books["books"] if b.role == "excluded"]
+    hw = "вырос" if hs > 0 else ("снизился" if hs < 0 else "не изменился")
+    amt = _fmt_u(hs, unit)
+    dot = "" if amt.endswith(".") else "."
+    lead = f"**По целевым метрикам ({', '.join(heads)}) портфель {hw} на {amt}{dot}**"
+    if excl and es < 0 <= hs:
+        lead += (f" Реальное падение — {_fmt_u(es, unit)} — сосредоточено в исключённых из доли "
+                 f"категориях ({', '.join(excl)}), которые методологически нельзя смешивать с долей.")
+    elif excl:
+        w = "снизились" if es < 0 else "выросли"
+        lead += f" Исключённые из доли ({', '.join(excl)}) {w} на {_fmt_u(es, unit)}."
+    return lead
 
 
 def _books_md(books, unit) -> str:

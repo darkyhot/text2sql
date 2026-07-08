@@ -17,9 +17,21 @@
       "top_share_pct": 54.7
     },
     {
+      "name": "Доля закрытых",
+      "label": "Доля закрытых",
+      "column": "__rate_0",
+      "kind": "rate",
+      "unit": "%",
+      "agg": "mean",
+      "total": 0.74,
+      "top_dim": null,
+      "top_value": null,
+      "top_share_pct": null
+    },
+    {
       "name": "Доля успешно закрытых",
       "label": "Доля успешно закрытых",
-      "column": "__rate_0",
+      "column": "__rate_1",
       "kind": "rate",
       "unit": "%",
       "agg": "mean",
@@ -29,9 +41,9 @@
       "top_share_pct": null
     },
     {
-      "name": "Доля задач в работе",
-      "label": "Доля задач в работе",
-      "column": "__rate_1",
+      "name": "Доля в работе",
+      "label": "Доля в работе",
+      "column": "__rate_2",
       "kind": "rate",
       "unit": "%",
       "agg": "mean",
@@ -43,7 +55,7 @@
     {
       "name": "Доля эскалаций",
       "label": "Доля эскалаций",
-      "column": "__rate_2",
+      "column": "__rate_3",
       "kind": "rate",
       "unit": "%",
       "agg": "mean",
@@ -55,7 +67,7 @@
     {
       "name": "Просрочка закрытия",
       "label": "Просрочка закрытия",
-      "column": "__overdue_3",
+      "column": "__overdue_4",
       "kind": "rate",
       "unit": "%",
       "agg": "mean",
@@ -65,9 +77,9 @@
       "top_share_pct": null
     },
     {
-      "name": "Срок отработки, дн",
-      "label": "Срок отработки, дн",
-      "column": "__dur_4",
+      "name": "Фактический срок отработки, дн",
+      "label": "Фактический срок отработки, дн",
+      "column": "__dur_5",
       "kind": "duration",
       "unit": "дн",
       "agg": "mean",
@@ -89,6 +101,18 @@
       "top_share_pct": 100.0
     },
     {
+      "name": "unrealized_deal_potential",
+      "label": "Нереализованный потенциал сделки",
+      "column": "unrealized_deal_potential",
+      "kind": "money",
+      "unit": "₽",
+      "agg": "sum",
+      "total": 9598611.0,
+      "top_dim": "Категория задачи",
+      "top_value": "Предложение",
+      "top_share_pct": 100.0
+    },
+    {
       "name": "plan_staff_deal_qty",
       "label": "Плановое привлечение по сделке",
       "column": "plan_staff_deal_qty",
@@ -99,44 +123,37 @@
       "top_dim": "Категория задачи",
       "top_value": "Предложение",
       "top_share_pct": 100.0
-    },
-    {
-      "name": "unrealized_deal_potential",
-      "label": "Нереализованный потенциал",
-      "column": "unrealized_deal_potential",
-      "kind": "count",
-      "unit": "",
-      "agg": "sum",
-      "total": 9598611.0,
-      "top_dim": "Категория задачи",
-      "top_value": "Предложение",
-      "top_share_pct": 100.0
     }
   ],
   "dimensions": [
     {
       "column": "tb_name",
-      "label": "Название территориального банка",
+      "label": "Наименование ТБ",
       "cardinality": 3
     },
     {
       "column": "gosb_name",
-      "label": "Название головного отделения",
+      "label": "Наименование ГОСБ",
       "cardinality": 3
     },
     {
       "column": "saphr_gosb_id",
-      "label": "Код подразделения сотрудника",
+      "label": "Номер ГОСБ сотрудника",
+      "cardinality": 2
+    },
+    {
+      "column": "manager_fio",
+      "label": "ФИО руководителя",
       "cardinality": 2
     },
     {
       "column": "isu_struct_saphr_id",
-      "label": "Код сотрудника или подразделения",
+      "label": "Табельный номер сотрудника",
       "cardinality": 3
     },
     {
       "column": "emp_post",
-      "label": "Название должности",
+      "label": "Должность сотрудника",
       "cardinality": 2
     },
     {
@@ -192,9 +209,9 @@
   ],
   "entities": [
     {
-      "column": "manager_fio",
-      "label": "ФИО руководителя",
-      "cardinality": 2
+      "column": "task_struct_saphr_id",
+      "label": "Идентификатор структуры задачи",
+      "cardinality": 924
     },
     {
       "column": "emp_fio",
@@ -203,8 +220,13 @@
     },
     {
       "column": "inn",
-      "label": "ИНН клиента",
+      "label": "ИНН",
       "cardinality": 300
+    },
+    {
+      "column": "task_code",
+      "label": "Код задачи",
+      "cardinality": 4000
     }
   ],
   "dates": [

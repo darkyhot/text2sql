@@ -5,18 +5,6 @@
   "row_count": 4000,
   "measures": [
     {
-      "name": "current_fot_amt",
-      "label": "Текущий ФОТ",
-      "column": "current_fot_amt",
-      "kind": "money",
-      "unit": "₽",
-      "agg": "sum",
-      "total": 10178181387.99,
-      "top_dim": "Уровень загрузки",
-      "top_value": "Прочее",
-      "top_share_pct": 34.9
-    },
-    {
       "name": "fot_outflow_amt",
       "label": "Отток ФОТ",
       "column": "fot_outflow_amt",
@@ -29,14 +17,14 @@
       "top_share_pct": 34.2
     },
     {
-      "name": "emp_potential_qty",
-      "label": "Потенциал сотрудников",
-      "column": "emp_potential_qty",
-      "kind": "count",
-      "unit": "чел.",
+      "name": "current_fot_amt",
+      "label": "Текущий ФОТ",
+      "column": "current_fot_amt",
+      "kind": "money",
+      "unit": "₽",
       "agg": "sum",
-      "total": 10038802.0,
-      "top_dim": "Тип организации",
+      "total": 10178181387.99,
+      "top_dim": "Уровень загрузки",
       "top_value": "Прочее",
       "top_share_pct": 34.9
     },
@@ -51,6 +39,18 @@
       "top_dim": "Тип организации",
       "top_value": "Прочее",
       "top_share_pct": 34.7
+    },
+    {
+      "name": "emp_potential_qty",
+      "label": "Потенциал сотрудников",
+      "column": "emp_potential_qty",
+      "kind": "count",
+      "unit": "чел.",
+      "agg": "sum",
+      "total": 10038802.0,
+      "top_dim": "Тип организации",
+      "top_value": "Прочее",
+      "top_share_pct": 34.9
     },
     {
       "name": "ul_outflow_qty",
@@ -78,7 +78,7 @@
     },
     {
       "name": "fot_y_1_diff_amt",
-      "label": "Изменение ФОТ за год",
+      "label": "Изменение ФОТ год к году",
       "column": "fot_y_1_diff_amt",
       "kind": "money",
       "unit": "₽",
@@ -90,7 +90,7 @@
     },
     {
       "name": "current_fl_qty",
-      "label": "Текущие ФЛ получатели",
+      "label": "Текущие получатели зарплаты",
       "column": "current_fl_qty",
       "kind": "count",
       "unit": "чел.",
@@ -102,7 +102,7 @@
     },
     {
       "name": "fl_y_1_diff_qty",
-      "label": "Изменение ФЛ за год",
+      "label": "Изменение числа ФЛ год к году",
       "column": "fl_y_1_diff_qty",
       "kind": "count",
       "unit": "чел.",
@@ -162,7 +162,7 @@
     },
     {
       "name": "new_fl_cnt_next_month",
-      "label": "Новые ФЛ следующий месяц",
+      "label": "Новые ФЛ в следующем месяце",
       "column": "new_fl_cnt_next_month",
       "kind": "count",
       "unit": "чел.",
@@ -174,7 +174,7 @@
     },
     {
       "name": "np_cnt_next_month",
-      "label": "НП следующий месяц",
+      "label": "НП в следующем месяце",
       "column": "np_cnt_next_month",
       "kind": "count",
       "unit": "",
@@ -186,7 +186,7 @@
     },
     {
       "name": "pu_sber1_available_cnt",
-      "label": "Доступно ПУ Сбер1",
+      "label": "Доступно Сбер1",
       "column": "pu_sber1_available_cnt",
       "kind": "count",
       "unit": "",
@@ -198,7 +198,7 @@
     },
     {
       "name": "pu_sber1_give_cnt",
-      "label": "Назначено ПУ Сбер1",
+      "label": "Назначено Сбер1",
       "column": "pu_sber1_give_cnt",
       "kind": "count",
       "unit": "",
@@ -210,7 +210,7 @@
     },
     {
       "name": "pu_premier_available_cnt",
-      "label": "Доступно ПУ СберПремьер",
+      "label": "Доступно СберПремьер",
       "column": "pu_premier_available_cnt",
       "kind": "count",
       "unit": "",
@@ -222,7 +222,7 @@
     },
     {
       "name": "pu_premier_give_cnt",
-      "label": "Назначено ПУ СберПремьер",
+      "label": "Назначено СберПремьер",
       "column": "pu_premier_give_cnt",
       "kind": "count",
       "unit": "",
@@ -234,7 +234,7 @@
     },
     {
       "name": "pu_praim_available_cnt",
-      "label": "Доступно ПУ СберПрайм",
+      "label": "Доступно СберПрайм",
       "column": "pu_praim_available_cnt",
       "kind": "count",
       "unit": "",
@@ -246,7 +246,7 @@
     },
     {
       "name": "pu_praim_give_cnt",
-      "label": "Назначено ПУ СберПрайм",
+      "label": "Назначено СберПрайм",
       "column": "pu_praim_give_cnt",
       "kind": "count",
       "unit": "",
@@ -258,7 +258,7 @@
     },
     {
       "name": "pu_praim_mass_available_cnt",
-      "label": "Доступно ПУ СберПрайм масс",
+      "label": "Доступно СберПрайм масс",
       "column": "pu_praim_mass_available_cnt",
       "kind": "count",
       "unit": "",
@@ -270,7 +270,7 @@
     },
     {
       "name": "pu_praim_mass_give_cnt",
-      "label": "Назначено ПУ СберПрайм масс",
+      "label": "Назначено СберПрайм масс",
       "column": "pu_praim_mass_give_cnt",
       "kind": "count",
       "unit": "",
@@ -282,7 +282,7 @@
     },
     {
       "name": "pu_praim_plus_available_cnt",
-      "label": "Доступно ПУ СберПрайм+",
+      "label": "Доступно СберПрайм+",
       "column": "pu_praim_plus_available_cnt",
       "kind": "count",
       "unit": "",
@@ -294,7 +294,7 @@
     },
     {
       "name": "pu_praim_plus_give_cnt",
-      "label": "Назначено ПУ СберПрайм+",
+      "label": "Назначено СберПрайм+",
       "column": "pu_praim_plus_give_cnt",
       "kind": "count",
       "unit": "",
@@ -306,7 +306,7 @@
     },
     {
       "name": "pu_consumer_loan_available_cnt",
-      "label": "Доступно ПУ Потребительский кредит",
+      "label": "Доступно Потребительский кредит",
       "column": "pu_consumer_loan_available_cnt",
       "kind": "count",
       "unit": "",
@@ -318,7 +318,7 @@
     },
     {
       "name": "pu_consumer_loan_give_cnt",
-      "label": "Назначено ПУ Потребительский кредит",
+      "label": "Назначено Потребительский кредит",
       "column": "pu_consumer_loan_give_cnt",
       "kind": "count",
       "unit": "",

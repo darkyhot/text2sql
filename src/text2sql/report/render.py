@@ -1,9 +1,11 @@
-"""Render Engine (§5.5–5.6 дизайна): интерактивный ОФЛАЙН-HTML на вшитых Plotly.js + Tabulator.
+"""Render Engine (§5.5–5.6 дизайна): интерактивный ОФЛАЙН-HTML на вшитых Apache ECharts + Tabulator.
 
 Библиотеки лежат в `assets/` (vendored) и ИНЛАЙНЯТСЯ в HTML — файл полностью автономен,
-нулевые внешние запросы (банковский офлайн-контур). Здесь — только «голова» (вшитые CSS/JS)
-и генераторы виджетов: Plotly-графики (bar/grouped/line/waterfall/indicator) и Tabulator-таблицы
-(сортировка, поиск по колонкам, пагинация, экспорт CSV).
+нулевые внешние запросы (банковский офлайн-контур). Графики — ECharts (легче Plotly ~в 4 раза,
+современнее из коробки, нативные treemap/heatmap/waterfall) через тема-обёртку T2S (свет/тёмная,
+ресайз, форматтеры чисел). Таблицы — Tabulator (сортировка/поиск/пагинация/сброс фильтров/CSV).
+Спек-билдеры отдают ECharts `option`; чарт-функции кладут его в сайдкар `<name>.chart.json`,
+HTML-рендер (`embed`) отдаёт интерактив, MD/фолбэк — прежний PNG.
 """
 
 from __future__ import annotations
@@ -16,6 +18,13 @@ from pathlib import Path
 
 _ASSETS = Path(__file__).parent / "assets"
 _cache: dict[str, str] = {}
+
+
+def _safe_js(js: str) -> str:
+    """Экранировать `</script>` внутри инлайнимого JS — иначе минифицированная библиотека
+    (в ECharts есть строка с `</script>`) преждевременно закрывает <script>-тег, и остаток
+    вываливается в страницу как текст. `<\\/script>` для JS эквивалентно `</script>`."""
+    return re.sub(r"</(script)", r"<\\/\1", js, flags=re.I)
 
 
 def _read(name: str) -> str:
@@ -65,51 +74,61 @@ padding:14px 16px;box-shadow:var(--shadow)}
 # worst adjacent ΔE 24.2. Свет: 3 слота <3:1 → relief через прямые подписи на барах (есть).
 _CAT_LIGHT = ["#2a78d6", "#1baf7a", "#eda100", "#008300", "#4a3aa7", "#e34948", "#e87ba4", "#eb6834"]
 _CAT_DARK = ["#3987e5", "#199e70", "#c98500", "#008300", "#9085e9", "#e66767", "#d55181", "#d95926"]
-_SEQ = [[0.0, "#cde2fb"], [0.5, "#3987e5"], [1.0, "#0d366b"]]           # sequential blue
-_SEQ_RED = [[0.0, "#fbe0da"], [0.5, "#e34948"], [1.0, "#8f1f1e"]]
-_DIV = [[0.0, "#2a78d6"], [0.5, "#f0efec"], [1.0, "#d03b3b"]]          # diverging blue↔gray↔red
-_SCALE = {"Blues": _SEQ, "Reds": _SEQ_RED, "RdYlGn": _DIV, "seq": _SEQ, "div": _DIV}
+_SEQ_HEX = ["#cde2fb", "#3987e5", "#0d366b"]                     # sequential blue
+_SEQ_RED_HEX = ["#fbe0da", "#e34948", "#8f1f1e"]
+_DIV_HEX = ["#2a78d6", "#f0efec", "#d03b3b"]                     # diverging blue↔gray↔red
+_SCALE = {"Blues": _SEQ_HEX, "Reds": _SEQ_RED_HEX, "RdYlGn": _DIV_HEX, "seq": _SEQ_HEX, "div": _DIV_HEX}
+
+# Тема-обёртка T2S для Apache ECharts (theme-aware: базовая тема свет/тёмная мержится в каждый
+# график, перерисовка при смене темы ОС; ресайз). Форматтеры чисел (пробел-разделители, %,
+# знак) подставляются на клиенте через сентинелы «__int__»/«__pct__»/… (в JSON функции нельзя).
+_T2S_JS = """
+window.T2S=window.T2S||{};T2S.charts=[];T2S.insts={};T2S.PAL=__PAL__;
+T2S.dark=function(){return !!(window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches);};
+T2S.FMT={
+ __int__:function(p){var v=(p&&p.value!=null)?p.value:p;return v==null||isNaN(v)?'':Number(v).toLocaleString('ru-RU',{maximumFractionDigits:0});},
+ __pct__:function(p){var v=(p&&p.value!=null)?p.value:p;return v==null||isNaN(v)?'':Math.round(v)+'%';},
+ __signed__:function(p){var v=(p&&p.value!=null)?p.value:p;if(v==null||isNaN(v))return '';return (v>0?'+':'')+Number(v).toLocaleString('ru-RU',{maximumFractionDigits:0});},
+ __scatter__:function(p){return (p.data&&p.data[2]?p.data[2]+'<br>':'')+Number(p.data[0]).toLocaleString('ru-RU')+' · '+Number(p.data[1]).toLocaleString('ru-RU');}
+};
+T2S.hydrate=function(o){if(!o||typeof o!=='object')return;for(var k in o){var v=o[k];
+ if(k==='formatter'&&typeof v==='string'&&T2S.FMT[v]){o[k]=T2S.FMT[v];}else if(v&&typeof v==='object'){T2S.hydrate(v);}}};
+T2S.base=function(){var d=T2S.dark();
+ var ink=d?'#fff':'#0b0b0b',sec=d?'#c3c2b7':'#52514e',surf=d?'#1a1a19':'#fcfcfb',grid=d?'#2c2c2a':'#e1e0d9';
+ return {color:d?T2S.PAL.dark:T2S.PAL.light,
+  textStyle:{fontFamily:'system-ui,-apple-system,Segoe UI,sans-serif',color:sec},
+  title:{left:2,top:4,textStyle:{color:ink,fontSize:14,fontWeight:600}},
+  grid:{left:8,right:22,top:46,bottom:8,containLabel:true},
+  tooltip:{backgroundColor:surf,borderColor:grid,borderWidth:1,textStyle:{color:ink},confine:true,
+   extraCssText:'box-shadow:0 6px 18px rgba(0,0,0,.14);border-radius:10px;padding:8px 10px;'},
+  legend:{bottom:0,textStyle:{color:sec},icon:'roundRect',itemWidth:12,itemHeight:8}};};
+T2S.ax=function(){var d=T2S.dark();var mut='#898781',grid=d?'#2c2c2a':'#e1e0d9',axl=d?'#383835':'#c3c2b7';
+ return {cat:{axisLine:{lineStyle:{color:axl}},axisTick:{show:false},axisLabel:{color:mut},splitLine:{show:false}},
+  val:{axisLine:{show:false},axisTick:{show:false},axisLabel:{color:mut},splitLine:{lineStyle:{color:grid,type:'dashed'}}}};};
+T2S.axisStyle=function(opt){var A=T2S.ax();['xAxis','yAxis'].forEach(function(k){if(!opt[k])return;
+ var arr=Array.isArray(opt[k])?opt[k]:[opt[k]];arr.forEach(function(a){var st=(a.type==='value')?A.val:A.cat;
+  for(var p in st){a[p]=Object.assign({},st[p],a[p]||{});}});});};
+T2S.draw=function(cid,option){var el=document.getElementById(cid);if(!el||!window.echarts)return;
+ var inst=T2S.insts[cid];if(inst){inst.dispose();}inst=echarts.init(el,null,{renderer:'canvas'});T2S.insts[cid]=inst;
+ var opt=JSON.parse(JSON.stringify(option));T2S.hydrate(opt);T2S.axisStyle(opt);
+ inst.setOption(T2S.base());inst.setOption(opt);};
+T2S.plot=function(cid,option){T2S.charts.push([cid,option]);T2S.draw(cid,option);};
+if(window.matchMedia){matchMedia('(prefers-color-scheme: dark)').addEventListener('change',function(){
+ T2S.charts.forEach(function(c){T2S.draw(c[0],c[1]);});});}
+window.addEventListener('resize',function(){for(var k in T2S.insts){if(T2S.insts[k])T2S.insts[k].resize();}});
+"""
 
 
-def _tpl(mode: str) -> dict:
-    light = mode == "light"
-    ink = "#0b0b0b" if light else "#ffffff"
-    sec = "#52514e" if light else "#c3c2b7"
-    mut = "#898781"
-    grid = "#e1e0d9" if light else "#2c2c2a"
-    base = "#c3c2b7" if light else "#383835"
-    surf = "#fcfcfb" if light else "#1a1a19"
-    ax = {"gridcolor": grid, "zerolinecolor": base, "linecolor": "rgba(0,0,0,0)",
-          "tickfont": {"color": mut, "size": 11}, "title": {"font": {"color": sec}},
-          "automargin": True}
-    return {"layout": {
-        "font": {"family": "system-ui,-apple-system,Segoe UI,sans-serif", "size": 12, "color": sec},
-        "title": {"font": {"color": ink, "size": 14}, "x": 0.02, "xanchor": "left"},
-        "colorway": _CAT_LIGHT if light else _CAT_DARK,
-        "paper_bgcolor": "rgba(0,0,0,0)", "plot_bgcolor": "rgba(0,0,0,0)",
-        "xaxis": {**ax, "showgrid": True}, "yaxis": {**ax, "showgrid": True},
-        "hoverlabel": {"bgcolor": surf, "bordercolor": grid,
-                       "font": {"family": "system-ui,-apple-system,sans-serif", "color": ink}},
-        "bargap": 0.3, "legend": {"orientation": "h", "y": -0.2, "font": {"color": sec}},
-        "margin": {"t": 42, "r": 16, "b": 46, "l": 62}}}
-
-
-def plotly_head() -> str:
-    tpl = json.dumps({"light": _tpl("light"), "dark": _tpl("dark")}, ensure_ascii=False)
-    js = ("window.T2S=window.T2S||{};T2S.tpl=%s;T2S.charts=[];"
-          "T2S.mode=function(){return matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';};"
-          "T2S.cfg={responsive:true,displaylogo:false,"
-          "modeBarButtonsToRemove:['lasso2d','select2d','autoScale2d','zoom2d']};"
-          "T2S.draw=function(id,tr,lay){Plotly.react(id,tr,"
-          "Object.assign({template:T2S.tpl[T2S.mode()]},lay||{}),T2S.cfg);};"
-          "T2S.plot=function(id,tr,lay){T2S.charts.push([id,tr,lay]);T2S.draw(id,tr,lay);};"
-          "T2S.redraw=function(){T2S.charts.forEach(function(c){T2S.draw(c[0],c[1],c[2]);});};"
-          "matchMedia('(prefers-color-scheme: dark)').addEventListener('change',T2S.redraw);") % tpl
-    return f"<script>{_read('plotly.min.js')}</script><script>{js}</script>"
+def charts_head() -> str:
+    """Вшитый ECharts + тема-обёртка T2S. Одна на HTML-файл (в <head>)."""
+    js = _T2S_JS.replace("__PAL__", json.dumps({"light": _CAT_LIGHT, "dark": _CAT_DARK}, ensure_ascii=False))
+    return (f"<script>{_safe_js(_read('echarts.min.js'))}</script>"
+            f"<script>{_safe_js(js)}</script>")
 
 
 def tabulator_head() -> str:
-    return f"<style>{_read('tabulator.min.css')}</style>\n<script>{_read('tabulator.min.js')}</script>"
+    return (f"<style>{_read('tabulator.min.css')}</style>\n"
+            f"<script>{_safe_js(_read('tabulator.min.js'))}</script>")
 
 
 # Тема Tabulator (токены дизайн-системы, свет/тёмная): без зебры, тонкие горизонтальные
@@ -185,84 +204,72 @@ document.addEventListener("DOMContentLoaded",function(){
 
 
 def enhance_tables(html: str) -> str:
-    """Вшить Tabulator и сделать все таблицы интерактивными. Идемпотентно."""
+    """Вшить Tabulator и сделать все таблицы интерактивными. Идемпотентно.
+    Вставляем перед ПОСЛЕДНИМ </body> (не первым!): вшитый ECharts содержит `</body>` внутри
+    строкового литерала (saveAsImage), и `.replace('</body>', …)` по первому вхождению разрезал
+    бы библиотеку пополам."""
     if "t2s-tab-wrap" in html:
         return html
     assets = tabulator_head() + _TAB_INIT
-    return html.replace("</body>", assets + "</body>", 1) if "</body>" in html else html + assets
+    idx = html.rfind("</body>")
+    return (html[:idx] + assets + html[idx:]) if idx != -1 else html + assets
 
 
-# ---------------- Plotly-виджеты ----------------
-# Семантические цвета (из status-палитры dataviz — фиксированы, читаются на свете и в тёмной):
+# ---------------- ECharts-виджеты ----------------
+# Семантические цвета (status-палитра dataviz — фиксированы, читаются на свете и в тёмной):
 # потери=critical, прирост=good, нейтраль=blue slot1.
 _C = {"loss": "#d03b3b", "gain": "#0ca30c", "neut": "#2a78d6", "muted": "#898781"}
 
 
-def chart(cid: str, traces: list[dict], layout: dict | None = None, *, height: int = 340) -> str:
-    """Div + Plotly через T2S (theme-aware: подхватывает свет/тёмную и перерисовывается при
-    смене темы). Данные — inline JSON, интерактив в браузере. Требует plotly_head в <head>."""
-    lay = {"height": height}
-    lay.update(layout or {})
-    return (f"<div id='{cid}' class='t2s-plot'></div><script>"
-            f"T2S.plot('{cid}',{json.dumps(traces, ensure_ascii=False)},"
-            f"{json.dumps(lay, ensure_ascii=False)});</script>")
+def _hex(c: str) -> str:
+    return _C.get(c, c)
+
+
+def chart(cid: str, option: dict, *, height: int = 340) -> str:
+    """Div + ECharts через T2S (theme-aware, ресайз). option — ECharts-схема (inline JSON).
+    Требует charts_head в <head> страницы."""
+    return (f"<div id='{cid}' class='t2s-plot' style='width:100%;height:{height}px'></div>"
+            f"<script>T2S.plot('{cid}',{json.dumps(option, ensure_ascii=False)});</script>")
 
 
 def bar(cid: str, x: list, y: list, *, title: str = "", color: str = "neut",
         horizontal: bool = True, unit: str = "", height: int = 340) -> str:
-    col = _C.get(color, color)
-    tr = {"type": "bar", "orientation": "h" if horizontal else "v",
-          "marker": {"color": col, "cornerradius": 4},
-          "text": [f"{v:,.0f}".replace(",", " ") for v in y], "textposition": "auto"}
-    if horizontal:
-        tr["x"], tr["y"] = y, [str(v) for v in x]
-    else:
-        tr["x"], tr["y"] = [str(v) for v in x], y
-    lay = {"title": {"text": title, "font": {"size": 13}}}
-    if unit:
-        (lay.setdefault("xaxis", {}) if horizontal else lay.setdefault("yaxis", {}))["title"] = unit
-    return chart(cid, [tr], lay, height=height)
+    spec = (spec_barh(x, y, title=title, unit=unit, color=color) if horizontal
+            else spec_bar_v(x, y, title=title, unit=unit, color=color))
+    return chart(cid, spec["option"], height=spec.get("height", height))
 
 
 def grouped_bar(cid: str, categories: list, series: dict[str, list], *, title: str = "",
                 unit: str = "", height: int = 340) -> str:
-    traces = [{"type": "bar", "name": str(name), "x": [str(c) for c in categories], "y": vals,
-               "marker": {"cornerradius": 4},          # цвет — из colorway шаблона (theme-aware)
-               "text": [f"{v:.2f}" for v in vals], "textposition": "auto"}
-              for name, vals in series.items()]
-    lay = {"title": {"text": title, "font": {"size": 13}}, "barmode": "group",
-           "yaxis": {"title": unit}}
-    return chart(cid, traces, lay, height=height)
+    opt = {"title": {"text": title},
+           "xAxis": {"type": "category", "data": [str(c) for c in categories]},
+           "yAxis": {"type": "value", "name": unit},
+           "legend": {"data": [str(n) for n in series]}, "tooltip": {"trigger": "axis"},
+           "series": [{"type": "bar", "name": str(n), "data": list(v), "barMaxWidth": 34,
+                       "itemStyle": {"borderRadius": [3, 3, 0, 0]}} for n, v in series.items()]}
+    return chart(cid, opt, height=height)
 
 
 def line(cid: str, x: list, series: dict[str, list], *, title: str = "", unit: str = "",
          marker_x=None, height: int = 340) -> str:
-    traces = [{"type": "scatter", "mode": "lines+markers", "name": str(name),
-               "x": [str(v) for v in x], "y": vals, "line": {"width": 2}, "marker": {"size": 8}}
-              for name, vals in series.items()]
-    lay = {"title": {"text": title, "font": {"size": 13}}, "yaxis": {"title": unit}}
-    if marker_x is not None:
-        lay["shapes"] = [{"type": "line", "x0": str(marker_x), "x1": str(marker_x),
-                          "yref": "paper", "y0": 0, "y1": 1,
-                          "line": {"color": _C["muted"], "dash": "dash"}}]
-    return chart(cid, traces, lay, height=height)
+    return chart(cid, spec_line(x, series, title=title, unit=unit, marker_x=marker_x)["option"],
+                 height=height)
 
 
 def waterfall(cid: str, labels: list, values: list, *, title: str = "", unit: str = "",
               height: int = 340) -> str:
-    tr = {"type": "waterfall", "orientation": "v", "x": [str(l) for l in labels], "y": values,
-          "measure": ["absolute"] + ["relative"] * (len(values) - 2) + ["total"],
-          "text": [f"{v:+,.0f}".replace(",", " ") for v in values], "textposition": "outside",
-          "connector": {"line": {"color": _C["muted"]}}}
-    lay = {"title": {"text": title, "font": {"size": 13}}, "yaxis": {"title": unit}}
-    return chart(cid, [tr], lay, height=height)
+    return chart(cid, spec_waterfall(labels, values, title=title, unit=unit)["option"], height=height)
 
 
 def indicator(cid: str, value: float, *, title: str = "", suffix: str = "", height: int = 170) -> str:
-    tr = {"type": "indicator", "mode": "number", "value": value,
-          "number": {"suffix": suffix, "font": {"size": 40}},
-          "title": {"text": title, "font": {"size": 13}}}
-    return chart(cid, [tr], {"margin": {"t": 40, "b": 10, "l": 10, "r": 10}}, height=height)
+    """KPI-плитка (HTML, не график) — крупное число + подпись. Легче и «плиточнее» гейджа."""
+    try:
+        fv = float(value)
+        txt = f"{fv:,.0f}".replace(",", " ") if abs(fv) >= 100 else f"{fv:g}"
+    except (TypeError, ValueError):
+        txt = str(value)
+    return (f"<div class='kpi-tile'><div class='k-label'>{_html.escape(title)}</div>"
+            f"<div class='k-value'>{txt}{_html.escape(suffix)}</div></div>")
 
 
 def df_table(frame, *, limit: int = 12, fmt=None) -> str:
@@ -279,120 +286,172 @@ def df_table(frame, *, limit: int = 12, fmt=None) -> str:
     return f"<table><thead><tr>{th}</tr></thead><tbody>{''.join(body)}</tbody></table>"
 
 
-# ---------------- спек-билдеры (данные графика → Plotly-фигура) ----------------
-# Возвращают dict {"traces":[...], "layout":{...}, "height":N}. Чарт-функции строят их
-# рядом с matplotlib и кладут в сайдкар `<name>.plotly.json` (см. core._save), а HTML-рендер
-# отдаёт интерактивный Plotly; MD и фолбэк — прежний PNG.
-def _base_layout(title: str, **extra) -> dict:
-    lay = {"title": {"text": title, "font": {"size": 13}},
-           "margin": {"t": 40, "r": 14, "b": 46, "l": 60}}
-    lay.update(extra)
-    return lay
-
-
+# ---------------- спек-билдеры (данные графика → ECharts option) ----------------
+# Возвращают dict {"option": {...}, "height": N}. Чарт-функции строят их рядом с matplotlib и
+# кладут в сайдкар `<name>.chart.json` (core._save), а HTML-рендер отдаёт интерактивный ECharts;
+# MD и фолбэк — прежний PNG. Форматтеры чисел — сентинелы «__int__»/«__pct__» (см. _T2S_JS).
 def spec_barh(labels, values, *, title="", unit="", color="neut", colors=None,
               baseline=None, pct=False) -> dict:
-    mcolor = [_C.get(c, c) for c in colors] if colors is not None else _C.get(color, color)
-    txt = [(f"{v:.0f}%" if pct else f"{v:,.0f}".replace(",", " ")) for v in values]
-    tr = {"type": "bar", "orientation": "h", "x": list(values), "y": [str(l) for l in labels],
-          "marker": {"color": mcolor, "cornerradius": 4}, "text": txt, "textposition": "auto",
-          "hovertemplate": "%{y}: %{x}<extra></extra>"}
-    lay = _base_layout(title, xaxis={"title": unit}, yaxis={"automargin": True})
+    labels = [str(l) for l in labels]
+    values = [float(v) for v in values]
+    if colors is not None:
+        data = [{"value": v, "itemStyle": {"color": _hex(c)}} for v, c in zip(values, colors)]
+    else:
+        data = [{"value": v} for v in values]
+    ser = {"type": "bar", "data": data, "barMaxWidth": 22,
+           "itemStyle": {"color": _hex(color), "borderRadius": [0, 4, 4, 0]},
+           "label": {"show": True, "position": "right", "color": "inherit",
+                     "formatter": "__pct__" if pct else "__int__"}}
     if baseline is not None:
-        lay["shapes"] = [{"type": "line", "x0": baseline, "x1": baseline, "yref": "paper",
-                          "y0": 0, "y1": 1, "line": {"color": "#888", "dash": "dash", "width": 1}}]
-    return {"traces": [tr], "layout": lay, "height": max(300, 26 * len(labels) + 90)}
+        ser["markLine"] = {"symbol": "none", "silent": True, "data": [{"xAxis": float(baseline)}],
+                           "lineStyle": {"type": "dashed", "color": "#888"}, "label": {"show": False}}
+    opt = {"title": {"text": title}, "grid": {"left": 8, "right": 66, "top": 46, "bottom": 8, "containLabel": True},
+           "xAxis": {"type": "value", "name": unit}, "yAxis": {"type": "category", "data": labels},
+           "tooltip": {"trigger": "item"}, "series": [ser]}
+    return {"option": opt, "height": max(300, 26 * len(labels) + 96)}
 
 
 def spec_bar_v(labels, values, *, title="", unit="", colors=None, color="neut") -> dict:
-    mcolor = [_C.get(c, c) for c in colors] if colors is not None else _C.get(color, color)
-    tr = {"type": "bar", "x": [str(l) for l in labels], "y": list(values),
-          "marker": {"color": mcolor, "cornerradius": 4},
-          "text": [f"{v:,.0f}".replace(",", " ") for v in values], "textposition": "auto"}
-    return {"traces": [tr], "layout": _base_layout(title, yaxis={"title": unit}), "height": 340}
+    labels = [str(l) for l in labels]
+    values = [float(v) for v in values]
+    if colors is not None:
+        data = [{"value": v, "itemStyle": {"color": _hex(c)}} for v, c in zip(values, colors)]
+    else:
+        data = [{"value": v} for v in values]
+    ser = {"type": "bar", "data": data, "barMaxWidth": 40,
+           "itemStyle": {"color": _hex(color), "borderRadius": [4, 4, 0, 0]},
+           "label": {"show": True, "position": "top", "color": "inherit", "formatter": "__int__"}}
+    opt = {"title": {"text": title}, "xAxis": {"type": "category", "data": labels},
+           "yAxis": {"type": "value", "name": unit}, "tooltip": {"trigger": "item"}, "series": [ser]}
+    return {"option": opt, "height": 340}
 
 
 def spec_line(x, series: dict, *, title="", unit="", marker_x=None) -> dict:
-    traces = [{"type": "scatter", "mode": "lines+markers", "name": str(n),
-               "x": [str(v) for v in x], "y": list(vals),
-               "line": {"width": 2}, "marker": {"size": 8}}   # цвет — из colorway (theme-aware)
-              for n, vals in series.items()]
-    lay = _base_layout(title, yaxis={"title": unit})
-    if marker_x is not None:
-        lay["shapes"] = [{"type": "line", "x0": str(marker_x), "x1": str(marker_x), "yref": "paper",
-                          "y0": 0, "y1": 1, "line": {"color": "#888", "dash": "dash"}}]
-    return {"traces": traces, "layout": lay, "height": 360}
+    ser = []
+    for i, (n, vals) in enumerate(series.items()):
+        s = {"type": "line", "name": str(n), "data": [float(v) for v in vals], "smooth": False,
+             "symbolSize": 8, "lineStyle": {"width": 2}, "showSymbol": True}
+        if i == 0 and marker_x is not None:
+            s["markLine"] = {"symbol": "none", "silent": True, "data": [{"xAxis": str(marker_x)}],
+                             "lineStyle": {"type": "dashed", "color": "#888"}, "label": {"show": False}}
+        ser.append(s)
+    opt = {"title": {"text": title}, "tooltip": {"trigger": "axis"},
+           "xAxis": {"type": "category", "data": [str(v) for v in x], "boundaryGap": False},
+           "yAxis": {"type": "value", "name": unit}, "series": ser}
+    if len(ser) > 1:
+        opt["legend"] = {"data": [str(n) for n in series]}
+    return {"option": opt, "height": 360}
 
 
 def spec_heatmap(z, x, y, *, title="", unit="", scale="Blues") -> dict:
     diverging = scale in ("RdYlGn", "div")
-    tr = {"type": "heatmap", "z": z, "x": [str(c) for c in x], "y": [str(r) for r in y],
-          "colorscale": _SCALE.get(scale, _SEQ), "colorbar": {"title": unit},
-          "text": [[f"{v:.0f}" if v is not None else "" for v in row] for row in z],
-          "texttemplate": "%{text}", "hoverongaps": False,
-          "xgap": 2, "ygap": 2}                        # 2px surface gap между ячейками
-    if diverging:
-        tr["zmid"] = 0
-    lay = _base_layout(title, xaxis={"tickangle": -35, "showgrid": False},
-                       yaxis={"automargin": True, "showgrid": False})
-    return {"traces": [tr], "layout": lay, "height": max(300, 40 * len(y) + 120)}
+    data, vals = [], []
+    for yi, row in enumerate(z):
+        for xi, v in enumerate(row):
+            if v is None:
+                continue
+            data.append([xi, yi, float(v)])
+            vals.append(float(v))
+    m = max((abs(v) for v in vals), default=1.0)
+    vmin, vmax = (-m, m) if diverging else (min(vals, default=0.0), max(vals, default=1.0))
+    opt = {"title": {"text": title},
+           "grid": {"top": 46, "bottom": 64, "left": 8, "right": 16, "containLabel": True},
+           "xAxis": {"type": "category", "data": [str(c) for c in x], "axisLabel": {"rotate": 35}},
+           "yAxis": {"type": "category", "data": [str(r) for r in y]},
+           "visualMap": {"min": vmin, "max": vmax, "calculable": True, "orient": "horizontal",
+                         "left": "center", "bottom": 0, "inRange": {"color": _SCALE.get(scale, _SEQ_HEX)},
+                         "text": [unit, ""]},
+           "tooltip": {"trigger": "item"},
+           "series": [{"type": "heatmap", "data": data,
+                       "label": {"show": True, "formatter": "__int__", "fontSize": 10},
+                       "itemStyle": {"borderColor": "#fff", "borderWidth": 2}}]}
+    return {"option": opt, "height": max(300, 40 * len(y) + 130)}
 
 
 def spec_waterfall(labels, values, *, title="", unit="") -> dict:
-    tr = {"type": "waterfall", "orientation": "v", "x": [str(l) for l in labels], "y": list(values),
-          "measure": ["relative"] * (len(values) - 1) + ["total"],
-          "text": [f"{v:+,.0f}".replace(",", " ") for v in values], "textposition": "outside",
-          "connector": {"line": {"color": "#888"}}}
-    return {"traces": [tr], "layout": _base_layout(title, yaxis={"title": unit}), "height": 380}
+    labels = [str(l) for l in labels]
+    vals = [float(v) for v in values]
+    placeholder, bars, cols = [], [], []
+    run = 0.0
+    for i in range(len(vals) - 1):
+        d = vals[i]
+        if d >= 0:
+            placeholder.append(run); bars.append(d); cols.append(_C["gain"])
+        else:
+            placeholder.append(run + d); bars.append(-d); cols.append(_C["loss"])
+        run += d
+    placeholder.append(0.0); bars.append(vals[-1]); cols.append(_C["neut"])   # итог от нуля
+    bardata = [{"value": b, "itemStyle": {"color": c}} for b, c in zip(bars, cols)]
+    opt = {"title": {"text": title}, "tooltip": {"trigger": "axis", "axisPointer": {"type": "shadow"}},
+           "xAxis": {"type": "category", "data": labels, "axisLabel": {"rotate": 30}},
+           "yAxis": {"type": "value", "name": unit},
+           "series": [
+               {"type": "bar", "stack": "wf", "silent": True, "itemStyle": {"color": "transparent"},
+                "data": placeholder, "tooltip": {"show": False}},
+               {"type": "bar", "stack": "wf", "data": bardata, "barMaxWidth": 42,
+                "itemStyle": {"borderRadius": [3, 3, 0, 0]},
+                "label": {"show": True, "position": "top", "color": "inherit", "formatter": "__int__"}}]}
+    return {"option": opt, "height": 380}
 
 
 def spec_scatter(x, y, text, *, title="", xlab="", ylab="", vline=None, hline=None) -> dict:
-    tr = {"type": "scatter", "mode": "markers", "x": list(x), "y": list(y),
-          "text": [str(t) for t in text], "marker": {"size": 11, "color": _C["loss"], "opacity": 0.7},
-          "hovertemplate": "%{text}<br>%{x}, %{y}<extra></extra>"}
-    lay = _base_layout(title, xaxis={"title": xlab}, yaxis={"title": ylab})
-    shapes = []
+    data = [[float(a), float(b), str(t)] for a, b, t in zip(x, y, text)]
+    ser = {"type": "scatter", "data": data, "symbolSize": 12,
+           "itemStyle": {"color": _C["loss"], "opacity": 0.7}}
+    ml = []
     if vline is not None:
-        shapes.append({"type": "line", "x0": vline, "x1": vline, "yref": "paper", "y0": 0, "y1": 1,
-                       "line": {"color": "#aaa", "dash": "dot"}})
+        ml.append({"xAxis": float(vline)})
     if hline is not None:
-        shapes.append({"type": "line", "y0": hline, "y1": hline, "xref": "paper", "x0": 0, "x1": 1,
-                       "line": {"color": "#aaa", "dash": "dot"}})
-    if shapes:
-        lay["shapes"] = shapes
-    return {"traces": [tr], "layout": lay, "height": 420}
-
-
-def spec_pareto(labels, bars, cum, *, title="", unit="") -> dict:
-    traces = [{"type": "bar", "x": [str(l) for l in labels], "y": list(bars), "name": unit or "вклад",
-               "marker": {"color": _C["loss"]}},
-              {"type": "scatter", "x": [str(l) for l in labels], "y": list(cum), "name": "накопл. %",
-               "yaxis": "y2", "mode": "lines+markers", "line": {"color": "#333"}}]
-    lay = _base_layout(title, xaxis={"tickangle": -35}, yaxis={"title": unit},
-                       yaxis2={"title": "%", "overlaying": "y", "side": "right", "range": [0, 100]})
-    return {"traces": traces, "layout": lay, "height": 380}
+        ml.append({"yAxis": float(hline)})
+    if ml:
+        ser["markLine"] = {"symbol": "none", "silent": True, "data": ml,
+                           "lineStyle": {"type": "dotted", "color": "#aaa"}, "label": {"show": False}}
+    opt = {"title": {"text": title}, "tooltip": {"trigger": "item", "formatter": "__scatter__"},
+           "xAxis": {"type": "value", "name": xlab}, "yAxis": {"type": "value", "name": ylab},
+           "series": [ser]}
+    return {"option": opt, "height": 420}
 
 
 def spec_treemap(labels, parents, values, *, ids=None, title="") -> dict:
-    tr = {"type": "treemap", "labels": [str(l) for l in labels], "parents": [str(p) for p in parents],
-          "values": list(values), "branchvalues": "total", "textinfo": "label+value+percent parent"}
-    if ids is not None:
-        tr["ids"] = [str(i) for i in ids]
-    return {"traces": [tr], "layout": _base_layout(title), "height": 460}
+    ids = list(ids) if ids is not None else [str(i) for i in range(len(labels))]
+    nodes = {i: {"name": str(l), "value": float(v), "children": []}
+             for i, l, v in zip(ids, labels, values)}
+    roots = []
+    for i, par in zip(ids, parents):
+        if par and par in nodes:
+            nodes[par]["children"].append(nodes[i])
+        else:
+            roots.append(nodes[i])
+    def _clean(nd):
+        if nd.get("children"):
+            for ch in nd["children"]:
+                _clean(ch)
+        else:
+            nd.pop("children", None)
+    for r in roots:
+        _clean(r)
+    opt = {"title": {"text": title},
+           "series": [{"type": "treemap", "data": roots, "roam": False, "nodeClick": "zoomToNode",
+                       "breadcrumb": {"show": True, "bottom": 2},
+                       "label": {"show": True, "formatter": "{b}"},
+                       "upperLabel": {"show": True, "height": 22},
+                       "levels": [{"itemStyle": {"gapWidth": 2, "borderWidth": 0}},
+                                  {"itemStyle": {"gapWidth": 2, "borderColorSaturation": 0.3}}]}]}
+    return {"option": opt, "height": 460}
 
 
 def embed(chart_path: str | None) -> str:
-    """HTML-встраивание графика: интерактивный Plotly из сайдкара `<name>.plotly.json`,
-    иначе base64-PNG (фолбэк/для графиков без спека). Требует plotly в <head> страницы."""
+    """HTML-встраивание графика: интерактивный ECharts из сайдкара `<name>.chart.json`,
+    иначе base64-PNG (фолбэк/для графиков без спека). Требует charts_head в <head> страницы."""
     if not chart_path:
         return ""
     p = Path(chart_path)
-    sidecar = p.parent / (p.stem + ".plotly.json")
+    sidecar = p.parent / (p.stem + ".chart.json")
     if sidecar.exists():
         try:
             spec = json.loads(sidecar.read_text(encoding="utf-8"))
-            cid = "pl_" + re.sub(r"\W", "_", p.stem)
-            return chart(cid, spec["traces"], spec.get("layout"), height=spec.get("height", 340))
+            cid = "ec_" + re.sub(r"\W", "_", p.stem)
+            return chart(cid, spec["option"], height=spec.get("height", 340))
         except Exception:  # noqa: BLE001  (битый спек → PNG-фолбэк)
             pass
     if p.exists():
@@ -402,12 +461,13 @@ def embed(chart_path: str | None) -> str:
 
 
 def page(title: str, body: str, *, css: str = "", plotly: bool = True, tabulator: bool = True) -> str:
-    """Собрать автономную HTML-страницу с вшитыми библиотеками (одна на файл)."""
+    """Собрать автономную HTML-страницу с вшитыми библиотеками (одна на файл).
+    (Параметр `plotly` сохранён по имени для совместимости — теперь включает ECharts.)"""
     head = [f"<!doctype html><html lang='ru'><head><meta charset='utf-8'>",
             f"<meta name='viewport' content='width=device-width,initial-scale=1'>",
             f"<title>{_html.escape(title)}</title><style>{THEME_CSS}{css}</style>"]
     if plotly:
-        head.append(plotly_head())
+        head.append(charts_head())
     if tabulator:
         head.append(tabulator_head())
     doc = "".join(head) + "</head><body>" + body

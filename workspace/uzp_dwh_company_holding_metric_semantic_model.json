@@ -5,28 +5,16 @@
   "row_count": 4000,
   "measures": [
     {
-      "name": "ul_outflow_qty",
-      "label": "Отток юрлиц",
-      "column": "ul_outflow_qty",
-      "kind": "count",
-      "unit": "",
+      "name": "current_fot_amt",
+      "label": "Текущий ФОТ",
+      "column": "current_fot_amt",
+      "kind": "money",
+      "unit": "₽",
       "agg": "sum",
-      "total": 10018205.0,
-      "top_dim": "Тип организации",
+      "total": 10178181387.99,
+      "top_dim": "Уровень загрузки",
       "top_value": "Прочее",
-      "top_share_pct": 34.3
-    },
-    {
-      "name": "fl_outflow_qty",
-      "label": "Отток физлиц",
-      "column": "fl_outflow_qty",
-      "kind": "count",
-      "unit": "чел.",
-      "agg": "sum",
-      "total": 9845420.0,
-      "top_dim": "Тип организации",
-      "top_value": "Основные",
-      "top_share_pct": 33.8
+      "top_share_pct": 34.9
     },
     {
       "name": "fot_outflow_amt",
@@ -53,20 +41,44 @@
       "top_share_pct": 34.9
     },
     {
-      "name": "current_fot_amt",
-      "label": "Текущий ФОТ",
-      "column": "current_fot_amt",
-      "kind": "money",
-      "unit": "₽",
+      "name": "total_emp_qty",
+      "label": "Общее количество сотрудников",
+      "column": "total_emp_qty",
+      "kind": "count",
+      "unit": "чел.",
       "agg": "sum",
-      "total": 10178181387.99,
-      "top_dim": "Уровень загрузки",
+      "total": 9989517.0,
+      "top_dim": "Тип организации",
       "top_value": "Прочее",
-      "top_share_pct": 34.9
+      "top_share_pct": 34.7
+    },
+    {
+      "name": "ul_outflow_qty",
+      "label": "Отток юридических лиц",
+      "column": "ul_outflow_qty",
+      "kind": "count",
+      "unit": "",
+      "agg": "sum",
+      "total": 10018205.0,
+      "top_dim": "Тип организации",
+      "top_value": "Прочее",
+      "top_share_pct": 34.3
+    },
+    {
+      "name": "fl_outflow_qty",
+      "label": "Отток физических лиц",
+      "column": "fl_outflow_qty",
+      "kind": "count",
+      "unit": "чел.",
+      "agg": "sum",
+      "total": 9845420.0,
+      "top_dim": "Тип организации",
+      "top_value": "Основные",
+      "top_share_pct": 33.8
     },
     {
       "name": "fot_y_1_diff_amt",
-      "label": "Изменение ФОТ год к году",
+      "label": "Изменение ФОТ за год",
       "column": "fot_y_1_diff_amt",
       "kind": "money",
       "unit": "₽",
@@ -78,7 +90,7 @@
     },
     {
       "name": "current_fl_qty",
-      "label": "Текущие физлица",
+      "label": "Текущие ФЛ получатели",
       "column": "current_fl_qty",
       "kind": "count",
       "unit": "чел.",
@@ -90,7 +102,7 @@
     },
     {
       "name": "fl_y_1_diff_qty",
-      "label": "Изменение физлиц",
+      "label": "Изменение ФЛ за год",
       "column": "fl_y_1_diff_qty",
       "kind": "count",
       "unit": "чел.",
@@ -113,18 +125,6 @@
       "top_share_pct": 34.8
     },
     {
-      "name": "total_emp_qty",
-      "label": "Всего сотрудников",
-      "column": "total_emp_qty",
-      "kind": "count",
-      "unit": "чел.",
-      "agg": "sum",
-      "total": 9989517.0,
-      "top_dim": "Тип организации",
-      "top_value": "Прочее",
-      "top_share_pct": 34.7
-    },
-    {
       "name": "zp_fl_perc",
       "label": "Доля получателей зарплаты",
       "column": "zp_fl_perc",
@@ -138,7 +138,7 @@
     },
     {
       "name": "new_fl_cnt",
-      "label": "Новых физлиц",
+      "label": "Новые физические лица",
       "column": "new_fl_cnt",
       "kind": "count",
       "unit": "чел.",
@@ -162,7 +162,7 @@
     },
     {
       "name": "new_fl_cnt_next_month",
-      "label": "Новых физлиц след. месяц",
+      "label": "Новые ФЛ следующий месяц",
       "column": "new_fl_cnt_next_month",
       "kind": "count",
       "unit": "чел.",
@@ -174,7 +174,7 @@
     },
     {
       "name": "np_cnt_next_month",
-      "label": "Количество НП след. месяц",
+      "label": "НП следующий месяц",
       "column": "np_cnt_next_month",
       "kind": "count",
       "unit": "",
@@ -306,7 +306,7 @@
     },
     {
       "name": "pu_consumer_loan_available_cnt",
-      "label": "Доступно ПУ Потребкредит",
+      "label": "Доступно ПУ Потребительский кредит",
       "column": "pu_consumer_loan_available_cnt",
       "kind": "count",
       "unit": "",
@@ -318,7 +318,7 @@
     },
     {
       "name": "pu_consumer_loan_give_cnt",
-      "label": "Назначено ПУ Потребкредит",
+      "label": "Назначено ПУ Потребительский кредит",
       "column": "pu_consumer_loan_give_cnt",
       "kind": "count",
       "unit": "",

@@ -1110,7 +1110,7 @@ def _books_html(books, unit) -> str:
     vals = [round(b.delta, 1) for b in books["books"]]
     cols = ["neut" if b.role == "headline" else "loss" for b in books["books"]]
     spec = render.spec_bar_v(labels, vals, title="Δ по книгам портфеля (год к году)", colors=cols)
-    H.append(render.chart("pl_books_delta", spec["traces"], spec["layout"], height=320))
+    H.append(render.chart("pl_books_delta", spec["option"], height=320))
     # Δ по сегментам для основных метрик
     ss = books.get("seg_series") or {}
     if ss:
@@ -1228,7 +1228,7 @@ def _assemble_html(prep, frame, table, fqn, question, where, net, gross_loss, gr
         return render.embed(ch)                      # Plotly (сайдкар) или base64-PNG
     H = ["<!doctype html><html lang='ru'><head><meta charset='utf-8'>",
          f"<title>Расследование: {_h.escape(table)}</title><style>{_HTML_CSS}</style>",
-         render.plotly_head(), "</head><body>",
+         render.charts_head(), "</head><body>",
          f"<h1>🔎 Расследование: {_h.escape(prep.table_desc)}</h1>",
          f"<p class='angle'>{_h.escape(question)}</p>"]
     meta = f"Таблица: <code>{_h.escape(fqn)}</code> · строк: {len(prep.df):,}".replace(",", " ")

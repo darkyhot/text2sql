@@ -17,21 +17,9 @@
       "top_share_pct": 54.7
     },
     {
-      "name": "Доля закрытых задач",
-      "label": "Доля закрытых задач",
-      "column": "__rate_0",
-      "kind": "rate",
-      "unit": "%",
-      "agg": "mean",
-      "total": 0.74,
-      "top_dim": null,
-      "top_value": null,
-      "top_share_pct": null
-    },
-    {
       "name": "Доля успешно закрытых",
       "label": "Доля успешно закрытых",
-      "column": "__rate_1",
+      "column": "__rate_0",
       "kind": "rate",
       "unit": "%",
       "agg": "mean",
@@ -43,7 +31,7 @@
     {
       "name": "Доля задач в работе",
       "label": "Доля задач в работе",
-      "column": "__rate_2",
+      "column": "__rate_1",
       "kind": "rate",
       "unit": "%",
       "agg": "mean",
@@ -53,9 +41,9 @@
       "top_share_pct": null
     },
     {
-      "name": "Доля с запросом эскалации",
-      "label": "Доля с запросом эскалации",
-      "column": "__rate_3",
+      "name": "Доля эскалаций",
+      "label": "Доля эскалаций",
+      "column": "__rate_2",
       "kind": "rate",
       "unit": "%",
       "agg": "mean",
@@ -65,21 +53,9 @@
       "top_share_pct": null
     },
     {
-      "name": "Доля в пайплайне",
-      "label": "Доля в пайплайне",
-      "column": "__rate_4",
-      "kind": "rate",
-      "unit": "%",
-      "agg": "mean",
-      "total": 0.25,
-      "top_dim": null,
-      "top_value": null,
-      "top_share_pct": null
-    },
-    {
       "name": "Просрочка закрытия",
       "label": "Просрочка закрытия",
-      "column": "__overdue_5",
+      "column": "__overdue_3",
       "kind": "rate",
       "unit": "%",
       "agg": "mean",
@@ -89,9 +65,9 @@
       "top_share_pct": null
     },
     {
-      "name": "Срок отработки задачи, дн",
-      "label": "Срок отработки задачи, дн",
-      "column": "__dur_6",
+      "name": "Срок отработки, дн",
+      "label": "Срок отработки, дн",
+      "column": "__dur_4",
       "kind": "duration",
       "unit": "дн",
       "agg": "mean",
@@ -102,12 +78,24 @@
     },
     {
       "name": "fact_staff_deal_qty",
-      "label": "Фактическое привлечение",
+      "label": "Фактическое привлечение по сделке",
       "column": "fact_staff_deal_qty",
       "kind": "count",
       "unit": "чел.",
       "agg": "sum",
       "total": 19966.0,
+      "top_dim": "Категория задачи",
+      "top_value": "Предложение",
+      "top_share_pct": 100.0
+    },
+    {
+      "name": "plan_staff_deal_qty",
+      "label": "Плановое привлечение по сделке",
+      "column": "plan_staff_deal_qty",
+      "kind": "count",
+      "unit": "чел.",
+      "agg": "sum",
+      "total": 21398.0,
       "top_dim": "Категория задачи",
       "top_value": "Предложение",
       "top_share_pct": 100.0
@@ -123,39 +111,32 @@
       "top_dim": "Категория задачи",
       "top_value": "Предложение",
       "top_share_pct": 100.0
-    },
-    {
-      "name": "plan_staff_deal_qty",
-      "label": "Плановое привлечение",
-      "column": "plan_staff_deal_qty",
-      "kind": "count",
-      "unit": "чел.",
-      "agg": "sum",
-      "total": 21398.0,
-      "top_dim": "Категория задачи",
-      "top_value": "Предложение",
-      "top_share_pct": 100.0
     }
   ],
   "dimensions": [
     {
       "column": "tb_name",
-      "label": "Наименование ТБ",
+      "label": "Название территориального банка",
       "cardinality": 3
     },
     {
       "column": "gosb_name",
-      "label": "Наименование ГОСБ",
+      "label": "Название головного отделения",
       "cardinality": 3
     },
     {
       "column": "saphr_gosb_id",
-      "label": "Номер ГОСБ",
+      "label": "Код подразделения сотрудника",
       "cardinality": 2
     },
     {
+      "column": "isu_struct_saphr_id",
+      "label": "Код сотрудника или подразделения",
+      "cardinality": 3
+    },
+    {
       "column": "emp_post",
-      "label": "Должность сотрудника",
+      "label": "Название должности",
       "cardinality": 2
     },
     {
@@ -170,12 +151,12 @@
     },
     {
       "column": "src_task_business",
-      "label": "Бизнес-источник",
+      "label": "Бизнес-источник задачи",
       "cardinality": 1
     },
     {
       "column": "segment_name",
-      "label": "Сегмент клиента",
+      "label": "Наименование сегмента",
       "cardinality": 4
     },
     {
@@ -204,13 +185,8 @@
       "cardinality": 1
     },
     {
-      "column": "campaign_code",
-      "label": "Код кампании",
-      "cardinality": 1
-    },
-    {
       "column": "task_text_status",
-      "label": "Текстовый статус",
+      "label": "Текстовый статус задачи",
       "cardinality": 1
     }
   ],

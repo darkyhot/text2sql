@@ -334,7 +334,7 @@ def _assemble_html(table_desc, fqn, table, where, focus, angle, nrows, summary, 
                    results, section_of) -> str:
     H = [f"<!doctype html><html lang='ru'><head><meta charset='utf-8'>",
          f"<title>Бизнес-отчёт: {_html.escape(table)}</title><style>{_HTML_CSS}</style>",
-         render.plotly_head(), "</head><body>"]
+         render.charts_head(), "</head><body>"]
     H.append(f"<h1>📈 Бизнес-отчёт: {_html.escape(table_desc)}</h1>")
     if angle:
         H.append(f"<p class='angle'>{_html.escape(angle)}</p>")

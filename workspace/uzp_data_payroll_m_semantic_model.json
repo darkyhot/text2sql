@@ -5,8 +5,8 @@
   "row_count": 6000,
   "measures": [
     {
-      "name": "Количество записей ведомостей",
-      "label": "Количество записей ведомостей",
+      "name": "Количество зачислений",
+      "label": "Количество зачислений",
       "column": "__row",
       "kind": "count",
       "unit": "",
@@ -17,8 +17,8 @@
       "top_share_pct": 44.7
     },
     {
-      "name": "Доля силовых структур",
-      "label": "Доля силовых структур",
+      "name": "Доля зачислений силовых структур",
+      "label": "Доля зачислений силовых структур",
       "column": "__rate_0",
       "kind": "rate",
       "unit": "%",
@@ -29,13 +29,13 @@
       "top_share_pct": null
     },
     {
-      "name": "Срок между открытием счета и договором, дн",
-      "label": "Срок между открытием счета и договором, дн",
+      "name": "Срок с открытия счета, дн",
+      "label": "Срок с открытия счета, дн",
       "column": "__dur_1",
       "kind": "duration",
       "unit": "дн",
       "agg": "mean",
-      "total": 172.82,
+      "total": 174.0,
       "top_dim": null,
       "top_value": null,
       "top_share_pct": null
@@ -44,8 +44,8 @@
       "name": "amt",
       "label": "Сумма транзакции",
       "column": "amt",
-      "kind": "money",
-      "unit": "₽",
+      "kind": "count",
+      "unit": "",
       "agg": "sum",
       "total": 58870768.22,
       "top_dim": "Номер договора",
@@ -56,23 +56,28 @@
   "dimensions": [
     {
       "column": "acc_subtype",
-      "label": "Подтип счета",
+      "label": "Подтип кода счета",
       "cardinality": 3
     },
     {
       "column": "acc_type",
-      "label": "Тип агрегирования",
+      "label": "acc_type",
       "cardinality": 3
     },
     {
       "column": "actual_client_tid",
-      "label": "Актуальный ID клиента",
+      "label": "Актуальный идентификатор клиента",
       "cardinality": 3
     },
     {
       "column": "client_category",
       "label": "Категория клиента",
       "cardinality": 4
+    },
+    {
+      "column": "document_info_sha1",
+      "label": "Номер паспорта клиента",
+      "cardinality": 3
     },
     {
       "column": "agrmnt_num",
@@ -100,9 +105,24 @@
       "cardinality": 28
     },
     {
+      "column": "sys_gosb_id",
+      "label": "Системный номер ГОСБ",
+      "cardinality": 4
+    },
+    {
       "column": "ipt_name",
       "label": "Системный номер ОСБ",
       "cardinality": 2
+    },
+    {
+      "column": "sys_osb_id",
+      "label": "Номер ОСБ",
+      "cardinality": 4
+    },
+    {
+      "column": "card_type",
+      "label": "Тип карты",
+      "cardinality": 1
     },
     {
       "column": "tb_id",
@@ -110,34 +130,49 @@
       "cardinality": 12
     },
     {
+      "column": "sys_tb_id",
+      "label": "Системный номер ТБ",
+      "cardinality": 4
+    },
+    {
       "column": "vsp_id",
       "label": "ВСП",
       "cardinality": 4
     },
     {
+      "column": "sys_vsp_id",
+      "label": "ВСП",
+      "cardinality": 4
+    },
+    {
       "column": "segment_name",
-      "label": "Сегмент клиента",
+      "label": "Наименование сегмента клиента",
       "cardinality": 5
     },
     {
       "column": "enrollment_kind_descr",
-      "label": "Род выплаты",
+      "label": "Описание рода выплаты",
       "cardinality": 3
     },
     {
       "column": "market_share_flag_name",
-      "label": "Признак доли рынка",
+      "label": "market_share_flag_name",
       "cardinality": 3
     }
   ],
   "entities": [
     {
       "column": "company_name",
-      "label": "Название компании",
+      "label": "Наименование компании",
       "cardinality": 300
     },
     {
       "column": "inn",
+      "label": "ИНН",
+      "cardinality": 300
+    },
+    {
+      "column": "inn_parsing",
       "label": "ИНН",
       "cardinality": 300
     }

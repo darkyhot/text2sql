@@ -203,14 +203,14 @@ def profile(df: pd.DataFrame, meta: dict[str, dict]) -> Roles:
 # ---------- графики ----------
 def _save(fig, assets: Path, name: str, spec: dict | None = None) -> str:
     """Сохранить matplotlib-PNG (для MD/фолбэка). Если передан `spec` (Plotly-фигура) —
-    кладём сайдкар `<name>.plotly.json`, и HTML-рендер отдаст интерактивный Plotly (§12)."""
+    кладём сайдкар `<name>.chart.json`, и HTML-рендер отдаст интерактивный ECharts (§12)."""
     assets.mkdir(parents=True, exist_ok=True)
     path = assets / f"{name}.png"
     fig.savefig(path, dpi=110, bbox_inches="tight")
     plt.close(fig)
     if spec is not None:
         import json
-        (assets / f"{name}.plotly.json").write_text(
+        (assets / f"{name}.chart.json").write_text(
             json.dumps(spec, ensure_ascii=False), encoding="utf-8")
     return str(path)
 

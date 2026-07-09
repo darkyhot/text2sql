@@ -211,7 +211,7 @@ def _section_of_result(r, section_of: dict) -> str:
     if r.kind == "overview":
         return "📈 Обзор по показателям"
     if r.kind == "entity":
-        return "👥 Ключевые игроки: сотрудники, клиенты, ИНН"
+        return "👥 Ключевые игроки: сотрудники, клиенты"
     if r.kind == "pattern":
         return "🔍 Закономерности во времени"
     if r.kind == "mined":

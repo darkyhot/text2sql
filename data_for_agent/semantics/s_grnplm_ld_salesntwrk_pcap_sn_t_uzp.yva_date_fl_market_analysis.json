@@ -30,9 +30,9 @@
       "is_outcome": false
     },
     {
-      "name": "fl_26_qty",
-      "label": "Физлица за 2026 год",
-      "column": "fl_26_qty",
+      "name": "fl_25_qty",
+      "label": "ФЛ 2025 год",
+      "column": "fl_25_qty",
       "agg": "sum",
       "kind": "count",
       "unit": "people",
@@ -42,9 +42,9 @@
       "is_outcome": false
     },
     {
-      "name": "fl_25_qty",
-      "label": "Физлица за 2025 год",
-      "column": "fl_25_qty",
+      "name": "fl_26_qty",
+      "label": "ФЛ 2026 год",
+      "column": "fl_26_qty",
       "agg": "sum",
       "kind": "count",
       "unit": "people",
@@ -55,25 +55,13 @@
     },
     {
       "name": "diff_fl_26_25_qty",
-      "label": "Разница физлиц 2026-2025",
+      "label": "Разница ФЛ 26/25",
       "column": "diff_fl_26_25_qty",
       "agg": "sum",
       "kind": "count",
       "unit": "people",
       "good_direction": "none",
       "priority": 3,
-      "scope_mask": null,
-      "is_outcome": false
-    },
-    {
-      "name": "potential_1q_26",
-      "label": "Потенциал на 1 кв. 2026",
-      "column": "potential_1q_26",
-      "agg": "sum",
-      "kind": "count",
-      "unit": "count",
-      "good_direction": "up",
-      "priority": 4,
       "scope_mask": null,
       "is_outcome": false
     },
@@ -85,7 +73,7 @@
       "kind": "count",
       "unit": "people",
       "good_direction": "none",
-      "priority": 5,
+      "priority": 4,
       "scope_mask": null,
       "is_outcome": false
     },
@@ -97,29 +85,41 @@
       "kind": "count",
       "unit": "people",
       "good_direction": "none",
-      "priority": 6,
+      "priority": 5,
       "scope_mask": null,
       "is_outcome": false
     },
     {
       "name": "diff_fl_unic_26_25_qty",
-      "label": "Разница ФЛ в КПЭ",
+      "label": "Разница КПЭ ФЛ",
       "column": "diff_fl_unic_26_25_qty",
       "agg": "sum",
       "kind": "count",
       "unit": "people",
       "good_direction": "none",
+      "priority": 6,
+      "scope_mask": null,
+      "is_outcome": false
+    },
+    {
+      "name": "potential_1q_26",
+      "label": "Потенциал 1кв 2026",
+      "column": "potential_1q_26",
+      "agg": "sum",
+      "kind": "money",
+      "unit": "money",
+      "good_direction": "up",
       "priority": 7,
       "scope_mask": null,
       "is_outcome": false
     },
     {
       "name": "potential_4q_25",
-      "label": "Потенциал на 4 кв. 2025",
+      "label": "Потенциал 4кв 2025",
       "column": "potential_4q_25",
       "agg": "sum",
-      "kind": "count",
-      "unit": "count",
+      "kind": "money",
+      "unit": "money",
       "good_direction": "up",
       "priority": 8,
       "scope_mask": null,
@@ -127,11 +127,11 @@
     },
     {
       "name": "potential_3q_25",
-      "label": "Потенциал на 3 кв. 2025",
+      "label": "Потенциал 3кв 2025",
       "column": "potential_3q_25",
       "agg": "sum",
-      "kind": "count",
-      "unit": "count",
+      "kind": "money",
+      "unit": "money",
       "good_direction": "up",
       "priority": 9,
       "scope_mask": null,
@@ -139,7 +139,7 @@
     },
     {
       "name": "fl_self_emplyeed_25_qty",
-      "label": "Самозанятые ФЛ 2025",
+      "label": "Самозанятые 2025",
       "column": "fl_self_emplyeed_25_qty",
       "agg": "sum",
       "kind": "count",
@@ -151,7 +151,7 @@
     },
     {
       "name": "fl_gpx_25_qty",
-      "label": "ФЛ ГПХ 2025",
+      "label": "ГПХ 2025",
       "column": "fl_gpx_25_qty",
       "agg": "sum",
       "kind": "count",
@@ -163,7 +163,7 @@
     },
     {
       "name": "fl_self_emplyeed_26_qty",
-      "label": "Самозанятые ФЛ 2026",
+      "label": "Самозанятые 2026",
       "column": "fl_self_emplyeed_26_qty",
       "agg": "sum",
       "kind": "count",
@@ -175,7 +175,7 @@
     },
     {
       "name": "fl_gpx_26_qty",
-      "label": "ФЛ ГПХ 2026",
+      "label": "ГПХ 2026",
       "column": "fl_gpx_26_qty",
       "agg": "sum",
       "kind": "count",
@@ -248,7 +248,7 @@
     },
     {
       "name": "last_activity_status",
-      "label": "Последний статус активности",
+      "label": "Статус активности",
       "card": 3,
       "kind": "status",
       "id_partner": null,
@@ -282,7 +282,7 @@
     },
     {
       "name": "inn",
-      "label": "ИНН компании",
+      "label": "ID клиента",
       "key_col": "inn",
       "name_col": null,
       "value_col": "potential_1q_26"
@@ -293,7 +293,8 @@
   "tool_flags": [],
   "boring_cols": [],
   "question_bank": [
-    "Как «Количество компаний» распределён по «Название ГОСБ»?",
+    "Как «Потенциал 1кв 2026» распределён по «Название ГОСБ»?",
+    "Где сосредоточены «Потенциал 1кв 2026» (по «Название ГОСБ»)?",
     "Кто ключевые «Название компании» и какая концентрация?",
     "Насколько эффективен инструмент (сравнить с/без)?"
   ],

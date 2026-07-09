@@ -99,6 +99,7 @@ class Frame:
     direction: str           # loss | gain | top
     drill_dims: list[str] = field(default_factory=list)
     why_dims: list[str] = field(default_factory=list)
+    why_asked: list[str] = field(default_factory=list)   # разрезы, ЯВНО названные в «разложи …»
     components: list[str] = field(default_factory=list)
     entity: str | None = None
     id_col: str | None = None            # id-партнёр организации (ИНН) — для подписи «Название (ИНН)»
@@ -213,18 +214,20 @@ def _frame(llm, question, prep: Prep) -> Frame:
     # а не на весь промт — иначе глоссарий колонок («статус…», «причина…») забивает сигнал.
     m = re.search(r"разлож\w*(.{0,80})", question, re.I)
     obj = (m.group(1) if m else "").lower()
+    asked: list[str] = []
     if obj:
-        def _asked_first(c: str) -> int:      # разрез, чей ТИП назван в объекте команды, — вперёд
+        def _asked(c: str) -> bool:           # тип разреза назван в объекте команды «разложи …»
             toks = re.findall(r"[а-яё]{5,}", prep.lbls.of(c).lower())
-            return 1 if any(t[:5] in obj for t in toks) else 0
-        why = sorted(why, key=_asked_first, reverse=True)   # stable: прочие — в исходном порядке
+            return any(t[:5] in obj for t in toks)
+        asked = [c for c in why if _asked(c)]
+        why = sorted(why, key=_asked, reverse=True)         # stable: прочие — в исходном порядке
 
     return Frame(
         target=target, mode=mode,
         direction=out.get("direction") if out.get("direction") in ("loss", "gain", "top")
         else ("loss" if mode == "change" else "top"),
         drill_dims=[d for d in (out.get("drill_dims") or []) if d in dimset] or list(prep.roles.dimensions),
-        why_dims=why[:3],
+        why_dims=why[:3], why_asked=asked,
         components=[c for c in (out.get("components") or []) if c in numset and c != target],
         entity=entity, id_col=id_col, name_col=name_col,
         value=(out.get("value") if out.get("value") in numset else None),
@@ -527,9 +530,20 @@ def _why(df, frame: Frame, assets, lbls, ref, side="auto") -> list[tuple[str, di
     out = []
     s = pd.to_numeric(df[frame.target], errors="coerce")
     total_rows = len(df) or 1
-    for d in frame.why_dims[:2]:
-        if d not in df.columns or not (2 <= df[d].nunique(dropna=True) <= 40):
-            continue
+    cands = [d for d in frame.why_dims[:3]
+             if d in df.columns and 2 <= df[d].nunique(dropna=True) <= 40]
+
+    def _has_meaningful(d: str) -> bool:      # есть ли осмысленный (не мусорный) значимый драйвер
+        g = _side_series(s.groupby(df[d]).sum(), side)
+        tl = abs(float(g.sum())) or 1.0
+        return any(abs(float(cv)) / tl >= 0.05 and not _NOISE_VAL.search(str(v)) for v, cv in g.items())
+
+    # ВЫБОР разрезов: явно запрошенные в «разложи …» — показываем их (даже с мусорным драйвером);
+    # иначе — только те, где есть ОСМЫСЛЕННЫЙ драйвер (не тащим статус с одним «Прочее»).
+    asked = [d for d in cands if d in set(frame.why_asked)]
+    dims = asked or [d for d in cands if _has_meaningful(d)][:2] or cands[:1]
+
+    for d in dims:
         c = _decompose(df, frame.target, d, frame.mode, ref, side)      # бар вклада
         g_loss = _side_series(s.groupby(df[d]).sum(), side)
         total_loss = abs(float(g_loss.sum())) or 1.0
@@ -1008,9 +1022,10 @@ def _synthesize(llm, question, facts: dict) -> dict:
     try:
         out = llm.complete_json(_SYNTH_SYS, f"Вопрос: {question}\n\nФакты:\n{facts}",
                                 max_tokens=3000, node="investigate_synth")
-        return {"answer": str(out.get("answer", "")).strip(),
-                "chain": [s for x in (out.get("chain") or []) if (s := _flatten_item(x))],
-                "actions": [s for x in (out.get("actions") or []) if (s := _flatten_item(x))]}
+        cid = labels_mod.clean_id_text                    # «ИНН» → «ID клиента» в прозе LLM
+        return {"answer": cid(str(out.get("answer", "")).strip()),
+                "chain": [cid(s) for x in (out.get("chain") or []) if (s := _flatten_item(x))],
+                "actions": [cid(s) for x in (out.get("actions") or []) if (s := _flatten_item(x))]}
     except Exception as exc:  # noqa: BLE001
         logger.warning("investigate: синтез не удался (%s)", exc)
         return {"answer": "", "chain": [], "actions": []}
@@ -1288,7 +1303,7 @@ def _assemble_md(prep, frame, table, fqn, question, where, net, gross_loss, gros
     lb = prep.lbls
     def im(ch, alt=""):
         return f"![{alt}]({_rel_chart(T, ch)})\n" if ch else ""
-    L = [f"# 🔎 Расследование: {prep.table_desc}", f"**Вопрос:** {question}\n"]
+    L = [f"# 🔎 Расследование: {prep.table_desc}", f"**Вопрос:** {labels_mod.clean_id_text(question)}\n"]
     meta = f"**Таблица:** `{fqn}` · **строк:** {len(prep.df):,}".replace(",", " ")
     if where:
         meta += f" · **фильтр:** `{where}`"
@@ -1397,7 +1412,7 @@ def _assemble_html(prep, frame, table, fqn, question, where, net, gross_loss, gr
          f"<title>Расследование: {_h.escape(table)}</title><style>{_HTML_CSS}</style>",
          render.charts_head(), "</head><body>",
          f"<h1>🔎 Расследование: {_h.escape(prep.table_desc)}</h1>",
-         f"<p class='angle'>{_h.escape(question)}</p>"]
+         f"<p class='angle'>{_h.escape(labels_mod.clean_id_text(question))}</p>"]
     meta = f"Таблица: <code>{_h.escape(fqn)}</code> · строк: {len(prep.df):,}".replace(",", " ")
     if where:
         meta += f" · фильтр: <code>{_h.escape(where)}</code>"

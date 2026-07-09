@@ -141,7 +141,7 @@ def _frame(llm, question, prep: Prep) -> Frame:
     user = (f"Вопрос: {question}\n\nЧисловые колонки:\n" + "\n".join(lines)
             + f"\n\nРазрезы:\n{dims}\n\nСущности:\n{ents}")
     try:
-        out = llm.complete_json(_FRAME_SYS, user, max_tokens=2000, node="investigate_frame")
+        out = llm.complete_json(_FRAME_SYS, user, max_tokens=4000, node="investigate_frame")
     except Exception as exc:  # noqa: BLE001
         logger.warning("investigate: рамка не построена (%s)", exc)
         out = {}
@@ -199,18 +199,25 @@ def _frame(llm, question, prep: Prep) -> Frame:
 
     # ПОЧЕМУ: к разрезам от LLM добавляем очевидные причины/статусы из ЛЮБЫХ колонок
     # (детерминированно, чтобы блок «почему» не пропадал, если LLM/профайлер их не отметил)
+    # ПОЧЕМУ-разрезы: порядок от LLM (он читает ЗАДАЧУ и ставит нужный разрез первым),
+    # затем детерминированно добавляем любые ещё причины/статусы как фолбэк (не переставляя
+    # выбор LLM). Даты не проходят: у них уникальных > 40.
     why = [d for d in (out.get("why_dims") or []) if d in dimset]
-    reasons, statuses = [], []                # настоящую причину оттока ставим раньше статусов
-    for c in df.columns:                      # даты не проходят: у них уникальных > 40
+    for c in df.columns:
         if c in why or pd.api.types.is_numeric_dtype(df[c]):
             continue
         desc = prep.meta.get(c, {}).get("desc", "")
-        blob = c + " " + desc
-        if not ((_REASON_RE.search(c) or _REASON_RE.search(desc)) and 2 <= df[c].nunique(dropna=True) <= 40):
-            continue
-        (reasons if re.search(r"причин|reason|повод|cause|отток|outflow|основан", blob, re.I)
-         else statuses).append(c)
-    why = why + reasons + statuses
+        if (_REASON_RE.search(c) or _REASON_RE.search(desc)) and 2 <= df[c].nunique(dropna=True) <= 40:
+            why.append(c)
+    # что именно просят разложить: смотрим ТОЛЬКО на объект команды «разложи …» (окно ~80 симв.),
+    # а не на весь промт — иначе глоссарий колонок («статус…», «причина…») забивает сигнал.
+    m = re.search(r"разлож\w*(.{0,80})", question, re.I)
+    obj = (m.group(1) if m else "").lower()
+    if obj:
+        def _asked_first(c: str) -> int:      # разрез, чей ТИП назван в объекте команды, — вперёд
+            toks = re.findall(r"[а-яё]{5,}", prep.lbls.of(c).lower())
+            return 1 if any(t[:5] in obj for t in toks) else 0
+        why = sorted(why, key=_asked_first, reverse=True)   # stable: прочие — в исходном порядке
 
     return Frame(
         target=target, mode=mode,
@@ -533,19 +540,17 @@ def _why(df, frame: Frame, assets, lbls, ref, side="auto") -> list[tuple[str, di
             bs = float(rows.get(val, 0)) / total_rows
             recs.append((val, ls, bs, (ls / bs) if bs > 0 else 0.0))
         material = [r for r in recs if r[1] >= 0.05] or recs
-        # мусорные бакеты (Прочее/Не указано/пусто) — не «драйвер»: как инсайт бесполезны.
-        # Есть осмысленная категория — берём её; если ВЕСЬ драйвер мусорный — разрез пропускаем
-        # (лучше не показать, чем выдать «Прочее — 100% потерь»).
-        meaningful = [r for r in material if not _NOISE_VAL.search(str(r[0]))]
-        if not meaningful:
-            continue
-        best = max(meaningful, key=lambda r: r[3])                      # макс. lift среди осмысленных
-        info = {"value": fmt_val(best[0]), "loss_share": round(best[1] * 100, 1),
-                "base_share": round(best[2] * 100, 1), "lift": round(best[3], 1)}
-        # РАЗЛОЖЕНИЕ причины: все значения по частоте + их Δ-вклад в метрику («как влияют»)
+        # РАЗЛОЖЕНИЕ: все значения по частоте + их Δ-вклад в метрику («как влияют») — СТРОИМ ВСЕГДА,
+        # чтобы явно запрошенный разрез (напр. статус) не выпал, даже если драйвер — «мусорный» бакет.
         gall = s.groupby(df[d]).sum()
         cnt = df.groupby(d).size().sort_values(ascending=False)
-        info["breakdown"] = [(fmt_val(v), int(cnt[v]), float(gall.get(v, 0.0))) for v in cnt.index][:12]
+        info = {"breakdown": [(fmt_val(v), int(cnt[v]), float(gall.get(v, 0.0))) for v in cnt.index][:12]}
+        # заголовок-драйвер (lift) — только при ОСМЫСЛЕННОЙ причине (не Прочее/Не указано/пусто)
+        meaningful = [r for r in material if not _NOISE_VAL.search(str(r[0]))]
+        if meaningful:
+            best = max(meaningful, key=lambda r: r[3])
+            info.update(value=fmt_val(best[0]), loss_share=round(best[1] * 100, 1),
+                        base_share=round(best[2] * 100, 1), lift=round(best[3], 1))
         out.append((d, info, _contrib_chart(c, frame, assets, lbls, tag="why")))
     return out
 
@@ -1173,8 +1178,12 @@ def _facts_for_synth(frame, lbls, net, gloss, ggain, unit, tree, why, comps, who
     if pareto_facts:
         f["концентрация"] = (f"топ-{pareto_facts.get('n_for_80')} «{lbls.of(frame.entity)}» = 80% потерь "
                              f"(всего {pareto_facts.get('total')}); топ-10 = {pareto_facts.get('top10_share')}%")
-    f["почему"] = [{"разрез": lbls.of(d), "значение": li["value"], "доля_потерь_%": li["loss_share"],
-                    "доля_строк_%": li["base_share"], "чаще_базы_в_разы": li["lift"]} for d, li, _ in why]
+    f["почему"] = [{"разрез": lbls.of(d),
+                    "значение": li.get("value"), "доля_потерь_%": li.get("loss_share"),
+                    "доля_строк_%": li.get("base_share"), "чаще_базы_в_разы": li.get("lift"),
+                    "разложение": [{"значение": v, "строк": n, "дельта": _fmt_u(c, unit)}
+                                   for v, n, c in li.get("breakdown", [])[:8]]}
+                   for d, li, _ in why]
     if comps:
         f["слагаемые"] = [{"часть": name, "значение": _fmt_u(v, unit)} for name, v in comps]
     if who_tbl is not None:
@@ -1335,8 +1344,11 @@ def _assemble_md(prep, frame, table, fqn, question, where, net, gross_loss, gros
     if why or heat:
         L.append("## ❓ Почему")
         for d, li, ch in why:
-            L.append(f"### По «{lb.col_title(d)}»: **{li['value']}** — {li['loss_share']}% потерь "
-                     f"при {li['base_share']}% строк (×{li['lift']} к базе)")
+            if li.get("value"):
+                L.append(f"### По «{lb.col_title(d)}»: **{li['value']}** — {li['loss_share']}% потерь "
+                         f"при {li['base_share']}% строк (×{li['lift']} к базе)")
+            else:
+                L.append(f"### По «{lb.col_title(d)}» — разложение по частоте и влиянию")
             if li.get("breakdown"):
                 L.append("")
                 L.append(f"| {lb.col_title(d)} | строк | Δ {lb.of(frame.target)} |")
@@ -1448,10 +1460,11 @@ def _assemble_html(prep, frame, table, fqn, question, where, net, gross_loss, gr
                     for val, n, contrib in li["breakdown"])
                 brk = (f"<table><thead><tr><th>{_h.escape(lb.col_title(d))}</th><th>строк</th>"
                        f"<th>Δ {_h.escape(lb.of(frame.target))}</th></tr></thead><tbody>{trows}</tbody></table>")
+            hdr = (f"<p class='factline'><strong>{_h.escape(li['value'])}</strong> — "
+                   f"{li['loss_share']}% потерь при {li['base_share']}% строк (×{li['lift']} к базе).</p>"
+                   if li.get("value") else "")
             H.append(f"<h3>По «{_h.escape(lb.col_title(d))}»</h3><div class='card'>"
-                     f"<p class='factline'><strong>{_h.escape(li['value'])}</strong> — "
-                     f"{li['loss_share']}% потерь при {li['base_share']}% строк "
-                     f"(×{li['lift']} к базе).</p>" + brk + im(ch) + "</div>")
+                     + hdr + brk + im(ch) + "</div>")
         if heat:
             H.append(f"<h3>Где какая причина: «{_h.escape(lb.of(primary))}» × «{_h.escape(lb.of(frame.why_dims[0]))}»</h3>"
                      f"<div class='card'>" + im(heat) + "</div>")

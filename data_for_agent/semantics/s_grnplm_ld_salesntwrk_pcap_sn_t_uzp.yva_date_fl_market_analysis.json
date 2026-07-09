@@ -18,8 +18,8 @@
   ],
   "measures": [
     {
-      "name": "Количество задач",
-      "label": "Количество задач",
+      "name": "Количество компаний",
+      "label": "Количество компаний",
       "column": "__row",
       "agg": "count",
       "kind": "count",
@@ -31,7 +31,7 @@
     },
     {
       "name": "fl_26_qty",
-      "label": "Физлица в доле 2026",
+      "label": "Физлица за 2026 год",
       "column": "fl_26_qty",
       "agg": "sum",
       "kind": "count",
@@ -43,7 +43,7 @@
     },
     {
       "name": "fl_25_qty",
-      "label": "Физлица в доле 2025",
+      "label": "Физлица за 2025 год",
       "column": "fl_25_qty",
       "agg": "sum",
       "kind": "count",
@@ -66,21 +66,21 @@
       "is_outcome": false
     },
     {
-      "name": "fl_unic_25_qty",
-      "label": "Физлица в КПЭ 2025",
-      "column": "fl_unic_25_qty",
+      "name": "potential_1q_26",
+      "label": "Потенциал на 1 кв. 2026",
+      "column": "potential_1q_26",
       "agg": "sum",
       "kind": "count",
-      "unit": "people",
-      "good_direction": "none",
+      "unit": "count",
+      "good_direction": "up",
       "priority": 4,
       "scope_mask": null,
       "is_outcome": false
     },
     {
-      "name": "fl_unic_26_qty",
-      "label": "Физлица в КПЭ 2026",
-      "column": "fl_unic_26_qty",
+      "name": "fl_unic_25_qty",
+      "label": "ФЛ в КПЭ 2025",
+      "column": "fl_unic_25_qty",
       "agg": "sum",
       "kind": "count",
       "unit": "people",
@@ -90,9 +90,9 @@
       "is_outcome": false
     },
     {
-      "name": "diff_fl_unic_26_25_qty",
-      "label": "Разница физлиц в КПЭ",
-      "column": "diff_fl_unic_26_25_qty",
+      "name": "fl_unic_26_qty",
+      "label": "ФЛ в КПЭ 2026",
+      "column": "fl_unic_26_qty",
       "agg": "sum",
       "kind": "count",
       "unit": "people",
@@ -102,20 +102,20 @@
       "is_outcome": false
     },
     {
-      "name": "potential_1q_26",
-      "label": "Потенциал на 1 кв 2026",
-      "column": "potential_1q_26",
+      "name": "diff_fl_unic_26_25_qty",
+      "label": "Разница ФЛ в КПЭ",
+      "column": "diff_fl_unic_26_25_qty",
       "agg": "sum",
       "kind": "count",
-      "unit": "count",
-      "good_direction": "up",
+      "unit": "people",
+      "good_direction": "none",
       "priority": 7,
       "scope_mask": null,
       "is_outcome": false
     },
     {
       "name": "potential_4q_25",
-      "label": "Потенциал на 4 кв 2025",
+      "label": "Потенциал на 4 кв. 2025",
       "column": "potential_4q_25",
       "agg": "sum",
       "kind": "count",
@@ -127,7 +127,7 @@
     },
     {
       "name": "potential_3q_25",
-      "label": "Потенциал на 3 кв 2025",
+      "label": "Потенциал на 3 кв. 2025",
       "column": "potential_3q_25",
       "agg": "sum",
       "kind": "count",
@@ -139,7 +139,7 @@
     },
     {
       "name": "fl_self_emplyeed_25_qty",
-      "label": "Самозанятые 2025",
+      "label": "Самозанятые ФЛ 2025",
       "column": "fl_self_emplyeed_25_qty",
       "agg": "sum",
       "kind": "count",
@@ -151,7 +151,7 @@
     },
     {
       "name": "fl_gpx_25_qty",
-      "label": "ГПХ 2025",
+      "label": "ФЛ ГПХ 2025",
       "column": "fl_gpx_25_qty",
       "agg": "sum",
       "kind": "count",
@@ -163,7 +163,7 @@
     },
     {
       "name": "fl_self_emplyeed_26_qty",
-      "label": "Самозанятые 2026",
+      "label": "Самозанятые ФЛ 2026",
       "column": "fl_self_emplyeed_26_qty",
       "agg": "sum",
       "kind": "count",
@@ -175,7 +175,7 @@
     },
     {
       "name": "fl_gpx_26_qty",
-      "label": "ГПХ 2026",
+      "label": "ФЛ ГПХ 2026",
       "column": "fl_gpx_26_qty",
       "agg": "sum",
       "kind": "count",
@@ -189,7 +189,7 @@
   "dimensions": [
     {
       "name": "gosb_name",
-      "label": "ГОСБ",
+      "label": "Название ГОСБ",
       "card": 2534,
       "kind": "geo",
       "id_partner": null,
@@ -248,7 +248,7 @@
     },
     {
       "name": "last_activity_status",
-      "label": "Статус активности",
+      "label": "Последний статус активности",
       "card": 3,
       "kind": "status",
       "id_partner": null,
@@ -293,7 +293,7 @@
   "tool_flags": [],
   "boring_cols": [],
   "question_bank": [
-    "Как «Количество задач» распределён по «ГОСБ»?",
+    "Как «Количество компаний» распределён по «Название ГОСБ»?",
     "Кто ключевые «Название компании» и какая концентрация?",
     "Насколько эффективен инструмент (сравнить с/без)?"
   ],

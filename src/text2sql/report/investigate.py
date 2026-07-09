@@ -46,8 +46,24 @@ _C_LOSS, _C_GAIN, _C_NEUT = "#C0504D", "#2E8B57", "#3B7DD8"
 _ID_ENT = re.compile(r"(^inn$|_inn$|_id$|_code$|saphr|epk|ogrn|kpp)", re.I)
 _NAME_ENT = re.compile(r"(name|fio|компан|client|клиент|организ|holder|наимен)", re.I)
 _REASON_RE = re.compile(r"(причин|reason|повод|cause|статус|status|основан|infopovod|признак|тип)", re.I)
+# НАСТОЯЩАЯ причина (не статус). Сверяем по ИМЕНИ+ПОДПИСИ, но НЕ по описанию: описание статуса
+# («дата задачи по отработке ОТТОКА») содержит «отток» и давало бы ложное совпадение.
+_REASON_STRONG = re.compile(r"причин|reason|повод|cause|отток|outflow", re.I)
+# причина-комментарий сотрудника — СВОБОДНЫЙ ТЕКСТ (сотни значений). Обычный потолок в 40
+# уникальных её выбрасывал; для причин потолок высокий, а в разложении берём топ + «прочие».
+_REASON_MAX_CARD = 500
+_DIM_MAX_CARD = 40
+_TOP_REASONS = 12
 # даты ДЕЙСТВИЙ (не временна́я ось метрики): по ним нельзя раскладывать динамику target
 _ACTION_DATE_RE = re.compile(r"(задач|task|создан|created|action|действ|заявк|обращен|звонок|визит|встреч|контакт)", re.I)
+
+
+def _is_reason_col(col: str, label: str = "") -> bool:
+    return bool(_REASON_STRONG.search(col + " " + (label or "")))
+
+
+def _card_cap(col: str, label: str = "") -> int:
+    return _REASON_MAX_CARD if _is_reason_col(col, label) else _DIM_MAX_CARD
 
 
 def _is_action_date(col: str, meta: dict) -> bool:
@@ -207,7 +223,10 @@ def _frame(llm, question, prep: Prep) -> Frame:
         if c in why or pd.api.types.is_numeric_dtype(df[c]):
             continue
         desc = prep.meta.get(c, {}).get("desc", "")
-        if (_REASON_RE.search(c) or _REASON_RE.search(desc)) and 2 <= df[c].nunique(dropna=True) <= 40:
+        if not (_REASON_RE.search(c) or _REASON_RE.search(desc)):
+            continue
+        # причина-комментарий = свободный текст: высокий потолок (иначе выпадает), топ берём ниже
+        if 2 <= df[c].nunique(dropna=True) <= _card_cap(c, prep.lbls.of(c)):
             why.append(c)
 
     # что просят разложить: ТОЛЬКО объект команды «разложи …» (окно ~80 симв.). Весь промт брать
@@ -223,8 +242,7 @@ def _frame(llm, question, prep: Prep) -> Frame:
         return any(t[:5] in obj for t in toks)
 
     def _is_reason(c: str) -> bool:            # настоящая ПРИЧИНА (по имени/подписи, не по описанию)
-        return bool(re.search(r"причин|reason|повод|cause|отток|outflow",
-                              c + " " + prep.lbls.of(c), re.I))
+        return _is_reason_col(c, prep.lbls.of(c))
 
     asked = [c for c in why if _asked(c)]
     # приоритет: явно запрошенный > настоящая причина > статус (порядок колонок таблицы — последний)
@@ -235,6 +253,18 @@ def _frame(llm, question, prep: Prep) -> Frame:
         sorted(dimset), out.get("why_dims"), llm_why, why,
         obj[:70], asked, [c for c in why if _is_reason(c)], why[:3])
 
+    # ЦЕННОСТЬ (потенциал) для приоритета возврата. LLM врёт с именами колонок, поэтому если она
+    # не дала валидную — подхватываем детерминированно, когда вопрос про потенциал.
+    value = out.get("value") if out.get("value") in numset else None
+    if value is None and re.search(r"потенциал|potential", question, re.I):
+        vc = [c for c in measures if c != target
+              and re.search(r"потенциал|potential", c + " " + prep.lbls.of(c), re.I)]
+        pref = [c for c in vc if _year_of(c) == 26] or vc      # свежий период важнее
+        if pref:
+            value = max(pref, key=lambda c: abs(float(pd.to_numeric(df[c], errors="coerce").sum())))
+    logger.info("investigate FRAME: target=%s | mode=%s | сущность=%s | ЦЕННОСТЬ(потенциал)=%s",
+                target, mode, entity, value)
+
     return Frame(
         target=target, mode=mode,
         direction=out.get("direction") if out.get("direction") in ("loss", "gain", "top")
@@ -243,7 +273,7 @@ def _frame(llm, question, prep: Prep) -> Frame:
         why_dims=why[:3], why_asked=asked,
         components=[c for c in (out.get("components") or []) if c in numset and c != target],
         entity=entity, id_col=id_col, name_col=name_col,
-        value=(out.get("value") if out.get("value") in numset else None),
+        value=value,
         restated=str(out.get("restated") or question).strip(),
     )
 
@@ -541,10 +571,11 @@ def _why(df, frame: Frame, assets, lbls, ref, side="auto") -> list[tuple[str, di
     её доли в СТРОКАХ («причина X даёт 45% потерь при 18% строк — ×2.5»). Это, в отличие
     от «преобладает Иное (80%)», отделяет настоящий драйвер от фонового значения."""
     out = []
-    s = pd.to_numeric(df[frame.target], errors="coerce")
+    s = pd.to_numeric(df[frame.target], errors="coerce").astype("float64")   # pd.NA → NaN
     total_rows = len(df) or 1
     cands = [d for d in frame.why_dims[:3]
-             if d in df.columns and 2 <= df[d].nunique(dropna=True) <= 40]
+             if d in df.columns
+             and 2 <= df[d].nunique(dropna=True) <= _card_cap(d, lbls.of(d))]
 
     def _has_meaningful(d: str) -> bool:      # есть ли осмысленный (не мусорный) значимый драйвер
         g = _side_series(s.groupby(df[d]).sum(), side)
@@ -574,7 +605,13 @@ def _why(df, frame: Frame, assets, lbls, ref, side="auto") -> list[tuple[str, di
         # чтобы явно запрошенный разрез (напр. статус) не выпал, даже если драйвер — «мусорный» бакет.
         gall = s.groupby(df[d]).sum()
         cnt = df.groupby(d).size().sort_values(ascending=False)
-        info = {"breakdown": [(fmt_val(v), int(cnt[v]), float(gall.get(v, 0.0))) for v in cnt.index][:12]}
+        top = list(cnt.index[:_TOP_REASONS])
+        brk = [(fmt_val(v), int(cnt[v]), float(gall.get(v, 0.0) or 0.0)) for v in top]
+        tail = list(cnt.index[_TOP_REASONS:])          # свободный текст: хвост не печатаем построчно
+        if tail:
+            brk.append((f"Прочие ({len(tail)} значений)", int(cnt[tail].sum()),
+                        float(gall.reindex(tail).fillna(0).sum())))
+        info = {"breakdown": brk}
         # заголовок-драйвер (lift) — только при ОСМЫСЛЕННОЙ причине (не Прочее/Не указано/пусто)
         meaningful = [r for r in material if not _NOISE_VAL.search(str(r[0]))]
         if meaningful:
@@ -881,12 +918,12 @@ def _pareto_curve(df, frame: Frame, entity, side, assets, lbls) -> tuple[str | N
 
 def _crosstab_heatmap(df, frame: Frame, da, db, side, assets, lbls) -> str | None:
     try:
-        s = pd.to_numeric(df[frame.target], errors="coerce")
+        s = pd.to_numeric(df[frame.target], errors="coerce").astype("float64")   # pd.NA → NaN
         piv = s.groupby([df[da], df[db]]).sum().unstack()
         # оставляем сторону потерь/прироста, топ по объёму
         keep_a = _side_series(s.groupby(df[da]).sum(), side).head(8).index
         keep_b = _side_series(s.groupby(df[db]).sum(), side).head(8).index
-        piv = piv.reindex(index=keep_a, columns=keep_b)
+        piv = piv.reindex(index=keep_a, columns=keep_b).astype("float64").fillna(0.0)
         if piv.empty:
             return None
         piv.index = [_tick(x) for x in piv.index]; piv.columns = [_tick(x) for x in piv.columns]
@@ -1218,8 +1255,18 @@ def _facts_for_synth(frame, lbls, net, gloss, ggain, unit, tree, why, comps, who
     if comps:
         f["слагаемые"] = [{"часть": name, "значение": _fmt_u(v, unit)} for name, v in comps]
     if who_tbl is not None:
-        f["кто"] = {"сущность": lbls.of(frame.entity) if frame.entity else "сущность",
-                    "топ_значения": [fmt_val(i) for i in who_tbl.index[:6]]}
+        # вместе с вкладом отдаём ЦЕННОСТЬ (потенциал) — иначе синтез про неё не напишет
+        has_val = "value" in who_tbl.columns
+        top = []
+        for idx, row in who_tbl.head(6).iterrows():
+            it = {"кто": fmt_val(idx), "вклад": _fmt_u(float(row["contrib"]), unit)}
+            if has_val and pd.notna(row["value"]):
+                it["потенциал"] = _fmt(float(row["value"]))
+            top.append(it)
+        f["кто"] = {"сущность": lbls.of(frame.entity) if frame.entity else "сущность", "топ": top}
+        if frame.value:
+            f["ценность"] = (f"{lbls.of(frame.value)} — сопоставляй с размером снижения "
+                             f"(кого возвращать в первую очередь)")
     if when_facts:
         f["когда"] = when_facts
     if drill_facts:

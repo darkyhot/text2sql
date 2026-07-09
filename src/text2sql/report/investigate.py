@@ -200,12 +200,17 @@ def _frame(llm, question, prep: Prep) -> Frame:
     # ПОЧЕМУ: к разрезам от LLM добавляем очевидные причины/статусы из ЛЮБЫХ колонок
     # (детерминированно, чтобы блок «почему» не пропадал, если LLM/профайлер их не отметил)
     why = [d for d in (out.get("why_dims") or []) if d in dimset]
-    for c in df.columns:
+    reasons, statuses = [], []                # настоящую причину оттока ставим раньше статусов
+    for c in df.columns:                      # даты не проходят: у них уникальных > 40
         if c in why or pd.api.types.is_numeric_dtype(df[c]):
             continue
         desc = prep.meta.get(c, {}).get("desc", "")
-        if (_REASON_RE.search(c) or _REASON_RE.search(desc)) and 2 <= df[c].nunique(dropna=True) <= 40:
-            why.append(c)
+        blob = c + " " + desc
+        if not ((_REASON_RE.search(c) or _REASON_RE.search(desc)) and 2 <= df[c].nunique(dropna=True) <= 40):
+            continue
+        (reasons if re.search(r"причин|reason|повод|cause|отток|outflow|основан", blob, re.I)
+         else statuses).append(c)
+    why = why + reasons + statuses
 
     return Frame(
         target=target, mode=mode,
@@ -537,6 +542,10 @@ def _why(df, frame: Frame, assets, lbls, ref, side="auto") -> list[tuple[str, di
         best = max(meaningful, key=lambda r: r[3])                      # макс. lift среди осмысленных
         info = {"value": fmt_val(best[0]), "loss_share": round(best[1] * 100, 1),
                 "base_share": round(best[2] * 100, 1), "lift": round(best[3], 1)}
+        # РАЗЛОЖЕНИЕ причины: все значения по частоте + их Δ-вклад в метрику («как влияют»)
+        gall = s.groupby(df[d]).sum()
+        cnt = df.groupby(d).size().sort_values(ascending=False)
+        info["breakdown"] = [(fmt_val(v), int(cnt[v]), float(gall.get(v, 0.0))) for v in cnt.index][:12]
         out.append((d, info, _contrib_chart(c, frame, assets, lbls, tag="why")))
     return out
 
@@ -980,13 +989,23 @@ def _when_chart(ts: pd.Series, brk, frame: Frame, assets, lbls) -> str | None:
         return None
 
 
+def _flatten_item(x) -> str:
+    """LLM иногда вставляет в chain/actions dict вместо текста ({'total': '-659 тыс'}) —
+    разворачиваем в значения, а не в JSON-строку."""
+    if isinstance(x, dict):
+        return "; ".join(str(v) for v in x.values())
+    s = str(x).strip()
+    m = re.fullmatch(r"\{\s*['\"]?[\w\s]+['\"]?\s*:\s*['\"]?(.+?)['\"]?\s*\}", s)
+    return m.group(1).strip() if m else s
+
+
 def _synthesize(llm, question, facts: dict) -> dict:
     try:
         out = llm.complete_json(_SYNTH_SYS, f"Вопрос: {question}\n\nФакты:\n{facts}",
                                 max_tokens=3000, node="investigate_synth")
         return {"answer": str(out.get("answer", "")).strip(),
-                "chain": [str(x).strip() for x in (out.get("chain") or []) if str(x).strip()],
-                "actions": [str(x).strip() for x in (out.get("actions") or []) if str(x).strip()]}
+                "chain": [s for x in (out.get("chain") or []) if (s := _flatten_item(x))],
+                "actions": [s for x in (out.get("actions") or []) if (s := _flatten_item(x))]}
     except Exception as exc:  # noqa: BLE001
         logger.warning("investigate: синтез не удался (%s)", exc)
         return {"answer": "", "chain": [], "actions": []}
@@ -1318,6 +1337,13 @@ def _assemble_md(prep, frame, table, fqn, question, where, net, gross_loss, gros
         for d, li, ch in why:
             L.append(f"### По «{lb.col_title(d)}»: **{li['value']}** — {li['loss_share']}% потерь "
                      f"при {li['base_share']}% строк (×{li['lift']} к базе)")
+            if li.get("breakdown"):
+                L.append("")
+                L.append(f"| {lb.col_title(d)} | строк | Δ {lb.of(frame.target)} |")
+                L.append("|---|--:|--:|")
+                for val, n, contrib in li["breakdown"]:
+                    L.append(f"| {val} | {f'{n:,}'.replace(',', ' ')} | {_fmt_u(contrib, unit)} |")
+                L.append("")
             L.append(im(ch, d))
         if heat:
             L.append(f"### Где какая причина: «{lb.of(primary)}» × «{lb.of(frame.why_dims[0])}»")
@@ -1414,10 +1440,18 @@ def _assemble_html(prep, frame, table, fqn, question, where, net, gross_loss, gr
     if why or heat:
         H.append("<h2>❓ Почему</h2>")
         for d, li, ch in why:
+            brk = ""
+            if li.get("breakdown"):
+                trows = "".join(
+                    f"<tr><td>{_h.escape(val)}</td><td style='text-align:right'>{f'{n:,}'.replace(',', ' ')}</td>"
+                    f"<td style='text-align:right'>{_h.escape(_fmt_u(contrib, unit))}</td></tr>"
+                    for val, n, contrib in li["breakdown"])
+                brk = (f"<table><thead><tr><th>{_h.escape(lb.col_title(d))}</th><th>строк</th>"
+                       f"<th>Δ {_h.escape(lb.of(frame.target))}</th></tr></thead><tbody>{trows}</tbody></table>")
             H.append(f"<h3>По «{_h.escape(lb.col_title(d))}»</h3><div class='card'>"
                      f"<p class='factline'><strong>{_h.escape(li['value'])}</strong> — "
                      f"{li['loss_share']}% потерь при {li['base_share']}% строк "
-                     f"(×{li['lift']} к базе).</p>" + im(ch) + "</div>")
+                     f"(×{li['lift']} к базе).</p>" + brk + im(ch) + "</div>")
         if heat:
             H.append(f"<h3>Где какая причина: «{_h.escape(lb.of(primary))}» × «{_h.escape(lb.of(frame.why_dims[0]))}»</h3>"
                      f"<div class='card'>" + im(heat) + "</div>")

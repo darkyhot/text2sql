@@ -198,29 +198,42 @@ def _frame(llm, question, prep: Prep) -> Frame:
         if org_cols:
             entity = max(org_cols, key=lambda c: df[c].nunique(dropna=True))
 
-    # ПОЧЕМУ: к разрезам от LLM добавляем очевидные причины/статусы из ЛЮБЫХ колонок
-    # (детерминированно, чтобы блок «почему» не пропадал, если LLM/профайлер их не отметил)
-    # ПОЧЕМУ-разрезы: порядок от LLM (он читает ЗАДАЧУ и ставит нужный разрез первым),
-    # затем детерминированно добавляем любые ещё причины/статусы как фолбэк (не переставляя
-    # выбор LLM). Даты не проходят: у них уникальных > 40.
-    why = [d for d in (out.get("why_dims") or []) if d in dimset]
+    # ПОЧЕМУ-разрезы. LLM-выбор фильтруется по dimset, но профайлер часто кладёт причину/статус
+    # во flags (не в dims) — тогда список пуст, и разрезы добавляет детерминированный проход по
+    # колонкам (в порядке таблицы!). Даты не проходят: у них уникальных > 40.
+    llm_why = [d for d in (out.get("why_dims") or []) if d in dimset]
+    why = list(llm_why)
     for c in df.columns:
         if c in why or pd.api.types.is_numeric_dtype(df[c]):
             continue
         desc = prep.meta.get(c, {}).get("desc", "")
         if (_REASON_RE.search(c) or _REASON_RE.search(desc)) and 2 <= df[c].nunique(dropna=True) <= 40:
             why.append(c)
-    # что именно просят разложить: смотрим ТОЛЬКО на объект команды «разложи …» (окно ~80 симв.),
-    # а не на весь промт — иначе глоссарий колонок («статус…», «причина…») забивает сигнал.
+
+    # что просят разложить: ТОЛЬКО объект команды «разложи …» (окно ~80 симв.). Весь промт брать
+    # нельзя — глоссарий колонок содержит и «статус…», и «причина…». Сверяем с ПОДПИСЬЮ колонки
+    # (не с описанием: описание статуса тоже содержит «оттока» и даёт ложное совпадение).
     m = re.search(r"разлож\w*(.{0,80})", question, re.I)
     obj = (m.group(1) if m else "").lower()
-    asked: list[str] = []
-    if obj:
-        def _asked(c: str) -> bool:           # тип разреза назван в объекте команды «разложи …»
-            toks = re.findall(r"[а-яё]{5,}", prep.lbls.of(c).lower())
-            return any(t[:5] in obj for t in toks)
-        asked = [c for c in why if _asked(c)]
-        why = sorted(why, key=_asked, reverse=True)         # stable: прочие — в исходном порядке
+
+    def _asked(c: str) -> bool:
+        if not obj:
+            return False
+        toks = re.findall(r"[а-яё]{5,}", prep.lbls.of(c).lower())
+        return any(t[:5] in obj for t in toks)
+
+    def _is_reason(c: str) -> bool:            # настоящая ПРИЧИНА (по имени/подписи, не по описанию)
+        return bool(re.search(r"причин|reason|повод|cause|отток|outflow",
+                              c + " " + prep.lbls.of(c), re.I))
+
+    asked = [c for c in why if _asked(c)]
+    # приоритет: явно запрошенный > настоящая причина > статус (порядок колонок таблицы — последний)
+    why = sorted(why, key=lambda c: (_asked(c), _is_reason(c)), reverse=True)
+    logger.info(
+        "investigate FRAME: dims=%s | why от LLM=%s (после dimset=%s) | кандидаты-ПОЧЕМУ=%s | "
+        "объект «разложи»=%r | asked=%s | причины=%s | ИТОГ why_dims=%s",
+        sorted(dimset), out.get("why_dims"), llm_why, why,
+        obj[:70], asked, [c for c in why if _is_reason(c)], why[:3])
 
     return Frame(
         target=target, mode=mode,
@@ -541,7 +554,10 @@ def _why(df, frame: Frame, assets, lbls, ref, side="auto") -> list[tuple[str, di
     # ВЫБОР разрезов: явно запрошенные в «разложи …» — показываем их (даже с мусорным драйвером);
     # иначе — только те, где есть ОСМЫСЛЕННЫЙ драйвер (не тащим статус с одним «Прочее»).
     asked = [d for d in cands if d in set(frame.why_asked)]
-    dims = asked or [d for d in cands if _has_meaningful(d)][:2] or cands[:1]
+    meaningful_dims = [d for d in cands if _has_meaningful(d)]
+    dims = asked or meaningful_dims[:2] or cands[:1]
+    logger.info("investigate ПОЧЕМУ: кандидаты=%s | asked=%s | с осмысленным драйвером=%s → показываем=%s",
+                cands, asked, meaningful_dims, dims)
 
     for d in dims:
         c = _decompose(df, frame.target, d, frame.mode, ref, side)      # бар вклада

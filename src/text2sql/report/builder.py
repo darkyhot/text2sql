@@ -182,6 +182,17 @@ def build_business_report(db, catalog, llm, fqn: str, *, where: str | None = Non
         progress("ищу закономерности во времени…")
         results += patterns.detect_all(df, roles, assets, lbls)
 
+    # дедуп по ГРАФИКУ: один и тот же chart в разных секциях (напр. концентрация меры и в
+    # «Обзоре», и в «Где деньги») даёт ДВА дива с одинаковым id — второй ECharts не рисует
+    # (пустой блок). Оставляем более информативный источник (mined с подписью > голый overview).
+    _prio = {"focus": 4, "mined": 3, "entity": 2, "pattern": 2, "overview": 1}
+    best: dict[str, object] = {}
+    for r in results:
+        if r.chart and (r.chart not in best
+                        or _prio.get(r.kind, 0) > _prio.get(best[r.chart].kind, 0)):
+            best[r.chart] = r
+    results = [r for r in results if not r.chart or best[r.chart] is r]
+
     progress("пишу выводы бизнес-языком…")
     for r in results:                        # C3: размечаем раздел-источник для кросс-ссылок
         r.facts["_section"] = _section_of_result(r, section_of)

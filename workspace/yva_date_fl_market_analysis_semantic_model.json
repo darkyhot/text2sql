@@ -1,0 +1,219 @@
+{
+  "table": "yva_date_fl_market_analysis",
+  "fqn": "s_grnplm_ld_salesntwrk_pcap_sn_t_uzp.yva_date_fl_market_analysis",
+  "description": "Аналитическое представление для сравнения количества физлиц по периодам 2025 и 2026 гг., включая данные по сегментам, потенциалу, статусам активности и причинам оттока",
+  "row_count": 2778,
+  "measures": [
+    {
+      "name": "Количество компаний",
+      "label": "Количество компаний",
+      "column": "__row",
+      "kind": "count",
+      "unit": "",
+      "agg": "count",
+      "total": 2778.0,
+      "top_dim": "Название холдинга",
+      "top_value": "Холдинг Б",
+      "top_share_pct": 40.7
+    },
+    {
+      "name": "fl_26_qty",
+      "label": "Физлица в доле рынка 2026",
+      "column": "fl_26_qty",
+      "kind": "count",
+      "unit": "чел.",
+      "agg": "sum",
+      "total": 4870062.0,
+      "top_dim": "Название холдинга",
+      "top_value": "Холдинг Б",
+      "top_share_pct": 37.8
+    },
+    {
+      "name": "fl_25_qty",
+      "label": "Физлица в доле рынка 2025",
+      "column": "fl_25_qty",
+      "kind": "count",
+      "unit": "чел.",
+      "agg": "sum",
+      "total": 4835515.0,
+      "top_dim": "Название холдинга",
+      "top_value": "Холдинг Б",
+      "top_share_pct": 40.4
+    },
+    {
+      "name": "diff_fl_26_25_qty",
+      "label": "Разница физлиц 2026-2025",
+      "column": "diff_fl_26_25_qty",
+      "kind": "count",
+      "unit": "чел.",
+      "agg": "sum",
+      "total": 34547.0,
+      "top_dim": "Название холдинга",
+      "top_value": "Холдинг А",
+      "top_share_pct": 239.9
+    },
+    {
+      "name": "fl_unic_26_qty",
+      "label": "Физлица в КПЭ 2026",
+      "column": "fl_unic_26_qty",
+      "kind": "count",
+      "unit": "чел.",
+      "agg": "sum",
+      "total": 4381800.0,
+      "top_dim": "Название холдинга",
+      "top_value": "Холдинг Б",
+      "top_share_pct": 37.8
+    },
+    {
+      "name": "fl_unic_25_qty",
+      "label": "Физлица в КПЭ 2025",
+      "column": "fl_unic_25_qty",
+      "kind": "count",
+      "unit": "чел.",
+      "agg": "sum",
+      "total": 4350702.0,
+      "top_dim": "Название холдинга",
+      "top_value": "Холдинг Б",
+      "top_share_pct": 40.4
+    },
+    {
+      "name": "diff_fl_unic_26_25_qty",
+      "label": "Разница физлиц в КПЭ",
+      "column": "diff_fl_unic_26_25_qty",
+      "kind": "count",
+      "unit": "чел.",
+      "agg": "sum",
+      "total": 31098.0,
+      "top_dim": "Название холдинга",
+      "top_value": "Холдинг А",
+      "top_share_pct": 239.9
+    },
+    {
+      "name": "potential_1q_26",
+      "label": "Потенциал 1 кв 2026",
+      "column": "potential_1q_26",
+      "kind": "count",
+      "unit": "",
+      "agg": "sum",
+      "total": 235040521.0,
+      "top_dim": "Название холдинга",
+      "top_value": "Холдинг Б",
+      "top_share_pct": 46.6
+    },
+    {
+      "name": "potential_4q_25",
+      "label": "Потенциал 4 кв 2025",
+      "column": "potential_4q_25",
+      "kind": "count",
+      "unit": "",
+      "agg": "sum",
+      "total": 197850000.0,
+      "top_dim": "Название холдинга",
+      "top_value": "Холдинг Б",
+      "top_share_pct": 40.5
+    },
+    {
+      "name": "potential_3q_25",
+      "label": "Потенциал 3 кв 2025",
+      "column": "potential_3q_25",
+      "kind": "count",
+      "unit": "",
+      "agg": "sum",
+      "total": 202310000.0,
+      "top_dim": "Название холдинга",
+      "top_value": "Холдинг Б",
+      "top_share_pct": 40.5
+    },
+    {
+      "name": "fl_self_emplyeed_25_qty",
+      "label": "Самозанятые 2025",
+      "column": "fl_self_emplyeed_25_qty",
+      "kind": "count",
+      "unit": "чел.",
+      "agg": "sum",
+      "total": 1207830.0,
+      "top_dim": "Название холдинга",
+      "top_value": "Холдинг Б",
+      "top_share_pct": 40.4
+    },
+    {
+      "name": "fl_gpx_25_qty",
+      "label": "Физлица ГПХ 2025",
+      "column": "fl_gpx_25_qty",
+      "kind": "count",
+      "unit": "чел.",
+      "agg": "sum",
+      "total": 2174650.0,
+      "top_dim": "Название холдинга",
+      "top_value": "Холдинг Б",
+      "top_share_pct": 40.4
+    },
+    {
+      "name": "fl_self_emplyeed_26_qty",
+      "label": "Самозанятые 2026",
+      "column": "fl_self_emplyeed_26_qty",
+      "kind": "count",
+      "unit": "чел.",
+      "agg": "sum",
+      "total": 1070047.0,
+      "top_dim": "Название холдинга",
+      "top_value": "Холдинг Б",
+      "top_share_pct": 37.8
+    },
+    {
+      "name": "fl_gpx_26_qty",
+      "label": "Физлица ГПХ 2026",
+      "column": "fl_gpx_26_qty",
+      "kind": "count",
+      "unit": "чел.",
+      "agg": "sum",
+      "total": 1459772.0,
+      "top_dim": "Название холдинга",
+      "top_value": "Холдинг Б",
+      "top_share_pct": 37.8
+    }
+  ],
+  "dimensions": [
+    {
+      "column": "gosb_name",
+      "label": "Название ГОСБ",
+      "cardinality": 2534
+    },
+    {
+      "column": "holding_name",
+      "label": "Название холдинга",
+      "cardinality": 2
+    },
+    {
+      "column": "segment_name_bp",
+      "label": "Сегмент",
+      "cardinality": 5
+    },
+    {
+      "column": "last_activity_status",
+      "label": "Последний статус активности",
+      "cardinality": 3
+    },
+    {
+      "column": "outflow_reason",
+      "label": "Причина оттока",
+      "cardinality": 4
+    }
+  ],
+  "entities": [
+    {
+      "column": "company_name",
+      "label": "Название компании",
+      "cardinality": 300
+    },
+    {
+      "column": "inn",
+      "label": "ID клиента",
+      "cardinality": 300
+    }
+  ],
+  "dates": [
+    "task_dt"
+  ],
+  "_schema": "text2sql.semantic_model/1"
+}

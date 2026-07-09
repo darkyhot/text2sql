@@ -9,3 +9,4 @@ traces/*.jsonl
 .ipynb_checkpoints/
 workspace/report_assets/
 workspace/*.md
+src/text2sql/report/assets/

@@ -66,6 +66,27 @@ def _card_cap(col: str, label: str = "") -> int:
     return _REASON_MAX_CARD if _is_reason_col(col, label) else _DIM_MAX_CARD
 
 
+def _to_num(s: pd.Series) -> pd.Series:
+    """В float. Понимает обычные числа, Decimal (Postgres/Greenplum `numeric` → dtype object)
+    и строки вида «1 616,81» (запятая-разделитель, пробелы-разряды). pd.NA/мусор → NaN."""
+    out = pd.to_numeric(s, errors="coerce").astype("float64")
+    bad = out.isna() & s.notna()
+    if bad.any():
+        txt = (s[bad].astype(str)
+               .str.replace(r"[\s ]", "", regex=True)
+               .str.replace(",", ".", regex=False))
+        out.loc[bad] = pd.to_numeric(txt, errors="coerce")
+    return out
+
+
+def _numeric_like(s: pd.Series, thresh: float = 0.9) -> bool:
+    """Колонка по сути числовая, даже если dtype=object (Decimal) или строка с запятой."""
+    if pd.api.types.is_numeric_dtype(s):
+        return True
+    sample = s.dropna().head(500)
+    return (not sample.empty) and float(_to_num(sample).notna().mean()) >= thresh
+
+
 def _is_action_date(col: str, meta: dict) -> bool:
     desc = (meta.get(col, {}) or {}).get("desc", "") or ""
     return bool(_ACTION_DATE_RE.search(col) or _ACTION_DATE_RE.search(desc))
@@ -97,6 +118,19 @@ def _prepare(db, catalog, llm, fqn, where, progress) -> Prep:
                 and core._ENTITY_RE.search(c) and df[c].nunique(dropna=True) > 10):
             roles.entities.append(c)
     core.normalize_roles(roles, list(df.columns))
+    # Greenplum/Postgres `numeric` приезжает как Decimal (dtype=object), встречаются и строки
+    # «1 616,81». is_numeric_dtype такие НЕ видит → колонка молча выпадала из анализа, а sum()
+    # по ней давал 0. Нормализуем один раз, до производных. Разрезы/сущности/даты не трогаем.
+    skip = set(roles.entities) | set(roles.dimensions) | set(getattr(roles, "dates", []) or [])
+    fixed = []
+    for c in df.columns:
+        if c in skip or _ID_ENT.search(c) or pd.api.types.is_numeric_dtype(df[c]):
+            continue
+        if _numeric_like(df[c]):
+            df[c] = _to_num(df[c])
+            fixed.append(c)
+    if fixed:
+        logger.info("investigate: приведены к числу (были Decimal/строка): %s", fixed)
     progress("показатели…")
     behav, rec = metrics.build_behaviors_llm(llm, table_desc, df, meta)
     measures = metrics.build_derived(df, behav, meta)
@@ -571,7 +605,7 @@ def _why(df, frame: Frame, assets, lbls, ref, side="auto") -> list[tuple[str, di
     её доли в СТРОКАХ («причина X даёт 45% потерь при 18% строк — ×2.5»). Это, в отличие
     от «преобладает Иное (80%)», отделяет настоящий драйвер от фонового значения."""
     out = []
-    s = pd.to_numeric(df[frame.target], errors="coerce").astype("float64")   # pd.NA → NaN
+    s = _to_num(df[frame.target])                 # pd.NA → NaN, Decimal/строка → float
     total_rows = len(df) or 1
     cands = [d for d in frame.why_dims[:3]
              if d in df.columns
@@ -645,8 +679,17 @@ def _who(df, frame: Frame, assets, lbls, elab=fmt_val) -> tuple[pd.DataFrame | N
         return None, None
     val = None
     if frame.value and frame.value in df.columns:
-        vv = pd.to_numeric(df[frame.value], errors="coerce").groupby(df[ent]).sum()
+        vser = _to_num(df[frame.value])            # Decimal/строка с запятой → float
+        # min_count=1: группа из одних NULL → NaN («нет данных»), а не тихий 0
+        vv = vser.groupby(df[ent]).sum(min_count=1)
         val = vv.reindex(top.index)
+        logger.info(
+            "investigate КТО: сущность=%s | ценность=%s | непустых в колонке=%d/%d | "
+            "групп с ценностью=%d/%d | из топ-%d ценность получили=%d | примеры=%s",
+            ent, frame.value, int(vser.notna().sum()), len(vser),
+            int(vv.notna().sum()), len(vv), len(top), int(val.notna().sum()),
+            [(str(k)[:18], None if pd.isna(v) else round(float(v), 1))
+             for k, v in list(val.items())[:3]])
     disp = top.copy(); disp.index = [elab(i) for i in top.index]     # «Имя (ИНН …)»
     tbl = pd.DataFrame({"contrib": disp})
     if val is not None:

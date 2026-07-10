@@ -167,30 +167,36 @@ document.addEventListener("DOMContentLoaded",function(){
   var SHARE=/(%|доля|share|концентрац)/i;
   Array.prototype.slice.call(document.querySelectorAll("table")).forEach(function(t){
     try{
-      var rows=t.tBodies[0]?t.tBodies[0].rows.length:0, big=rows>15;
+      var thead=t.tHead, tbody=t.tBodies[0];
+      if(!thead||!thead.rows.length||!tbody)return;
+      var ths=Array.prototype.slice.call(thead.rows[0].cells);
+      var data=Array.prototype.slice.call(tbody.rows).map(function(tr){
+        var o={};
+        Array.prototype.slice.call(tr.cells).forEach(function(td,i){o["c"+i]=td.textContent.trim();});
+        return o;
+      });
+      // Выравнивание считаем ДО создания таблицы и задаём в определении колонок.
+      // updateDefinition() на HTML-импорте пересоздаёт колонку и теряет привязку к полю —
+      // числовые колонки («250.1 тыс») из-за этого рендерились ПУСТЫМИ.
+      var cols=ths.map(function(th,i){
+        var numeric=true, seen=0;
+        for(var r=0; r<Math.min(data.length,8); r++){
+          var v=data[r]["c"+i]||""; if(!v||v==="—")continue; seen++;
+          if(!NUM.test(v)){numeric=false;break;}
+        }
+        return {title:th.textContent.trim(), field:"c"+i,
+                hozAlign:(numeric&&seen>0)?"right":"left"};
+      });
+      var big=data.length>15;
       var wrap=document.createElement("div"); wrap.className="t2s-tab-wrap";
       t.parentNode.insertBefore(wrap,t);
       var tools=document.createElement("div"); tools.className="t2s-tools"; wrap.appendChild(tools);
-      wrap.appendChild(t);
-      var tab=new Tabulator(t,{layout:"fitColumns",movableColumns:true,resizableColumns:true,
+      var host=document.createElement("div"); wrap.appendChild(host);
+      t.parentNode.removeChild(t);              // исходную HTML-таблицу заменяем на Tabulator
+      var tab=new Tabulator(host,{data:data,columns:cols,layout:"fitColumns",
+        movableColumns:true,resizableColumns:true,
         pagination:big?"local":false,paginationSize:15,
         columnDefaults:{headerFilter:"input",resizable:true,tooltip:true,headerHozAlign:"left"}});
-      tab.on("tableBuilt",function(){
-        try{
-          var body=t.tBodies[0];
-          tab.getColumns().forEach(function(col,ci){
-            var title=(col.getDefinition().title||"");
-            // числовая колонка? смотрим первые ячейки
-            var numeric=true, seen=0;
-            for(var r=0; r<Math.min(rows,8); r++){
-              var td=body&&body.rows[r]&&body.rows[r].cells[ci];
-              var v=td?td.textContent.trim():""; if(!v||v==="—")continue; seen++;
-              if(!NUM.test(v)){numeric=false;break;}
-            }
-            if(numeric&&seen>0){col.updateDefinition({hozAlign:"right"});}
-          });
-        }catch(e){}
-      });
       var bc=document.createElement("button"); bc.textContent="✕ Сбросить фильтры";
       bc.onclick=function(){try{tab.clearHeaderFilter();tab.clearFilter(true);}catch(e){}};
       tools.appendChild(bc);

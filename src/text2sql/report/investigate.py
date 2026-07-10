@@ -53,6 +53,8 @@ _REASON_STRONG = re.compile(r"причин|reason|повод|cause|отток|ou
 # уникальных её выбрасывал; для причин потолок высокий, а в разложении берём топ + «прочие».
 _REASON_MAX_CARD = 500
 _DIM_MAX_CARD = 40
+_PRIMARY_MAX_CARD = 60      # дерево/водопад/кросс-таб: больше категорий график не читается
+_WHERE_MAX_CARD = 500       # табличная раскладка «Где» (топ-6 + «прочие»): ГОСБ на проде ~110
 _TOP_REASONS = 12
 # даты ДЕЙСТВИЙ (не временна́я ось метрики): по ним нельзя раскладывать динамику target
 _ACTION_DATE_RE = re.compile(r"(задач|task|создан|created|action|действ|заявк|обращен|звонок|визит|встреч|контакт)", re.I)
@@ -665,11 +667,12 @@ def _components(df, frame: Frame, lbls) -> list[tuple[str, float]]:
     return res
 
 
-def _who(df, frame: Frame, assets, lbls, elab=fmt_val) -> tuple[pd.DataFrame | None, str | None]:
+def _who(df, frame: Frame, assets, lbls, elab=fmt_val,
+         ctx_dims=()) -> tuple[pd.DataFrame | None, str | None]:
     ent = frame.entity
     if not ent or ent not in df.columns:
         return None, None
-    s = pd.to_numeric(df[frame.target], errors="coerce")
+    s = _to_num(df[frame.target])
     g = s.groupby(df[ent]).sum()
     g = g.sort_values() if frame.mode == "change" else g.sort_values(ascending=False)
     top = g.head(12)
@@ -690,10 +693,35 @@ def _who(df, frame: Frame, assets, lbls, elab=fmt_val) -> tuple[pd.DataFrame | N
             int(vv.notna().sum()), len(vv), len(top), int(val.notna().sum()),
             [(str(k)[:18], None if pd.isna(v) else round(float(v), 1))
              for k, v in list(val.items())[:3]])
-    disp = top.copy(); disp.index = [elab(i) for i in top.index]     # «Имя (ИНН …)»
-    tbl = pd.DataFrame({"contrib": disp})
+    # КЛАССИФИКАЦИЯ клиента (ГОСБ = территория, сегмент): один клиент может быть в НЕСКОЛЬКИХ
+    # значениях — «модальное» врало бы. Показываем значение с НАИБОЛЬШИМ вкладом в снижение
+    # этого клиента и помечаем «+N», если просело ещё где-то. Это и есть «где отрабатывать».
+    ctx = [d for d in ctx_dims if d in df.columns and d != ent][:2]
+    sub = df[df[ent].isin(set(top.index))]
+    ssub = _to_num(sub[frame.target])
+    ctx_vals: dict[str, list] = {}
+    for d in ctx:
+        gr = ssub.groupby([sub[ent], sub[d]]).sum()
+        pick = gr.groupby(level=0).idxmin() if frame.mode == "change" else gr.groupby(level=0).idxmax()
+        nneg = (gr < 0).groupby(level=0).sum() if frame.mode == "change" else None
+        cells = []
+        for e in top.index:
+            key = pick.get(e)
+            v = fmt_val(key[1]) if isinstance(key, tuple) else "—"
+            k = int(nneg.get(e, 0)) if nneg is not None else 0
+            cells.append(f"{v} +{k - 1}" if k > 1 else v)
+        ctx_vals[d] = cells
+
+    disp = top.copy(); disp.index = [elab(i) for i in top.index]     # «Имя (ID клиента …)»
+    tbl = pd.DataFrame(index=disp.index)
+    for d in ctx:
+        tbl[d] = ctx_vals[d]
+    tbl["contrib"] = disp.values
     if val is not None:
         tbl["value"] = val.values
+    tbl.attrs["ctx"] = ctx
+    if ctx:
+        logger.info("investigate КТО: колонки-классификации=%s", ctx)
     chart = _entity_chart(disp, ent, frame, assets, lbls)
     return tbl, chart
 
@@ -1197,10 +1225,29 @@ def investigate(db, catalog, llm, fqn: str, question: str, *, where: str | None 
 
     # главный разрез для дерева/водопада/кросс-таба — с макс. концентрацией вклада
     ent_con = {core._concept(e) for e in [frame.entity] if frame.entity}
-    dcand = [d for d in frame.drill_dims if d in df.columns and core._concept(d) not in ent_con
-             and 2 <= df[d].nunique(dropna=True) <= 60]
+    # кандидаты — не только drill_dims от LLM: он часто возвращает один разрез, и тогда «в каких
+    # ГОСБ» остаётся без ответа. Добавляем остальные разрезы (кроме причин/статусов и сущности).
+    extra = [d for d in prep.roles.dimensions
+             if d not in frame.drill_dims and d not in frame.why_dims]
+    cands = [d for d in (list(frame.drill_dims) + extra)
+             if d in df.columns and core._concept(d) not in ent_con]
+
+    def _dim_ok(d: str, cap: int) -> bool:
+        n = df[d].nunique(dropna=True)
+        return 2 <= n <= cap and n < 0.5 * len(df)      # не id-подобный
+
+    # для дерева/водопада/хитмапа нужна ЧИТАЕМОСТЬ графика → жёсткий потолок категорий
+    dcand = [d for d in cands if _dim_ok(d, _PRIMARY_MAX_CARD)]
     primary = max(dcand, key=lambda d: _decompose(df, frame.target, d, frame.mode, ref, side).top_share,
                   default=(dcand[0] if dcand else None))
+    # «Где»: таблица (топ-6 + «прочие»), поэтому потолок мягкий — иначе ГОСБ (сотни значений)
+    # выпадает, и вопрос «в каких ГОСБ» остаётся без ответа.
+    wcand = [d for d in cands if _dim_ok(d, _WHERE_MAX_CARD)]
+    wdims = ([primary] if primary else []) + [d for d in wcand if d != primary]
+    where_dims = [(d, _decompose(df, frame.target, d, frame.mode, ref, side)) for d in wdims[:3]]
+    logger.info("investigate ГДЕ: главный=%s | раскладываем по=%s | отсеяны по кардинальности=%s",
+                primary, [d for d, _ in where_dims],
+                [d for d in cands if d not in wcand])
 
     with core.report_style():                # локальный стиль графиков (не мутируем ноутбук)
         progress("строю водопад и кривую концентрации…")
@@ -1220,7 +1267,8 @@ def investigate(db, catalog, llm, fqn: str, question: str, *, where: str | None 
                 if (primary and frame.why_dims) else None)
         comps = _components(df, frame, prep.lbls)
         progress("нахожу «виновников» и приоритет возврата…")
-        who_tbl, who_chart = _who(df, frame, assets, prep.lbls, elab)
+        who_tbl, who_chart = _who(df, frame, assets, prep.lbls, elab,
+                                  ctx_dims=[d for d, _ in where_dims])
         quadrant = _quadrant_chart(df, frame, frame.entity, frame.value, side, assets, prep.lbls) if frame.entity else None
         progress("смотрю динамику во времени…")
         when_chart, when_facts = _when(df, frame, prep, unit, side, assets, prep.lbls)
@@ -1248,7 +1296,7 @@ def investigate(db, catalog, llm, fqn: str, question: str, *, where: str | None 
                tree=tree, treemap=treemap, why=why, heat=heat, comps=comps,
                who_tbl=who_tbl, who_chart=who_chart, quadrant=quadrant,
                when_chart=when_chart, when_facts=when_facts, drill_facts=drill_facts,
-               books=books, synth=synth)
+               books=books, synth=synth, where_dims=where_dims)
     md_path = out_dir / f"{table}_investigation.md"
     html_path = out_dir / f"{table}_investigation.html"
     md_path.write_text(_assemble_md(**ctx), encoding="utf-8")
@@ -1401,10 +1449,21 @@ def _books_html(books, unit) -> str:
     return "".join(H)
 
 
+def _where_rows(c, unit, top=6):
+    """Строки раскладки по разрезу: значение | вклад | доля стороны. + «прочие»."""
+    rows = [(fmt_val(v), _fmt_u(float(r["contrib"]), unit),
+             f"{float(r['share']):.0f}%" if float(r["share"]) > 0 else "—")   # растущие: доли нет
+            for v, r in c.table.head(top).iterrows()]
+    rest = c.table.iloc[top:]
+    if len(rest):
+        rows.append((f"прочие ({len(rest)})", _fmt_u(float(rest["contrib"].sum()), unit), ""))
+    return rows
+
+
 def _assemble_md(prep, frame, table, fqn, question, where, net, gross_loss, gross_gain, unit,
                  primary, waterfall, pareto_chart, pareto_facts, tree, treemap, why, heat,
                  comps, who_tbl, who_chart, quadrant, when_chart, when_facts, drill_facts,
-                 books, synth) -> str:
+                 books, synth, where_dims=()) -> str:
     T = table + "_investigate"
     lb = prep.lbls
     def im(ch, alt=""):
@@ -1430,6 +1489,15 @@ def _assemble_md(prep, frame, table, fqn, question, where, net, gross_loss, gros
                  f"(из {pareto_facts['total']}); топ-10 = {pareto_facts['top10_share']}%.")
     L.append("")
     L.append(im(waterfall, "водопад")); L.append(im(pareto_chart, "Парето"))
+    if where_dims:
+        L.append("## 📍 Где сосредоточено снижение")
+        for d, c in where_dims:
+            L.append(f"### По «{lb.col_title(d)}»")
+            L.append(f"| {lb.col_title(d)} | {lb.of(frame.target)} | доля {_side(c.loss)} |")
+            L.append("|---|--:|--:|")
+            for v, contrib, sh in _where_rows(c, unit):
+                L.append(f"| {v} | {contrib} | {sh} |")
+            L.append("")
     if when_facts:
         L.append("## 🕒 Когда")
         line = f"- **Пик:** {when_facts['период_пик']} ({when_facts['вклад_пика']}, {when_facts['доля_пика_%']}% стороны)."
@@ -1484,11 +1552,13 @@ def _assemble_md(prep, frame, table, fqn, question, where, net, gross_loss, gros
     if who_tbl is not None:
         L.append(f"## 👤 Кто + приоритет возврата ({lb.of(frame.entity)})")
         has_val = "value" in who_tbl.columns
-        L.append(f"| {lb.of(frame.entity)} | {lb.of(frame.target)} |"
-                 + (f" {lb.of(frame.value)} |" if has_val else ""))
-        L.append("|---|---|" + ("---|" if has_val else ""))
+        ctx = list(who_tbl.attrs.get("ctx", []))
+        L.append(f"| {lb.of(frame.entity)} |" + "".join(f" {lb.of(c)} (осн. вклад) |" for c in ctx)
+                 + f" {lb.of(frame.target)} |" + (f" {lb.of(frame.value)} |" if has_val else ""))
+        L.append("|---|" + "---|" * (len(ctx) + 1) + ("---|" if has_val else ""))
         for idx, row in who_tbl.head(8).iterrows():
-            line = f"| {fmt_val(idx)} | {_fmt_u(float(row['contrib']), unit)} |"
+            line = (f"| {fmt_val(idx)} |" + "".join(f" {fmt_val(row[c])} |" for c in ctx)
+                    + f" {_fmt_u(float(row['contrib']), unit)} |")
             if has_val:
                 line += (f" {_fmt(float(row['value']))} |" if pd.notna(row['value']) else " — |")
             L.append(line)
@@ -1509,7 +1579,7 @@ def _assemble_md(prep, frame, table, fqn, question, where, net, gross_loss, gros
 def _assemble_html(prep, frame, table, fqn, question, where, net, gross_loss, gross_gain, unit,
                    primary, waterfall, pareto_chart, pareto_facts, tree, treemap, why, heat,
                    comps, who_tbl, who_chart, quadrant, when_chart, when_facts, drill_facts,
-                   books, synth) -> str:
+                   books, synth, where_dims=()) -> str:
     import html as _h
     lb = prep.lbls
     def im(ch):
@@ -1538,6 +1608,18 @@ def _assemble_html(prep, frame, table, fqn, question, where, net, gross_loss, gr
         H.append(f"<p class='factline'>Концентрация: топ-{pareto_facts['n_for_80']} «{_h.escape(lb.of(frame.entity))}» "
                  f"= 80% потерь (из {pareto_facts['total']}); топ-10 = {pareto_facts['top10_share']}%.</p>")
     H.append(im(waterfall) + im(pareto_chart) + "</div>")
+    if where_dims:
+        H.append("<h2>📍 Где сосредоточено снижение</h2>")
+        for d, c in where_dims:
+            rows = "".join(
+                f"<tr><td>{_h.escape(v)}</td><td style='text-align:right'>{_h.escape(contrib)}</td>"
+                f"<td style='text-align:right'>{_h.escape(sh)}</td></tr>"
+                for v, contrib, sh in _where_rows(c, unit))
+            H.append(f"<h3>По «{_h.escape(lb.col_title(d))}»</h3><div class='card'>"
+                     f"<table><thead><tr><th>{_h.escape(lb.col_title(d))}</th>"
+                     f"<th>{_h.escape(lb.of(frame.target))}</th>"
+                     f"<th>доля {_h.escape(_side(c.loss))}</th></tr></thead>"
+                     f"<tbody>{rows}</tbody></table></div>")
     if when_facts:
         line = (f"Пик: <b>{_h.escape(when_facts['период_пик'])}</b> "
                 f"({_h.escape(when_facts['вклад_пика'])}, {when_facts['доля_пика_%']}% стороны).")
@@ -1592,11 +1674,16 @@ def _assemble_html(prep, frame, table, fqn, question, where, net, gross_loss, gr
     if who_tbl is not None:
         has_val = "value" in who_tbl.columns
         H.append(f"<h2>👤 Кто + приоритет возврата ({_h.escape(lb.of(frame.entity))})</h2><div class='card pattern-card'>")
+        ctx = list(who_tbl.attrs.get("ctx", []))
         rows = "".join(
-            f"<tr><td>{_h.escape(fmt_val(idx))}</td><td>{_h.escape(_fmt_u(float(r['contrib']), unit))}</td>"
+            f"<tr><td>{_h.escape(fmt_val(idx))}</td>"
+            + "".join(f"<td>{_h.escape(fmt_val(r[c]))}</td>" for c in ctx)
+            + f"<td>{_h.escape(_fmt_u(float(r['contrib']), unit))}</td>"
             + (f"<td>{_h.escape(_fmt(float(r['value'])) if pd.notna(r['value']) else '—')}</td>" if has_val else "")
             + "</tr>" for idx, r in who_tbl.head(8).iterrows())
-        head = (f"<th>{_h.escape(lb.of(frame.entity))}</th><th>{_h.escape(lb.of(frame.target))}</th>"
+        head = (f"<th>{_h.escape(lb.of(frame.entity))}</th>"
+                + "".join(f"<th>{_h.escape(lb.of(c))} (осн. вклад)</th>" for c in ctx)
+                + f"<th>{_h.escape(lb.of(frame.target))}</th>"
                 + (f"<th>{_h.escape(lb.of(frame.value))}</th>" if has_val else ""))
         H.append(f"<table><thead><tr>{head}</tr></thead><tbody>{rows}</tbody></table>")
         H.append(im(quadrant) + "</div>")          # who_chart убран: дублирует таблицу

@@ -7,15 +7,7 @@
   "row_meaning": "",
   "audience_hint": "",
   "row_count": 2778,
-  "time": [
-    {
-      "name": "task_dt",
-      "label": "Дата задачи",
-      "is_reporting": false,
-      "granularity": "day",
-      "fresh_until": "2026-06-25"
-    }
-  ],
+  "time": [],
   "measures": [
     {
       "name": "Количество компаний",
@@ -31,7 +23,7 @@
     },
     {
       "name": "fl_26_qty",
-      "label": "Физлица 2026",
+      "label": "Физлица 2026 года",
       "column": "fl_26_qty",
       "agg": "sum",
       "kind": "count",
@@ -43,7 +35,7 @@
     },
     {
       "name": "fl_25_qty",
-      "label": "Физлица 2025",
+      "label": "Физлица 2025 года",
       "column": "fl_25_qty",
       "agg": "sum",
       "kind": "count",
@@ -55,7 +47,7 @@
     },
     {
       "name": "diff_fl_26_25_qty",
-      "label": "Разница физлиц",
+      "label": "Разница физлиц 26/25",
       "column": "diff_fl_26_25_qty",
       "agg": "sum",
       "kind": "count",
@@ -91,7 +83,7 @@
     },
     {
       "name": "diff_fl_unic_26_25_qty",
-      "label": "Разница ФЛ КПЭ",
+      "label": "Разница ФЛ в КПЭ",
       "column": "diff_fl_unic_26_25_qty",
       "agg": "sum",
       "kind": "count",
@@ -103,7 +95,7 @@
     },
     {
       "name": "potential_1q_26",
-      "label": "Потенциал 1 кв 2026",
+      "label": "Потенциал 1 кв. 2026",
       "column": "potential_1q_26",
       "agg": "sum",
       "kind": "count",
@@ -115,7 +107,7 @@
     },
     {
       "name": "potential_4q_25",
-      "label": "Потенциал 4 кв 2025",
+      "label": "Потенциал 4 кв. 2025",
       "column": "potential_4q_25",
       "agg": "sum",
       "kind": "count",
@@ -127,7 +119,7 @@
     },
     {
       "name": "potential_3q_25",
-      "label": "Потенциал 3 кв 2025",
+      "label": "Потенциал 3 кв. 2025",
       "column": "potential_3q_25",
       "agg": "sum",
       "kind": "count",
@@ -189,7 +181,7 @@
   "dimensions": [
     {
       "name": "gosb_name",
-      "label": "ГОСБ",
+      "label": "Название ГОСБ",
       "card": 2534,
       "kind": "geo",
       "id_partner": null,
@@ -223,7 +215,7 @@
     },
     {
       "name": "holding_name",
-      "label": "Холдинг",
+      "label": "Название холдинга",
       "card": 2,
       "kind": "org",
       "id_partner": null,
@@ -293,7 +285,7 @@
   "tool_flags": [],
   "boring_cols": [],
   "question_bank": [
-    "Как «Количество компаний» распределён по «ГОСБ»?",
+    "Как «Количество компаний» распределён по «Название ГОСБ»?",
     "Кто ключевые «Название компании» и какая концентрация?",
     "Насколько эффективен инструмент (сравнить с/без)?"
   ],

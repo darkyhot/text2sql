@@ -18,21 +18,21 @@
   ],
   "measures": [
     {
-      "name": "Количество компаний",
-      "label": "Количество компаний",
-      "column": "__row",
-      "agg": "count",
+      "name": "fl_26_qty",
+      "label": "Физлица в доле 2026",
+      "column": "fl_26_qty",
+      "agg": "sum",
       "kind": "count",
-      "unit": "count",
+      "unit": "people",
       "good_direction": "none",
       "priority": 0,
       "scope_mask": null,
       "is_outcome": false
     },
     {
-      "name": "fl_26_qty",
-      "label": "Физлица 2026 года",
-      "column": "fl_26_qty",
+      "name": "fl_25_qty",
+      "label": "Физлица в доле 2025",
+      "column": "fl_25_qty",
       "agg": "sum",
       "kind": "count",
       "unit": "people",
@@ -42,9 +42,9 @@
       "is_outcome": false
     },
     {
-      "name": "fl_25_qty",
-      "label": "Физлица 2025 года",
-      "column": "fl_25_qty",
+      "name": "diff_fl_26_25_qty",
+      "label": "Разница физлиц (26-25)",
+      "column": "diff_fl_26_25_qty",
       "agg": "sum",
       "kind": "count",
       "unit": "people",
@@ -54,14 +54,38 @@
       "is_outcome": false
     },
     {
-      "name": "diff_fl_26_25_qty",
-      "label": "Разница физлиц 26-25",
-      "column": "diff_fl_26_25_qty",
+      "name": "fl_unic_25_qty",
+      "label": "Физлица в КПЭ 2025",
+      "column": "fl_unic_25_qty",
       "agg": "sum",
       "kind": "count",
       "unit": "people",
       "good_direction": "none",
       "priority": 3,
+      "scope_mask": null,
+      "is_outcome": false
+    },
+    {
+      "name": "fl_unic_26_qty",
+      "label": "Физлица в КПЭ 2026",
+      "column": "fl_unic_26_qty",
+      "agg": "sum",
+      "kind": "count",
+      "unit": "people",
+      "good_direction": "none",
+      "priority": 4,
+      "scope_mask": null,
+      "is_outcome": false
+    },
+    {
+      "name": "diff_fl_unic_26_25_qty",
+      "label": "Разница физлиц КПЭ",
+      "column": "diff_fl_unic_26_25_qty",
+      "agg": "sum",
+      "kind": "count",
+      "unit": "people",
+      "good_direction": "none",
+      "priority": 5,
       "scope_mask": null,
       "is_outcome": false
     },
@@ -73,43 +97,7 @@
       "kind": "count",
       "unit": "count",
       "good_direction": "up",
-      "priority": 4,
-      "scope_mask": null,
-      "is_outcome": false
-    },
-    {
-      "name": "fl_unic_25_qty",
-      "label": "ФЛ в КПЭ 2025",
-      "column": "fl_unic_25_qty",
-      "agg": "sum",
-      "kind": "count",
-      "unit": "people",
-      "good_direction": "none",
-      "priority": 5,
-      "scope_mask": null,
-      "is_outcome": false
-    },
-    {
-      "name": "fl_unic_26_qty",
-      "label": "ФЛ в КПЭ 2026",
-      "column": "fl_unic_26_qty",
-      "agg": "sum",
-      "kind": "count",
-      "unit": "people",
-      "good_direction": "none",
       "priority": 6,
-      "scope_mask": null,
-      "is_outcome": false
-    },
-    {
-      "name": "diff_fl_unic_26_25_qty",
-      "label": "Разница ФЛ в КПЭ",
-      "column": "diff_fl_unic_26_25_qty",
-      "agg": "sum",
-      "kind": "count",
-      "unit": "people",
-      "good_direction": "none",
-      "priority": 7,
       "scope_mask": null,
       "is_outcome": false
     },
@@ -121,7 +109,7 @@
       "kind": "count",
       "unit": "count",
       "good_direction": "up",
-      "priority": 8,
+      "priority": 7,
       "scope_mask": null,
       "is_outcome": false
     },
@@ -133,7 +121,7 @@
       "kind": "count",
       "unit": "count",
       "good_direction": "up",
-      "priority": 9,
+      "priority": 8,
       "scope_mask": null,
       "is_outcome": false
     },
@@ -145,7 +133,7 @@
       "kind": "count",
       "unit": "people",
       "good_direction": "none",
-      "priority": 10,
+      "priority": 9,
       "scope_mask": null,
       "is_outcome": false
     },
@@ -157,7 +145,7 @@
       "kind": "count",
       "unit": "people",
       "good_direction": "none",
-      "priority": 11,
+      "priority": 10,
       "scope_mask": null,
       "is_outcome": false
     },
@@ -169,7 +157,7 @@
       "kind": "count",
       "unit": "people",
       "good_direction": "none",
-      "priority": 12,
+      "priority": 11,
       "scope_mask": null,
       "is_outcome": false
     },
@@ -181,7 +169,7 @@
       "kind": "count",
       "unit": "people",
       "good_direction": "none",
-      "priority": 13,
+      "priority": 12,
       "scope_mask": null,
       "is_outcome": false
     }
@@ -293,7 +281,7 @@
   "tool_flags": [],
   "boring_cols": [],
   "question_bank": [
-    "Как «Количество компаний» распределён по «Название ГОСБ»?",
+    "Как «Физлица в доле 2026» распределён по «Название ГОСБ»?",
     "Кто ключевые «Название компании» и какая концентрация?",
     "Насколько эффективен инструмент (сравнить с/без)?"
   ],

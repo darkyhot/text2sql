@@ -667,6 +667,48 @@ def _components(df, frame: Frame, lbls) -> list[tuple[str, float]]:
     return res
 
 
+_COVER_OK = 0.8          # «примерно равнозначный» потенциал: покрывает ≥80% снижения
+
+
+def _cover_txt(c) -> str:
+    """Покрытие как ×N + пометка, покрывает ли потенциал снижение («и/или больше»)."""
+    if c is None or pd.isna(c):
+        return "—"
+    c = float(c)
+    mark = "✓" if c >= _COVER_OK else ""
+    return (f"×{c:.0f} {mark}" if c >= 10 else f"×{c:.1f} {mark}").strip()
+
+
+def _recovery(df, frame: Frame, dim: str) -> list[tuple] | None:
+    """Сопоставление «снижение vs потенциал» В РАЗРЕЗЕ `dim` (сегмент/ГОСБ): по каждому срезу —
+    сколько просевших клиентов, у скольких потенциал покрывает снижение (≥80%), и итоговое
+    покрытие среза. Отвечает на «сопоставь … имеющих потенциал ≈ сумме снижения и/или больше»."""
+    ent, val = frame.entity, frame.value
+    if not (ent and val) or ent not in df.columns or val not in df.columns or dim not in df.columns:
+        return None
+    s, v = _to_num(df[frame.target]), _to_num(df[val])
+    lost = s.groupby(df[ent]).sum()
+    lost = lost[lost < 0]                       # только просевшие клиенты
+    if lost.empty:
+        return None
+    pot = v.groupby(df[ent]).sum(min_count=1).reindex(lost.index)
+    # срез клиента = значение dim с наибольшим вкладом в его снижение (клиент может быть в нескольких)
+    sub = df[df[ent].isin(set(lost.index))]
+    gr = _to_num(sub[frame.target]).groupby([sub[ent], sub[dim]]).sum()
+    pick = gr.groupby(level=0).idxmin()
+    seg = pd.Series({e: (k[1] if isinstance(k, tuple) else None) for e, k in pick.items()})
+
+    cov = (pot / lost.abs())
+    d = pd.DataFrame({"seg": seg.reindex(lost.index), "lost": lost, "pot": pot, "cov": cov}).dropna(subset=["seg"])
+    rows = []
+    for sv, g in d.groupby("seg"):
+        n, ok = len(g), int((g["cov"] >= _COVER_OK).sum())
+        tl, tp = float(g["lost"].sum()), float(g["pot"].sum(min_count=1) or 0.0)
+        rows.append((fmt_val(sv), n, ok, tl, tp, (tp / abs(tl)) if tl else float("nan")))
+    rows.sort(key=lambda r: r[3])               # самые просевшие срезы вперёд
+    return rows[:8]
+
+
 def _who(df, frame: Frame, assets, lbls, elab=fmt_val,
          ctx_dims=()) -> tuple[pd.DataFrame | None, str | None]:
     ent = frame.entity
@@ -719,6 +761,10 @@ def _who(df, frame: Frame, assets, lbls, elab=fmt_val,
     tbl["contrib"] = disp.values
     if val is not None:
         tbl["value"] = val.values
+        # ПОКРЫТИЕ: «потенциал примерно равнозначный сумме снижения и/или больше» — это ОТНОШЕНИЕ,
+        # без него две колонки рядом ни на что не отвечают.
+        with np.errstate(divide="ignore", invalid="ignore"):
+            tbl["cover"] = val.values / np.abs(top.values)
     tbl.attrs["ctx"] = ctx
     if ctx:
         logger.info("investigate КТО: колонки-классификации=%s", ctx)
@@ -1269,6 +1315,8 @@ def investigate(db, catalog, llm, fqn: str, question: str, *, where: str | None 
         progress("нахожу «виновников» и приоритет возврата…")
         who_tbl, who_chart = _who(df, frame, assets, prep.lbls, elab,
                                   ctx_dims=[d for d, _ in where_dims])
+        rec_dim = primary if primary else None
+        recovery = _recovery(df, frame, rec_dim) if rec_dim else None
         quadrant = _quadrant_chart(df, frame, frame.entity, frame.value, side, assets, prep.lbls) if frame.entity else None
         progress("смотрю динамику во времени…")
         when_chart, when_facts = _when(df, frame, prep, unit, side, assets, prep.lbls)
@@ -1296,7 +1344,8 @@ def investigate(db, catalog, llm, fqn: str, question: str, *, where: str | None 
                tree=tree, treemap=treemap, why=why, heat=heat, comps=comps,
                who_tbl=who_tbl, who_chart=who_chart, quadrant=quadrant,
                when_chart=when_chart, when_facts=when_facts, drill_facts=drill_facts,
-               books=books, synth=synth, where_dims=where_dims)
+               books=books, synth=synth, where_dims=where_dims,
+               recovery=recovery, rec_dim=rec_dim)
     md_path = out_dir / f"{table}_investigation.md"
     html_path = out_dir / f"{table}_investigation.html"
     md_path.write_text(_assemble_md(**ctx), encoding="utf-8")
@@ -1463,7 +1512,7 @@ def _where_rows(c, unit, top=6):
 def _assemble_md(prep, frame, table, fqn, question, where, net, gross_loss, gross_gain, unit,
                  primary, waterfall, pareto_chart, pareto_facts, tree, treemap, why, heat,
                  comps, who_tbl, who_chart, quadrant, when_chart, when_facts, drill_facts,
-                 books, synth, where_dims=()) -> str:
+                 books, synth, where_dims=(), recovery=None, rec_dim=None) -> str:
     T = table + "_investigate"
     lb = prep.lbls
     def im(ch, alt=""):
@@ -1554,14 +1603,25 @@ def _assemble_md(prep, frame, table, fqn, question, where, net, gross_loss, gros
         has_val = "value" in who_tbl.columns
         ctx = list(who_tbl.attrs.get("ctx", []))
         L.append(f"| {lb.of(frame.entity)} |" + "".join(f" {lb.of(c)} (осн. вклад) |" for c in ctx)
-                 + f" {lb.of(frame.target)} |" + (f" {lb.of(frame.value)} |" if has_val else ""))
-        L.append("|---|" + "---|" * (len(ctx) + 1) + ("---|" if has_val else ""))
+                 + f" {lb.of(frame.target)} |"
+                 + (f" {lb.of(frame.value)} | покрытие |" if has_val else ""))
+        L.append("|---|" + "---|" * (len(ctx) + 1) + ("--:|--:|" if has_val else ""))
         for idx, row in who_tbl.head(8).iterrows():
             line = (f"| {fmt_val(idx)} |" + "".join(f" {fmt_val(row[c])} |" for c in ctx)
                     + f" {_fmt_u(float(row['contrib']), unit)} |")
             if has_val:
                 line += (f" {_fmt(float(row['value']))} |" if pd.notna(row['value']) else " — |")
+                line += f" {_cover_txt(row.get('cover'))} |"
             L.append(line)
+        L.append("")
+    if recovery:
+        L.append(f"## 🎯 Снижение vs потенциал в разрезе «{lb.col_title(rec_dim)}»")
+        L.append(f"_Покрытие = потенциал ÷ |снижение|. «Покрыт» — потенциал ≥ {int(_COVER_OK*100)}% снижения._\n")
+        L.append(f"| {lb.col_title(rec_dim)} | просевших клиентов | из них покрыты | снижение | потенциал | покрытие |")
+        L.append("|---|--:|--:|--:|--:|--:|")
+        for sv, n, ok, tl, tp, cov in recovery:
+            L.append(f"| {sv} | {n} | {ok} | {_fmt_u(tl, unit)} | {_fmt(tp)} | {_cover_txt(cov)} |")
+        L.append("")
         L.append("")
         L.append(im(quadrant, "квадрант"))          # who_chart убран: дублирует таблицу
     if synth.get("chain"):
@@ -1579,7 +1639,7 @@ def _assemble_md(prep, frame, table, fqn, question, where, net, gross_loss, gros
 def _assemble_html(prep, frame, table, fqn, question, where, net, gross_loss, gross_gain, unit,
                    primary, waterfall, pareto_chart, pareto_facts, tree, treemap, why, heat,
                    comps, who_tbl, who_chart, quadrant, when_chart, when_facts, drill_facts,
-                   books, synth, where_dims=()) -> str:
+                   books, synth, where_dims=(), recovery=None, rec_dim=None) -> str:
     import html as _h
     lb = prep.lbls
     def im(ch):
@@ -1679,14 +1739,30 @@ def _assemble_html(prep, frame, table, fqn, question, where, net, gross_loss, gr
             f"<tr><td>{_h.escape(fmt_val(idx))}</td>"
             + "".join(f"<td>{_h.escape(fmt_val(r[c]))}</td>" for c in ctx)
             + f"<td>{_h.escape(_fmt_u(float(r['contrib']), unit))}</td>"
-            + (f"<td>{_h.escape(_fmt(float(r['value'])) if pd.notna(r['value']) else '—')}</td>" if has_val else "")
+            + ((f"<td>{_h.escape(_fmt(float(r['value'])) if pd.notna(r['value']) else '—')}</td>"
+                f"<td>{_h.escape(_cover_txt(r.get('cover')))}</td>") if has_val else "")
             + "</tr>" for idx, r in who_tbl.head(8).iterrows())
         head = (f"<th>{_h.escape(lb.of(frame.entity))}</th>"
                 + "".join(f"<th>{_h.escape(lb.of(c))} (осн. вклад)</th>" for c in ctx)
                 + f"<th>{_h.escape(lb.of(frame.target))}</th>"
-                + (f"<th>{_h.escape(lb.of(frame.value))}</th>" if has_val else ""))
+                + (f"<th>{_h.escape(lb.of(frame.value))}</th><th>покрытие</th>" if has_val else ""))
         H.append(f"<table><thead><tr>{head}</tr></thead><tbody>{rows}</tbody></table>")
         H.append(im(quadrant) + "</div>")          # who_chart убран: дублирует таблицу
+    if recovery:
+        rows = "".join(
+            f"<tr><td>{_h.escape(sv)}</td><td style='text-align:right'>{n}</td>"
+            f"<td style='text-align:right'>{ok}</td>"
+            f"<td style='text-align:right'>{_h.escape(_fmt_u(tl, unit))}</td>"
+            f"<td style='text-align:right'>{_h.escape(_fmt(tp))}</td>"
+            f"<td style='text-align:right'>{_h.escape(_cover_txt(cov))}</td></tr>"
+            for sv, n, ok, tl, tp, cov in recovery)
+        H.append(f"<h2>🎯 Снижение vs потенциал в разрезе «{_h.escape(lb.col_title(rec_dim))}»</h2>"
+                 f"<div class='card'><p class='factline'>Покрытие = потенциал ÷ |снижение|. "
+                 f"«Покрыт» — потенциал ≥ {int(_COVER_OK*100)}% снижения.</p>"
+                 f"<table><thead><tr><th>{_h.escape(lb.col_title(rec_dim))}</th>"
+                 f"<th>просевших клиентов</th><th>из них покрыты</th><th>снижение</th>"
+                 f"<th>потенциал</th><th>покрытие</th></tr></thead>"
+                 f"<tbody>{rows}</tbody></table></div>")
     if synth.get("chain"):
         H.append("<h2>🧭 Причинная цепочка</h2><div class='card'><ol>"
                  + "".join(f"<li>{_h.escape(x)}</li>" for x in synth["chain"]) + "</ol></div>")

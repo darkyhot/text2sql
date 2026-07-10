@@ -7,7 +7,15 @@
   "row_meaning": "",
   "audience_hint": "",
   "row_count": 2778,
-  "time": [],
+  "time": [
+    {
+      "name": "task_dt",
+      "label": "Дата задачи",
+      "is_reporting": false,
+      "granularity": "day",
+      "fresh_until": "2026-06-25"
+    }
+  ],
   "measures": [
     {
       "name": "Количество компаний",
@@ -47,13 +55,25 @@
     },
     {
       "name": "diff_fl_26_25_qty",
-      "label": "Разница физлиц 26/25",
+      "label": "Разница физлиц 26-25",
       "column": "diff_fl_26_25_qty",
       "agg": "sum",
       "kind": "count",
       "unit": "people",
       "good_direction": "none",
       "priority": 3,
+      "scope_mask": null,
+      "is_outcome": false
+    },
+    {
+      "name": "potential_1q_26",
+      "label": "Потенциал 1 кв 2026",
+      "column": "potential_1q_26",
+      "agg": "sum",
+      "kind": "count",
+      "unit": "count",
+      "good_direction": "up",
+      "priority": 4,
       "scope_mask": null,
       "is_outcome": false
     },
@@ -65,7 +85,7 @@
       "kind": "count",
       "unit": "people",
       "good_direction": "none",
-      "priority": 4,
+      "priority": 5,
       "scope_mask": null,
       "is_outcome": false
     },
@@ -77,7 +97,7 @@
       "kind": "count",
       "unit": "people",
       "good_direction": "none",
-      "priority": 5,
+      "priority": 6,
       "scope_mask": null,
       "is_outcome": false
     },
@@ -89,25 +109,13 @@
       "kind": "count",
       "unit": "people",
       "good_direction": "none",
-      "priority": 6,
-      "scope_mask": null,
-      "is_outcome": false
-    },
-    {
-      "name": "potential_1q_26",
-      "label": "Потенциал 1 кв. 2026",
-      "column": "potential_1q_26",
-      "agg": "sum",
-      "kind": "count",
-      "unit": "count",
-      "good_direction": "up",
       "priority": 7,
       "scope_mask": null,
       "is_outcome": false
     },
     {
       "name": "potential_4q_25",
-      "label": "Потенциал 4 кв. 2025",
+      "label": "Потенциал 4 кв 2025",
       "column": "potential_4q_25",
       "agg": "sum",
       "kind": "count",
@@ -119,7 +127,7 @@
     },
     {
       "name": "potential_3q_25",
-      "label": "Потенциал 3 кв. 2025",
+      "label": "Потенциал 3 кв 2025",
       "column": "potential_3q_25",
       "agg": "sum",
       "kind": "count",

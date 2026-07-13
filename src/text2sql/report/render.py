@@ -135,6 +135,8 @@ def tabulator_head() -> str:
 # разделители, липкая приглушённая шапка, tabular-nums, мягкий hover-wash. Числовые колонки —
 # вправо; колонки-доли (%/доля) получают прогресс-бар в ячейке.
 _TAB_CSS = """
+<style>.t2s-gsum{color:var(--ink-2);font-weight:600;margin-left:8px}
+.t2s-gcnt{color:var(--muted);font-size:.85em;margin-left:6px}</style>
 <style>
 .t2s-tab-wrap{margin:12px 0}
 .t2s-tools{display:flex;justify-content:flex-end;margin:0 0 6px}
@@ -159,21 +161,30 @@ _TAB_CSS = """
 </style>
 """
 
-_TAB_INIT = _TAB_CSS + """
+_TAB_INIT = _TAB_CSS + r"""
 <script>
 document.addEventListener("DOMContentLoaded",function(){
   if(typeof Tabulator==="undefined")return;
   var NUM=/^[\\s+\\-]?[\\d \\u00a0.,]+%?\\s*(тыс|млн|млрд|₽|руб|чел\\.?|шт|дн|%|п\\.п\\.)?\\s*$/;
   var SHARE=/(%|доля|share|концентрац)/i;
+  function fmtNum(v){                      // подытоги групп: 1 234 567 → «1.2 млн»
+    var a=Math.abs(v);
+    if(a>=1e6) return (v/1e6).toFixed(1).replace(/\.0$/,"")+" млн";
+    if(a>=1e3) return (v/1e3).toFixed(1).replace(/\.0$/,"")+" тыс";
+    return String(Math.round(v));
+  }
   Array.prototype.slice.call(document.querySelectorAll("table")).forEach(function(t){
     try{
-      if(t.hasAttribute("data-pivot"))return;      // сводная: своё дерево, Tabulator не нужен
       var thead=t.tHead, tbody=t.tBodies[0];
       if(!thead||!thead.rows.length||!tbody)return;
+      var isPivot=t.hasAttribute("data-pivot");
       var ths=Array.prototype.slice.call(thead.rows[0].cells);
       var data=Array.prototype.slice.call(tbody.rows).map(function(tr){
         var o={};
-        Array.prototype.slice.call(tr.cells).forEach(function(td,i){o["c"+i]=td.textContent.trim();});
+        Array.prototype.slice.call(tr.cells).forEach(function(td,i){
+          o["c"+i]=td.textContent.trim();
+          if(td.hasAttribute("data-v")) o["v"+i]=parseFloat(td.getAttribute("data-v"));
+        });
         return o;
       });
       // Выравнивание считаем ДО создания таблицы и задаём в определении колонок.
@@ -194,78 +205,48 @@ document.addEventListener("DOMContentLoaded",function(){
       var tools=document.createElement("div"); tools.className="t2s-tools"; wrap.appendChild(tools);
       var host=document.createElement("div"); wrap.appendChild(host);
       t.parentNode.removeChild(t);              // исходную HTML-таблицу заменяем на Tabulator
-      var tab=new Tabulator(host,{data:data,columns:cols,layout:"fitColumns",
+      var opt={data:data,columns:cols,layout:"fitColumns",
         movableColumns:true,resizableColumns:true,
         pagination:big?"local":false,paginationSize:15,
-        columnDefaults:{headerFilter:"input",resizable:true,tooltip:true,headerHozAlign:"left"}});
+        columnDefaults:{headerFilter:"input",resizable:true,tooltip:true,headerHozAlign:"left"}};
+      // СВОДНАЯ: разрезы — колонки, иерархию и ПОДЫТОГИ считает Tabulator (groupBy).
+      // Суммы честные: усечённые ветки пришли строкой «прочие», она входит в группу.
+      var nd=isPivot?parseInt(t.getAttribute("data-pivot"),10):0;
+      if(isPivot){
+        var vIdx=[]; for(var q=nd;q<ths.length;q++) vIdx.push(q);
+        opt.groupBy=cols.slice(0,nd).map(function(c){return c.field;});
+        opt.groupStartOpen=[true,false,false,false,false];
+        opt.pagination=false; opt.movableColumns=false;
+        opt.groupHeader=function(value,count,rws){
+          var sums=vIdx.map(function(i){
+            return rws.reduce(function(a,r){var d=r.getData?r.getData():r; return a+(d["v"+i]||0);},0);
+          });
+          return "<b>"+(value||"—")+"</b> <span class='t2s-gsum'>"+sums.map(fmtNum).join(" · ")
+                 +"</span> <span class='t2s-gcnt'>("+count+")</span>";
+        };
+      }
+      var tab=new Tabulator(host,opt);
+      if(isPivot){
+        var eall=false;
+        var be=document.createElement("button"); be.textContent="⊞ Развернуть всё";
+        be.onclick=function(){
+          eall=!eall;
+          try{
+            (function walk(gs){gs.forEach(function(g){
+              eall?g.show():g.hide();
+              var sg=g.getSubGroups(); if(sg&&sg.length) walk(sg);
+            });})(tab.getGroups());
+          }catch(e){console.warn("expand all",e);}
+          be.textContent=eall?"⊟ Свернуть всё":"⊞ Развернуть всё";
+        };
+        tools.appendChild(be);
+      }
       var bc=document.createElement("button"); bc.textContent="✕ Сбросить фильтры";
       bc.onclick=function(){try{tab.clearHeaderFilter();tab.clearFilter(true);}catch(e){}};
       tools.appendChild(bc);
       var b=document.createElement("button"); b.textContent="⬇ CSV";
       b.onclick=function(){tab.download("csv","data.csv");}; tools.appendChild(b);
     }catch(e){console.warn("tabulator init failed",e);}
-  });
-});
-</script>
-"""
-
-
-# Сводная (table[data-pivot]): СВОЁ дерево на data-lvl, без tree-API Tabulator.
-# Причина: при падении Tabulator весь init уходит в catch — вместе с кнопками, и таблица
-# остаётся «мёртвой». Здесь зависимостей нет: строки скрываются/показываются напрямую.
-_PIVOT_JS = """
-<style>
-  tr.t2s-grp{cursor:pointer}
-  tr.t2s-grp:hover{background:var(--surface-2)}
-  .t2s-caret{display:inline-block;width:1em;color:var(--ink-2);font-size:.8em}
-  .t2s-pivot-tools{display:flex;gap:8px;margin:6px 0}
-</style>
-<script>
-document.addEventListener("DOMContentLoaded",function(){
-  Array.prototype.slice.call(document.querySelectorAll("table[data-pivot]")).forEach(function(t){
-    var tb=t.tBodies[0]; if(!tb) return;
-    var rows=Array.prototype.slice.call(tb.rows);
-    var lv=function(r){return parseInt(r.getAttribute("data-lvl")||"0",10);};
-    var open={};                                     // индекс строки-группы → раскрыта?
-    rows.forEach(function(r,i){
-      var nx=rows[i+1];
-      r.__kids=!!(nx && lv(nx)>lv(r));               // группа = следующая строка глубже
-      if(r.__kids){
-        r.classList.add("t2s-grp");
-        r.cells[0].insertAdjacentHTML("afterbegin","<span class='t2s-caret'>&#9654;</span> ");
-        r.addEventListener("click",function(){ open[i]=!open[i]; refresh(); });
-      }
-    });
-    function refresh(){
-      var anc=[];                                    // anc[l] — предок уровня l раскрыт?
-      rows.forEach(function(r,i){
-        var l=lv(r); anc.length=l;                   // предки — уровни 0..l-1
-        var vis=true;
-        for(var k=0;k<l;k++){ if(!anc[k]){ vis=false; break; } }
-        r.style.display=vis?"":"none";
-        if(r.__kids){
-          anc[l]=!!open[i];
-          var c=r.querySelector(".t2s-caret");
-          if(c) c.innerHTML=open[i]?"&#9660;":"&#9654;";
-        }
-      });
-    }
-    // кнопка уже есть в разметке (её видно, даже если скрипт не отработает) — просто оживляем
-    var be=t.parentNode.querySelector(".t2s-expall");
-    if(!be){
-      var tools=document.createElement("div"); tools.className="t2s-pivot-tools";
-      be=document.createElement("button"); be.className="t2s-expall";
-      be.textContent="\\u229E Развернуть всё";
-      tools.appendChild(be); t.parentNode.insertBefore(tools,t);
-    }
-    var all=false;
-    be.onclick=function(){
-      all=!all;
-      rows.forEach(function(r,i){ if(r.__kids) open[i]=all; });
-      be.textContent=all?"\\u229F Свернуть всё":"\\u229E Развернуть всё";
-      refresh();
-    };
-    refresh();                                        // старт: видны только верхние уровни
   });
 });
 </script>
@@ -279,7 +260,7 @@ def enhance_tables(html: str) -> str:
     бы библиотеку пополам."""
     if "t2s-tab-wrap" in html:
         return html
-    assets = tabulator_head() + _TAB_INIT + _PIVOT_JS
+    assets = tabulator_head() + _TAB_INIT
     idx = html.rfind("</body>")
     return (html[:idx] + assets + html[idx:]) if idx != -1 else html + assets
 

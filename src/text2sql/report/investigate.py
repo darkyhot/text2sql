@@ -477,7 +477,7 @@ def _books_compute(df: pd.DataFrame, prep: Prep, specs: list[dict], note: str) -
             else:
                 continue
             seg_series[b.label] = sr.sort_values()
-    return {"books": books, "note": note, "seg": seg, "seg_series": seg_series,
+    return {"books": books, "note": note, "seg": seg, "seg_series": seg_series, "specs": specs,
             "head_sum": sum(b.delta for b in heads), "excl_sum": sum(b.delta for b in excl)}
 
 
@@ -713,6 +713,138 @@ def _recovery(df, frame: Frame, dim: str) -> list[tuple] | None:
         rows.append((fmt_val(sv), n, ok, tl, tp, (tp / abs(tl)) if tl else float("nan")))
     rows.sort(key=lambda r: r[3])               # самые просевшие срезы вперёд
     return rows[:8] or None
+
+
+# ---------- сводная таблица по явному запросу («построй сводную с колонками …») ----------
+_PIVOT_RE = re.compile(
+    r"свод\w*\s+таблиц\w*(?:[^.]*?)\bколон\w*\s*[:\-—]?\s*(?P<cols>[^.]+)", re.I)
+_PIVOT_TOP_DEFAULT = 10        # с сущностью (компанией) веток тысячи → топ-N на каждом уровне
+_PIVOT_MAX_ROWS = 400          # общий предел строк дерева (HTML не должен раздуваться)
+_PIVOT_TOP_RE = re.compile(r"топ[\s\-–]?(\d{1,3})", re.I)
+# слова, не различающие книги («ФЛ доля рынка» vs «ФЛ КПЭ»): по ним матчить нельзя
+_BOOK_STOP = {"фл", "год", "году", "кол", "чел", "физлиц", "физических", "лиц", "шт"}
+
+# синонимы для разрезов: как пользователь называет → что искать в имени/подписи колонки
+_DIM_SYN = [
+    (r"\bтб\b|террит\w*\s*банк", r"\btb\b|tb_name|террит"),
+    (r"госб", r"gosb|госб"),
+    (r"причин\w*\s*оттока|причин", r"outflow|reason|причин"),
+    (r"сегмент", r"segment|сегмент"),
+    (r"холдинг", r"holding|холдинг"),
+    (r"статус", r"status|статус"),
+    (r"компан\w*|клиент", r"company|компан|клиент"),
+]
+
+
+def _resolve_pivot_col(name: str, prep: Prep, df: pd.DataFrame, books) -> tuple[str, str] | None:
+    """Запрошенное имя колонки → (колонка_или_метка_книги, вид: 'dim'|'book'|'num'). None — нет такой."""
+    n = name.strip().strip("«»\"'").lower()
+    if not n:
+        return None
+    # 1) МЕРА-книга: «ФЛ доля год к году» → Δ книги. Сопоставляем по ЗНАЧИМЫМ токенам, а не
+    # подстрокой: LLM может назвать книгу «ФЛ доля рынка», и «доля рынка» in «фл доля г/г» = False.
+    nt = set(re.findall(r"[а-яёa-z]{3,}", n))
+    best, best_score = None, 0
+    for s in ((books or {}).get("specs") or []):
+        lt = {t for t in re.findall(r"[а-яёa-z]{3,}", str(s["label"]).lower())
+              if t not in _BOOK_STOP}
+        score = len(lt & nt)
+        if score > best_score:
+            best, best_score = s["label"], score
+    if best_score:
+        return best, "book"
+    # 2) РАЗРЕЗ по синонимам
+    for pat, colpat in _DIM_SYN:
+        if re.search(pat, n):
+            for c in df.columns:
+                if pd.api.types.is_numeric_dtype(df[c]):
+                    continue
+                if re.search(colpat, c + " " + prep.lbls.of(c), re.I):
+                    return c, "dim"
+            return None                                        # синоним понятен, но колонки нет
+    # 3) прямое совпадение с именем/подписью
+    for c in df.columns:
+        if n == c.lower() or n == prep.lbls.of(c).lower():
+            return c, ("num" if pd.api.types.is_numeric_dtype(df[c]) else "dim")
+    return None
+
+
+def _pivot(df: pd.DataFrame, question: str, prep: Prep, books) -> dict | None:
+    """Сводная таблица ПО ЯВНОМУ ЗАПРОСУ пользователя: разрезы × меры, суммы, детерминированно.
+    Возвращает {dims, measures, rows, missing} — missing честно перечисляет, чего нет в таблице."""
+    m = _PIVOT_RE.search(question)
+    if not m:
+        return None
+    raw = [p for p in re.split(r"[,;]| и ", m.group("cols")) if p.strip()]
+    dims, meas, missing = [], [], []
+    for p in raw:
+        r = _resolve_pivot_col(p, prep, df, books)
+        if r is None:
+            missing.append(p.strip())
+            continue
+        col, kind = r
+        (dims if kind == "dim" else meas).append((p.strip(), col, kind))
+    if not dims or not meas:
+        logger.info("investigate СВОДНАЯ: не собрана (разрезов=%d, мер=%d, нет=%s)",
+                    len(dims), len(meas), missing)
+        return None
+
+    # значения мер: книга → Δ (delta_col или y26-y25); обычная числовая → сама колонка
+    spec_by_label = {s["label"]: s for s in ((books or {}).get("specs") or [])}
+    series: dict[str, pd.Series] = {}
+    for title, col, kind in meas:
+        if kind == "book":
+            s = spec_by_label[col]
+            dc, y25, y26 = s.get("delta_col"), s.get("y25"), s.get("y26")
+            series[title] = (_to_num(df[dc]) if dc in df.columns
+                             else _to_num(df[y26]) - _to_num(df[y25]))
+        else:
+            series[title] = _to_num(df[col])
+
+    g = pd.DataFrame({t: v for t, v in series.items()})
+    for _, col, _k in dims:
+        g[col] = df[col].astype(str)
+    dcols = [c for _, c, _k in dims]
+    agg = g.groupby(dcols, dropna=False).sum(min_count=1).reset_index()
+    key = list(series)[0]
+    total = len(agg)
+
+    tm = _PIVOT_TOP_RE.search(question)                        # «топ 10» из промта, иначе дефолт
+    topn = min(int(tm.group(1)), 200) if tm else _PIVOT_TOP_DEFAULT
+
+    # СВОДНАЯ (как в Excel): вложенные группы по разрезам, на КАЖДОМ уровне подытог по мерам.
+    # Подытоги считаются по ПОЛНЫМ данным, а не по показанным строкам — суммы всегда сходятся;
+    # длинные ветки режем до топ-N по мере и сворачиваем остаток в «прочие (N)».
+    rows: list[dict] = []
+    meas = list(series)
+
+    def _sums(part) -> list[float]:
+        return [float(part[m].sum()) for m in meas]
+
+    def _walk(part: pd.DataFrame, lvl: int) -> None:
+        if lvl >= len(dcols) or len(rows) > _PIVOT_MAX_ROWS:
+            return
+        col = dcols[lvl]
+        gb = part.groupby(col, dropna=False)
+        order = gb[key].sum().sort_values().index            # самое сильное снижение — вверх
+        shown = list(order)[:topn]
+        for val in shown:
+            sub = gb.get_group(val)
+            rows.append({"lvl": lvl, "label": fmt_val(val), "vals": _sums(sub),
+                         "leaf": lvl == len(dcols) - 1})
+            _walk(sub, lvl + 1)
+        rest = [v for v in order if v not in set(shown)]
+        if rest:                                             # честный остаток ветки
+            sub = part[part[col].isin(rest)]
+            rows.append({"lvl": lvl, "label": f"прочие ({len(rest)})", "vals": _sums(sub),
+                         "leaf": True})
+
+    _walk(agg, 0)
+    grand = _sums(agg)
+    logger.info("investigate СВОДНАЯ: иерархия=%s | меры=%s | комбинаций=%d | топ-%d на уровень | "
+                "строк=%d | нет колонок=%s", dcols, meas, total, topn, len(rows), missing)
+    return {"dims": [t for t, _c, _k in dims], "measures": meas, "tree": rows, "grand": grand,
+            "total": total, "topn": topn, "key": key, "missing": missing}
 
 
 def _who(df, frame: Frame, assets, lbls, elab=fmt_val,
@@ -1323,6 +1455,7 @@ def investigate(db, catalog, llm, fqn: str, question: str, *, where: str | None 
                                   ctx_dims=[d for d, _ in where_dims])
         rec_dim = primary if primary else None
         recovery = _recovery(df, frame, rec_dim) if rec_dim else None
+        pivot = _pivot(df, question, prep, books)      # «построй сводную с колонками …»
         quadrant = _quadrant_chart(df, frame, frame.entity, frame.value, side, assets, prep.lbls) if frame.entity else None
         progress("смотрю динамику во времени…")
         when_chart, when_facts = _when(df, frame, prep, unit, side, assets, prep.lbls)
@@ -1351,7 +1484,7 @@ def investigate(db, catalog, llm, fqn: str, question: str, *, where: str | None 
                who_tbl=who_tbl, who_chart=who_chart, quadrant=quadrant,
                when_chart=when_chart, when_facts=when_facts, drill_facts=drill_facts,
                books=books, synth=synth, where_dims=where_dims,
-               recovery=recovery, rec_dim=rec_dim)
+               recovery=recovery, rec_dim=rec_dim, pivot=pivot)
     md_path = out_dir / f"{table}_investigation.md"
     html_path = out_dir / f"{table}_investigation.html"
     md_path.write_text(_assemble_md(**ctx), encoding="utf-8")
@@ -1518,7 +1651,7 @@ def _where_rows(c, unit, top=6):
 def _assemble_md(prep, frame, table, fqn, question, where, net, gross_loss, gross_gain, unit,
                  primary, waterfall, pareto_chart, pareto_facts, tree, treemap, why, heat,
                  comps, who_tbl, who_chart, quadrant, when_chart, when_facts, drill_facts,
-                 books, synth, where_dims=(), recovery=None, rec_dim=None) -> str:
+                 books, synth, where_dims=(), recovery=None, rec_dim=None, pivot=None) -> str:
     T = table + "_investigate"
     lb = prep.lbls
     def im(ch, alt=""):
@@ -1620,6 +1753,22 @@ def _assemble_md(prep, frame, table, fqn, question, where, net, gross_loss, gros
                 line += f" {_cover_txt(row.get('cover'))} |"
             L.append(line)
         L.append("")
+    if pivot:
+        L.append("## 📋 Сводная таблица")
+        L.append(f"_Иерархия: {' → '.join(pivot['dims'])}. Меры: {', '.join(pivot['measures'])}. "
+                 f"Комбинаций: {pivot['total']}; на каждом уровне — топ-{pivot['topn']} по «{pivot['key']}», "
+                 f"остаток свёрнут в «прочие». Подытоги считаются по полным данным — суммы сходятся._")
+        if pivot["missing"]:
+            L.append(f"\n> ⚠️ Нет в таблице, пропущены: {', '.join(pivot['missing'])}")
+        L.append("")
+        L.append("| " + " / ".join(pivot["dims"]) + " | " + " | ".join(pivot["measures"]) + " |")
+        L.append("|---|" + "--:|" * len(pivot["measures"]))
+        for r in pivot["tree"]:
+            pad = "&nbsp;" * (4 * r["lvl"])
+            lab = r["label"] if r["leaf"] else f"**{r['label']}**"
+            L.append(f"| {pad}{lab} | " + " | ".join(_fmt(v) for v in r["vals"]) + " |")
+        L.append("| **ИТОГО** | " + " | ".join(f"**{_fmt(v)}**" for v in pivot["grand"]) + " |")
+        L.append("")
     if recovery:
         L.append(f"## 🎯 Снижение vs потенциал в разрезе «{lb.col_title(rec_dim)}»")
         L.append(f"_Покрытие = потенциал ÷ |снижение|. «Покрыт» — потенциал ≥ {int(_COVER_OK*100)}% снижения._\n")
@@ -1645,7 +1794,7 @@ def _assemble_md(prep, frame, table, fqn, question, where, net, gross_loss, gros
 def _assemble_html(prep, frame, table, fqn, question, where, net, gross_loss, gross_gain, unit,
                    primary, waterfall, pareto_chart, pareto_facts, tree, treemap, why, heat,
                    comps, who_tbl, who_chart, quadrant, when_chart, when_facts, drill_facts,
-                   books, synth, where_dims=(), recovery=None, rec_dim=None) -> str:
+                   books, synth, where_dims=(), recovery=None, rec_dim=None, pivot=None) -> str:
     import html as _h
     lb = prep.lbls
     def im(ch):
@@ -1754,6 +1903,31 @@ def _assemble_html(prep, frame, table, fqn, question, where, net, gross_loss, gr
                 + (f"<th>{_h.escape(lb.of(frame.value))}</th><th>покрытие</th>" if has_val else ""))
         H.append(f"<table><thead><tr>{head}</tr></thead><tbody>{rows}</tbody></table>")
         H.append(im(quadrant) + "</div>")          # who_chart убран: дублирует таблицу
+    if pivot:
+        thead = (f"<th>{_h.escape(' / '.join(pivot['dims']))}</th>"
+                 + "".join(f"<th>{_h.escape(m)}</th>" for m in pivot["measures"]))
+        prows = "".join(
+            f"<tr data-lvl='{r['lvl']}'><td>{_h.escape(r['label'])}</td>"
+            + "".join(f"<td style='text-align:right'>{_h.escape(_fmt(v))}</td>" for v in r["vals"])
+            + "</tr>" for r in pivot["tree"])
+        prows += ("<tr data-lvl='0'><td><b>ИТОГО</b></td>"
+                  + "".join(f"<td style='text-align:right'><b>{_h.escape(_fmt(v))}</b></td>"
+                            for v in pivot["grand"]) + "</tr>")
+        note = (f"<p class='factline'>Иерархия: {_h.escape(' → '.join(pivot['dims']))}. "
+                f"Меры: {_h.escape(', '.join(pivot['measures']))}. "
+                f"Комбинаций: {pivot['total']}; на каждом уровне — топ-{pivot['topn']} по "
+                f"«{_h.escape(pivot['key'])}», остаток свёрнут в «прочие». Подытоги по полным "
+                f"данным — суммы сходятся. Клик по группе сворачивает/разворачивает.</p>")
+        if pivot["missing"]:
+            note += (f"<p class='factline'>⚠️ Нет в таблице, пропущены: "
+                     f"{_h.escape(', '.join(pivot['missing']))}</p>")
+        # data-pivot + data-lvl: сворачиваемое дерево (своё, без Tabulator). Кнопку кладём В РАЗМЕТКУ,
+        # чтобы она была видна независимо от того, отработал скрипт или нет.
+        H.append("<h2>📋 Сводная таблица</h2><div class='card'>" + note
+                 + "<div class='t2s-pivot-tools'><button type='button' class='t2s-expall'>"
+                   "⊞ Развернуть всё</button></div>"
+                 + f"<table data-pivot='{len(pivot['dims'])}'><thead><tr>{thead}</tr></thead>"
+                 f"<tbody>{prows}</tbody></table></div>")
     if recovery:
         rows = "".join(
             f"<tr><td>{_h.escape(sv)}</td><td style='text-align:right'>{n}</td>"

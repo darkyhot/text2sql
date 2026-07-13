@@ -18,9 +18,9 @@
   ],
   "measures": [
     {
-      "name": "fl_26_qty",
-      "label": "Физлица в доле 2026",
-      "column": "fl_26_qty",
+      "name": "diff_fl_26_25_qty",
+      "label": "Разница физлиц 26-25",
+      "column": "diff_fl_26_25_qty",
       "agg": "sum",
       "kind": "count",
       "unit": "people",
@@ -30,9 +30,9 @@
       "is_outcome": false
     },
     {
-      "name": "fl_25_qty",
-      "label": "Физлица в доле 2025",
-      "column": "fl_25_qty",
+      "name": "fl_26_qty",
+      "label": "Физлица за 2026",
+      "column": "fl_26_qty",
       "agg": "sum",
       "kind": "count",
       "unit": "people",
@@ -42,9 +42,9 @@
       "is_outcome": false
     },
     {
-      "name": "diff_fl_26_25_qty",
-      "label": "Разница физлиц (26-25)",
-      "column": "diff_fl_26_25_qty",
+      "name": "fl_25_qty",
+      "label": "Физлица за 2025",
+      "column": "fl_25_qty",
       "agg": "sum",
       "kind": "count",
       "unit": "people",
@@ -54,9 +54,9 @@
       "is_outcome": false
     },
     {
-      "name": "fl_unic_25_qty",
-      "label": "Физлица в КПЭ 2025",
-      "column": "fl_unic_25_qty",
+      "name": "diff_fl_unic_26_25_qty",
+      "label": "Разница ФЛ в КПЭ",
+      "column": "diff_fl_unic_26_25_qty",
       "agg": "sum",
       "kind": "count",
       "unit": "people",
@@ -66,9 +66,9 @@
       "is_outcome": false
     },
     {
-      "name": "fl_unic_26_qty",
-      "label": "Физлица в КПЭ 2026",
-      "column": "fl_unic_26_qty",
+      "name": "fl_unic_25_qty",
+      "label": "ФЛ в КПЭ 2025",
+      "column": "fl_unic_25_qty",
       "agg": "sum",
       "kind": "count",
       "unit": "people",
@@ -78,9 +78,9 @@
       "is_outcome": false
     },
     {
-      "name": "diff_fl_unic_26_25_qty",
-      "label": "Разница физлиц КПЭ",
-      "column": "diff_fl_unic_26_25_qty",
+      "name": "fl_unic_26_qty",
+      "label": "ФЛ в КПЭ 2026",
+      "column": "fl_unic_26_qty",
       "agg": "sum",
       "kind": "count",
       "unit": "people",
@@ -91,11 +91,11 @@
     },
     {
       "name": "potential_1q_26",
-      "label": "Потенциал 1 кв 2026",
+      "label": "Потенциал 1 кв. 2026",
       "column": "potential_1q_26",
       "agg": "sum",
-      "kind": "count",
-      "unit": "count",
+      "kind": "money",
+      "unit": "money",
       "good_direction": "up",
       "priority": 6,
       "scope_mask": null,
@@ -103,11 +103,11 @@
     },
     {
       "name": "potential_4q_25",
-      "label": "Потенциал 4 кв 2025",
+      "label": "Потенциал 4 кв. 2025",
       "column": "potential_4q_25",
       "agg": "sum",
-      "kind": "count",
-      "unit": "count",
+      "kind": "money",
+      "unit": "money",
       "good_direction": "up",
       "priority": 7,
       "scope_mask": null,
@@ -115,11 +115,11 @@
     },
     {
       "name": "potential_3q_25",
-      "label": "Потенциал 3 кв 2025",
+      "label": "Потенциал 3 кв. 2025",
       "column": "potential_3q_25",
       "agg": "sum",
-      "kind": "count",
-      "unit": "count",
+      "kind": "money",
+      "unit": "money",
       "good_direction": "up",
       "priority": 8,
       "scope_mask": null,
@@ -175,40 +175,6 @@
     }
   ],
   "dimensions": [
-    {
-      "name": "gosb_name",
-      "label": "Название ГОСБ",
-      "card": 2534,
-      "kind": "geo",
-      "id_partner": null,
-      "top_values": [
-        "ГОСБ Москва",
-        "YVA-gosb-00000000",
-        "YVA-gosb-00000001",
-        "YVA-gosb-00000002",
-        "YVA-gosb-00000003",
-        "YVA-gosb-00000004",
-        "YVA-gosb-00000005",
-        "YVA-gosb-00000007",
-        "YVA-gosb-00000008",
-        "YVA-gosb-00000009",
-        "YVA-gosb-00000010",
-        "YVA-gosb-00000011",
-        "YVA-gosb-00000012",
-        "YVA-gosb-00000013",
-        "YVA-gosb-00000014",
-        "YVA-gosb-00000015",
-        "YVA-gosb-00000016",
-        "YVA-gosb-00000017",
-        "YVA-gosb-00000018",
-        "YVA-gosb-00000020",
-        "YVA-gosb-00000021",
-        "YVA-gosb-00000022",
-        "YVA-gosb-00000023",
-        "YVA-gosb-00000024",
-        "YVA-gosb-00000025"
-      ]
-    },
     {
       "name": "holding_name",
       "label": "Название холдинга",
@@ -269,6 +235,13 @@
       "value_col": "potential_1q_26"
     },
     {
+      "name": "gosb_name",
+      "label": "Название ГОСБ",
+      "key_col": "gosb_name",
+      "name_col": "gosb_name",
+      "value_col": "potential_1q_26"
+    },
+    {
       "name": "inn",
       "label": "ID клиента",
       "key_col": "inn",
@@ -281,7 +254,7 @@
   "tool_flags": [],
   "boring_cols": [],
   "question_bank": [
-    "Как «Физлица в доле 2026» распределён по «Название ГОСБ»?",
+    "Как «Потенциал 1 кв. 2026» распределён по «Название холдинга»?",
     "Кто ключевые «Название компании» и какая концентрация?",
     "Насколько эффективен инструмент (сравнить с/без)?"
   ],

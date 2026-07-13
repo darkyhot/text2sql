@@ -167,6 +167,7 @@ document.addEventListener("DOMContentLoaded",function(){
   var SHARE=/(%|доля|share|концентрац)/i;
   Array.prototype.slice.call(document.querySelectorAll("table")).forEach(function(t){
     try{
+      if(t.hasAttribute("data-pivot"))return;      // сводная: своё дерево, Tabulator не нужен
       var thead=t.tHead, tbody=t.tBodies[0];
       if(!thead||!thead.rows.length||!tbody)return;
       var ths=Array.prototype.slice.call(thead.rows[0].cells);
@@ -209,6 +210,68 @@ document.addEventListener("DOMContentLoaded",function(){
 """
 
 
+# Сводная (table[data-pivot]): СВОЁ дерево на data-lvl, без tree-API Tabulator.
+# Причина: при падении Tabulator весь init уходит в catch — вместе с кнопками, и таблица
+# остаётся «мёртвой». Здесь зависимостей нет: строки скрываются/показываются напрямую.
+_PIVOT_JS = """
+<style>
+  tr.t2s-grp{cursor:pointer}
+  tr.t2s-grp:hover{background:var(--surface-2)}
+  .t2s-caret{display:inline-block;width:1em;color:var(--ink-2);font-size:.8em}
+  .t2s-pivot-tools{display:flex;gap:8px;margin:6px 0}
+</style>
+<script>
+document.addEventListener("DOMContentLoaded",function(){
+  Array.prototype.slice.call(document.querySelectorAll("table[data-pivot]")).forEach(function(t){
+    var tb=t.tBodies[0]; if(!tb) return;
+    var rows=Array.prototype.slice.call(tb.rows);
+    var lv=function(r){return parseInt(r.getAttribute("data-lvl")||"0",10);};
+    var open={};                                     // индекс строки-группы → раскрыта?
+    rows.forEach(function(r,i){
+      var nx=rows[i+1];
+      r.__kids=!!(nx && lv(nx)>lv(r));               // группа = следующая строка глубже
+      if(r.__kids){
+        r.classList.add("t2s-grp");
+        r.cells[0].insertAdjacentHTML("afterbegin","<span class='t2s-caret'>&#9654;</span> ");
+        r.addEventListener("click",function(){ open[i]=!open[i]; refresh(); });
+      }
+    });
+    function refresh(){
+      var anc=[];                                    // anc[l] — предок уровня l раскрыт?
+      rows.forEach(function(r,i){
+        var l=lv(r); anc.length=l;                   // предки — уровни 0..l-1
+        var vis=true;
+        for(var k=0;k<l;k++){ if(!anc[k]){ vis=false; break; } }
+        r.style.display=vis?"":"none";
+        if(r.__kids){
+          anc[l]=!!open[i];
+          var c=r.querySelector(".t2s-caret");
+          if(c) c.innerHTML=open[i]?"&#9660;":"&#9654;";
+        }
+      });
+    }
+    // кнопка уже есть в разметке (её видно, даже если скрипт не отработает) — просто оживляем
+    var be=t.parentNode.querySelector(".t2s-expall");
+    if(!be){
+      var tools=document.createElement("div"); tools.className="t2s-pivot-tools";
+      be=document.createElement("button"); be.className="t2s-expall";
+      be.textContent="\\u229E Развернуть всё";
+      tools.appendChild(be); t.parentNode.insertBefore(tools,t);
+    }
+    var all=false;
+    be.onclick=function(){
+      all=!all;
+      rows.forEach(function(r,i){ if(r.__kids) open[i]=all; });
+      be.textContent=all?"\\u229F Свернуть всё":"\\u229E Развернуть всё";
+      refresh();
+    };
+    refresh();                                        // старт: видны только верхние уровни
+  });
+});
+</script>
+"""
+
+
 def enhance_tables(html: str) -> str:
     """Вшить Tabulator и сделать все таблицы интерактивными. Идемпотентно.
     Вставляем перед ПОСЛЕДНИМ </body> (не первым!): вшитый ECharts содержит `</body>` внутри
@@ -216,7 +279,7 @@ def enhance_tables(html: str) -> str:
     бы библиотеку пополам."""
     if "t2s-tab-wrap" in html:
         return html
-    assets = tabulator_head() + _TAB_INIT
+    assets = tabulator_head() + _TAB_INIT + _PIVOT_JS
     idx = html.rfind("</body>")
     return (html[:idx] + assets + html[idx:]) if idx != -1 else html + assets
 

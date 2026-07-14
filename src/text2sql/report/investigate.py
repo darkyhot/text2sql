@@ -1361,6 +1361,38 @@ def _flatten_item(x) -> str:
     return m.group(1).strip() if m else s
 
 
+def _causal_chain(books, net, gross_loss, gross_gain, unit, drill_facts, why, pareto_facts,
+                  frame, lbls) -> list[str]:
+    """Причинная цепочка ДЕТЕРМИНИРОВАННО, из уже посчитанных фактов. LLM здесь ненадёжен: он
+    возвращал пункты словарями ({"total": "-236 тыс"}), из которых получались обрывки вроде
+    «-236,7 тыс. чел.» и «Сегмент». Все нужные числа у нас есть — собираем сами."""
+    ch: list[str] = []
+    if books:                                        # 1) методология: что с чем нельзя смешивать
+        heads = [b for b in books["books"] if b.role == "headline"]
+        excl = [b for b in books["books"] if b.role == "excluded"]
+        s = "Целевые метрики: " + _dot("; ".join(_book_move(b, unit) for b in heads))
+        if excl:
+            s += " Вне доли: " + _dot("; ".join(_book_move(b, unit) for b in excl))
+        ch.append(s)
+    if gross_loss is not None:                       # 2) масштаб: валовые потери vs приток
+        ch.append(f"Масштаб по «{lbls.of(frame.target)}»: потери {_fmt_u(gross_loss, unit)}, "
+                  f"приток {_fmt_u(gross_gain, unit)}, итог {_fmt_u(net, unit)}")
+    else:
+        ch.append(f"Итог по «{lbls.of(frame.target)}»: {_fmt_u(net, unit)}")
+    for i, d in enumerate(drill_facts or [], 1):     # 3) где: спуск по горячему пути
+        share = (f"{d['доля_всех_%']}% всех потерь" if i == 1
+                 else f"{d['доля_родителя_%']}% потерь предыдущего уровня")
+        ch.append(f"Где: {d['разрез']} = {d['значение']} — {d['вклад']} ({share})")
+    for d, li, _c in (why or []):                    # 4) почему: драйвер с lift к базе
+        if li.get("value"):
+            ch.append(f"Почему: {lbls.of(d)} = «{li['value']}» — {li['loss_share']}% потерь "
+                      f"при {li['base_share']}% строк (в {li['lift']} раза чаще базы)")
+    if pareto_facts and frame.entity:                # 5) кто: концентрация по сущностям
+        ch.append(f"Кто: топ-{pareto_facts.get('n_for_80')} «{lbls.of(frame.entity)}» дают 80% потерь "
+                  f"(из {pareto_facts.get('total')}); топ-10 — {pareto_facts.get('top10_share')}%")
+    return ch
+
+
 def _synthesize(llm, question, facts: dict) -> dict:
     try:
         out = llm.complete_json(_SYNTH_SYS, f"Вопрос: {question}\n\nФакты:\n{facts}",
@@ -1509,6 +1541,10 @@ def investigate(db, catalog, llm, fqn: str, question: str, *, where: str | None 
             "итог_исключённые": _fmt_u(books["excl_sum"], unit)}
     progress("собираю причинную цепочку и действия…")
     synth = _synthesize(llm, question, facts)
+    # Цепочка — ДЕТЕРМИНИРОВАННАЯ (LLM возвращал пункты словарями → в отчёт попадали обрывки
+    # «-236,7 тыс. чел.» и «Сегмент»). Ответ и действия по-прежнему пишет LLM.
+    synth["chain"] = _causal_chain(books, net, gross_loss, gross_gain, unit, drill_facts, why,
+                                   pareto_facts, frame, prep.lbls)
     if books:                                        # детерминированная методологическая шапка — первой
         synth["answer"] = _books_lead(books, unit) + "\n\n" + (synth.get("answer") or "")
     if df.attrs.get("sample_note"):                  # плашка о сэмпле (гейт памяти)

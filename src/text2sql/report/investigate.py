@@ -1498,11 +1498,14 @@ def investigate(db, catalog, llm, fqn: str, question: str, *, where: str | None 
     facts = _facts_for_synth(frame, prep.lbls, net, gross_loss, gross_gain, unit, tree, why,
                              comps, who_tbl, pareto_facts, primary, when_facts, drill_facts)
     if books:                                        # методология в синтез (ведёт ответ)
+        # Суммы по основным метрикам НЕ отдаём: у ФЛ доли и ФЛ КПЭ разные знаменатели, их сложение
+        # бессмысленно — нарратор должен называть каждую метрику отдельно.
         facts["методология_книги"] = {
             "note": books["note"],
+            "внимание": "НЕ складывай основные метрики между собой — у них разные знаменатели; "
+                        "называй Δ по каждой отдельно",
             "книги": [{"книга": b.label, "роль": b.role, "дельта": _fmt_u(b.delta, unit)}
                       for b in books["books"]],
-            "итог_основные": _fmt_u(books["head_sum"], unit),
             "итог_исключённые": _fmt_u(books["excl_sum"], unit)}
     progress("собираю причинную цепочку и действия…")
     synth = _synthesize(llm, question, facts)
@@ -1596,34 +1599,45 @@ _ROLE_RU = {"headline": "основная метрика", "excluded": "искл
 
 
 def _books_takeaway(books, unit) -> str:
-    """Детерминированный вывод методологии: основные метрики vs исключённые категории."""
-    hs, es = books["head_sum"], books["excl_sum"]
-    hw = "выросли" if hs > 0 else ("упали" if hs < 0 else "без изменений")
-    parts = [f"Основные метрики портфеля {hw} на {_fmt_u(hs, unit)}"]
-    if any(b.role == "excluded" for b in books["books"]):
-        ew = "снизились" if es < 0 else "выросли"
-        parts.append(f"а исключённые из доли категории (ГПХ/самозанятые) {ew} на {_fmt_u(es, unit)}")
-    tail = ("— то есть реальное снижение портфеля вне доли; смешивать метрики нельзя."
-            if hs >= 0 > es else "— методологии не смешиваем.")
-    return ", ".join(parts) + " " + tail
+    """Вывод методологии. Каждая метрика — своей строкой: складывать ФЛ долю и ФЛ КПЭ нельзя,
+    у них разные знаменатели."""
+    heads = [b for b in books["books"] if b.role == "headline"]
+    excl = [b for b in books["books"] if b.role == "excluded"]
+    es = books["excl_sum"]
+    txt = "Основные метрики: " + _dot("; ".join(_book_move(b, unit) for b in heads))
+    if excl:
+        txt += " Исключённые из доли: " + _dot("; ".join(_book_move(b, unit) for b in excl))
+        if es < 0 and all(b.delta >= 0 for b in heads):
+            txt += " То есть реальное снижение портфеля — вне доли; смешивать методологии нельзя."
+    return txt
+
+
+def _dot(s: str) -> str:
+    """Точка в конце фразы, но без «чел..» — сокращение единицы уже несёт свою точку."""
+    return s if s.endswith(".") else s + "."
+
+
+def _book_move(b, unit) -> str:
+    """«ФЛ доля рынка — вырос на 34.5 тыс чел.» — метрика со своим знаком, БЕЗ сложения с другими."""
+    w = "вырос" if b.delta > 0 else ("снизился" if b.delta < 0 else "не изменился")
+    return f"{b.label} — {w} на {_fmt_u(abs(b.delta), unit)}"
 
 
 def _books_lead(books, unit) -> str:
-    """Детерминированная методологическая ШАПКА ответа: всегда первой строкой и с ВЕРНЫМ знаком,
-    чтобы вывод не переворачивался (нельзя писать «снижение», если целевые метрики выросли)."""
-    hs, es = books["head_sum"], books["excl_sum"]
-    heads = [b.label for b in books["books"] if b.role == "headline"]
-    excl = [b.label for b in books["books"] if b.role == "excluded"]
-    hw = "вырос" if hs > 0 else ("снизился" if hs < 0 else "не изменился")
-    amt = _fmt_u(hs, unit)
-    dot = "" if amt.endswith(".") else "."
-    lead = f"**По целевым метрикам ({', '.join(heads)}) портфель {hw} на {amt}{dot}**"
-    if excl and es < 0 <= hs:
-        lead += (f" Реальное падение — {_fmt_u(es, unit)} — сосредоточено в исключённых из доли "
-                 f"категориях ({', '.join(excl)}), которые методологически нельзя смешивать с долей.")
-    elif excl:
-        w = "снизились" if es < 0 else "выросли"
-        lead += f" Исключённые из доли ({', '.join(excl)}) {w} на {_fmt_u(es, unit)}."
+    """Детерминированная методологическая ШАПКА ответа: всегда первой строкой и с ВЕРНЫМ знаком.
+    Целевые метрики показываем ПООТДЕЛЬНОСТИ: у ФЛ доли и ФЛ КПЭ разные знаменатели, их сумма
+    не имеет смысла (и маскирует случай, когда одна растёт, а другая падает)."""
+    heads = [b for b in books["books"] if b.role == "headline"]
+    excl = [b for b in books["books"] if b.role == "excluded"]
+    lead = "**По целевым метрикам: " + _dot("; ".join(_book_move(b, unit) for b in heads)) + "**"
+    if excl:
+        es = books["excl_sum"]
+        parts = "; ".join(_book_move(b, unit) for b in excl)
+        if es < 0 and all(b.delta >= 0 for b in heads):
+            lead += (f" Реальное падение — вне доли: {_dot(parts)} Эти категории методологически "
+                     f"не входят в ФЛ долю, смешивать их с ней нельзя.")
+        else:
+            lead += f" Исключённые из доли: {_dot(parts)}"
     return lead
 
 

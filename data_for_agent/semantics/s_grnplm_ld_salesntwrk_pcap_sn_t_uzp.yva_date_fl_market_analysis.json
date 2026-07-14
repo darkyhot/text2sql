@@ -19,7 +19,7 @@
   "measures": [
     {
       "name": "fl_26_qty",
-      "label": "Физлица 2026",
+      "label": "Физлица доля рынка 2026",
       "column": "fl_26_qty",
       "agg": "sum",
       "kind": "count",
@@ -31,7 +31,7 @@
     },
     {
       "name": "fl_25_qty",
-      "label": "Физлица 2025",
+      "label": "Физлица доля рынка 2025",
       "column": "fl_25_qty",
       "agg": "sum",
       "kind": "count",
@@ -43,7 +43,7 @@
     },
     {
       "name": "diff_fl_26_25_qty",
-      "label": "Разница физлиц 2026/2025",
+      "label": "Разница физлиц 2026-2025",
       "column": "diff_fl_26_25_qty",
       "agg": "sum",
       "kind": "count",
@@ -55,7 +55,7 @@
     },
     {
       "name": "fl_unic_26_qty",
-      "label": "ФЛ в КПЭ 2026",
+      "label": "ФЛ учтено в КПЭ 2026",
       "column": "fl_unic_26_qty",
       "agg": "sum",
       "kind": "count",
@@ -67,7 +67,7 @@
     },
     {
       "name": "fl_unic_25_qty",
-      "label": "ФЛ в КПЭ 2025",
+      "label": "ФЛ учтено в КПЭ 2025",
       "column": "fl_unic_25_qty",
       "agg": "sum",
       "kind": "count",
@@ -79,7 +79,7 @@
     },
     {
       "name": "diff_fl_unic_26_25_qty",
-      "label": "Разница ФЛ в КПЭ",
+      "label": "Разница ФЛ в КПЭ 2026-2025",
       "column": "diff_fl_unic_26_25_qty",
       "agg": "sum",
       "kind": "count",
@@ -91,11 +91,11 @@
     },
     {
       "name": "potential_1q_26",
-      "label": "Потенциал 1 кв. 2026",
+      "label": "Потенциал 1 кв 2026",
       "column": "potential_1q_26",
       "agg": "sum",
-      "kind": "money",
-      "unit": "money",
+      "kind": "count",
+      "unit": "count",
       "good_direction": "up",
       "priority": 6,
       "scope_mask": null,
@@ -103,11 +103,11 @@
     },
     {
       "name": "potential_4q_25",
-      "label": "Потенциал 4 кв. 2025",
+      "label": "Потенциал 4 кв 2025",
       "column": "potential_4q_25",
       "agg": "sum",
-      "kind": "money",
-      "unit": "money",
+      "kind": "count",
+      "unit": "count",
       "good_direction": "up",
       "priority": 7,
       "scope_mask": null,
@@ -115,11 +115,11 @@
     },
     {
       "name": "potential_3q_25",
-      "label": "Потенциал 3 кв. 2025",
+      "label": "Потенциал 3 кв 2025",
       "column": "potential_3q_25",
       "agg": "sum",
-      "kind": "money",
-      "unit": "money",
+      "kind": "count",
+      "unit": "count",
       "good_direction": "up",
       "priority": 8,
       "scope_mask": null,
@@ -127,7 +127,7 @@
     },
     {
       "name": "fl_self_emplyeed_25_qty",
-      "label": "Самозанятые 2025",
+      "label": "Самозанятые физлица 2025",
       "column": "fl_self_emplyeed_25_qty",
       "agg": "sum",
       "kind": "count",
@@ -139,7 +139,7 @@
     },
     {
       "name": "fl_gpx_25_qty",
-      "label": "ГПХ 2025",
+      "label": "Физлица ГПХ 2025",
       "column": "fl_gpx_25_qty",
       "agg": "sum",
       "kind": "count",
@@ -151,7 +151,7 @@
     },
     {
       "name": "fl_self_emplyeed_26_qty",
-      "label": "Самозанятые 2026",
+      "label": "Самозанятые физлица 2026",
       "column": "fl_self_emplyeed_26_qty",
       "agg": "sum",
       "kind": "count",
@@ -163,7 +163,7 @@
     },
     {
       "name": "fl_gpx_26_qty",
-      "label": "ГПХ 2026",
+      "label": "Физлица ГПХ 2026",
       "column": "fl_gpx_26_qty",
       "agg": "sum",
       "kind": "count",
@@ -177,7 +177,7 @@
   "dimensions": [
     {
       "name": "gosb_name",
-      "label": "ГОСБ",
+      "label": "Название ГОСБ",
       "card": 2534,
       "kind": "geo",
       "id_partner": null,
@@ -222,7 +222,7 @@
     },
     {
       "name": "segment_name_bp",
-      "label": "Сегмент",
+      "label": "Бизнес-сегмент",
       "card": 5,
       "kind": "category",
       "id_partner": null,
@@ -281,8 +281,7 @@
   "tool_flags": [],
   "boring_cols": [],
   "question_bank": [
-    "Как «Потенциал 1 кв. 2026» распределён по «ГОСБ»?",
-    "Где сосредоточены «Потенциал 1 кв. 2026» (по «ГОСБ»)?",
+    "Как «Физлица доля рынка 2026» распределён по «Название ГОСБ»?",
     "Кто ключевые «Название компании» и какая концентрация?",
     "Насколько эффективен инструмент (сравнить с/без)?"
   ],

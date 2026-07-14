@@ -209,7 +209,8 @@ document.addEventListener("DOMContentLoaded",function(){
     try{
       var thead=t.tHead, tbody=t.tBodies[0];
       if(!thead||!thead.rows.length||!tbody)return;
-      var isPivot=t.hasAttribute("data-pivot");
+      if(t.classList.contains("t2s-pivot"))return;   // сводная: свой рендер и свой JS
+      var isPivot=false;
       var ths=Array.prototype.slice.call(thead.rows[0].cells);
       var data=Array.prototype.slice.call(tbody.rows).map(function(tr){
         var o={};
@@ -237,77 +238,10 @@ document.addEventListener("DOMContentLoaded",function(){
       var tools=document.createElement("div"); tools.className="t2s-tools"; wrap.appendChild(tools);
       var host=document.createElement("div"); wrap.appendChild(host);
       t.parentNode.removeChild(t);              // исходную HTML-таблицу заменяем на Tabulator
-      var opt={data:data,columns:cols,layout:"fitColumns",
+      var tab=new Tabulator(host,{data:data,columns:cols,layout:"fitColumns",
         movableColumns:true,resizableColumns:true,
         pagination:big?"local":false,paginationSize:15,
-        columnDefaults:{headerFilter:"input",resizable:true,tooltip:true,headerHozAlign:"left"}};
-      // СВОДНАЯ: разрезы — колонки, иерархию и ПОДЫТОГИ считает Tabulator (groupBy).
-      // Суммы честные: усечённые ветки пришли строкой «прочие», она входит в группу.
-      var nd=isPivot?parseInt(t.getAttribute("data-pivot"),10):0;
-      if(isPivot){
-        // МЕРЫ = колонки, у ячеек которых есть data-v (сырое число). Считать «всё после
-        // группируемых» нельзя: последний разрез (ГОСБ) — обычная колонка и мерой не является.
-        var vIdx=[], fr=tbody.rows[0];
-        if(fr) Array.prototype.slice.call(fr.cells).forEach(function(td,i){
-          if(td.hasAttribute("data-v")) vIdx.push(i);
-        });
-        opt.groupBy=cols.slice(0,nd).map(function(c){return c.field;});
-        opt.groupStartOpen=false;              // старт: только верхний уровень (кнопка раскроет)
-        // По умолчанию Tabulator вешает сворачивание ТОЛЬКО на стрелку (groupToggleElement:"arrow"),
-        // а мы её прячем и рисуем свой шеврон — кликать было не по чему. Делаем кликабельной
-        // всю строку заголовка группы.
-        opt.groupToggleElement="header";
-        opt.pagination=false; opt.movableColumns=false;
-        // КЭШ подытогов: Tabulator дёргает groupHeader на КАЖДОЙ перерисовке, а мы перебирали
-        // все строки группы — на вложенных группах это квадратично и вешало браузер.
-        var sumCache={};
-        opt.groupHeader=function(value,count,rws,group){
-          var key=(group&&group.getKey?group.getKey():value)+"|"+count+"|"
-                  +(rws.length?(rws[0].getData?rws[0].getData().c0:""):"");
-          var sums=sumCache[key];
-          if(!sums){
-            sums=vIdx.map(function(i){
-              return rws.reduce(function(a,r){var d=r.getData?r.getData():r; return a+(d["v"+i]||0);},0);
-            });
-            sumCache[key]=sums;
-          }
-          var esc=function(s){var d=document.createElement("span");d.textContent=s;return d.innerHTML;};
-          return "<span class='t2s-ghead'><span class='t2s-glab'>"+esc(value||"—")+"</span>"
-               + "<span class='t2s-gcnt'>"+count+"</span>"
-               + "<span class='t2s-gsum'>"
-               + sums.map(function(v){
-                   return "<span class='"+(v<0?"neg":"")+"'>"+fmtNum(v)+"</span>";
-                 }).join("")
-               + "</span></span>";
-        };
-      }
-      var tab=new Tabulator(host,opt);
-      if(isPivot){
-        var eall=false;
-        var be=document.createElement("button"); be.textContent="⊞ Развернуть всё";
-        // Раскрытие/сворачивание ВСЕХ уровней. Тонкость: show() на группе перерисовывает таблицу
-        // и обесценивает компоненты, взятые ДО этого, — поэтому наивный обход раскрывал лишь
-        // первую ветку. blockRedraw() глушит перерисовку на время обхода: и корректно, и быстро
-        // (135мс против 6.4с у варианта «перечитывать дерево после каждого show»).
-        be.onclick=function(){
-          eall=!eall;
-          be.textContent=eall?"⊟ Свернуть всё":"⊞ Развернуть всё";
-          try{
-            tab.blockRedraw();
-            for(var pass=0; pass<nd+1; pass++){
-              var acted=false;
-              (function walk(gs){(gs||[]).forEach(function(g){
-                if(g.isVisible()!==eall){ eall?g.show():g.hide(); acted=true; }
-                var s=g.getSubGroups?g.getSubGroups():null;
-                if(s&&s.length) walk(s);
-              });})(tab.getGroups());
-              if(!acted) break;
-            }
-          }catch(e){ console.warn("expand all",e); }
-          finally{ try{ tab.restoreRedraw(); }catch(e){} }
-        };
-        tools.appendChild(be);
-      }
+        columnDefaults:{headerFilter:"input",resizable:true,tooltip:true,headerHozAlign:"left"}});
       var bc=document.createElement("button"); bc.textContent="✕ Сбросить фильтры";
       bc.onclick=function(){try{tab.clearHeaderFilter();tab.clearFilter(true);}catch(e){}};
       tools.appendChild(bc);
@@ -320,6 +254,100 @@ document.addEventListener("DOMContentLoaded",function(){
 """
 
 
+# СВОДНАЯ — свой рендер. Tabulator с вложенной группировкой не тянет объём (замерено: 2000
+# строк — зависание браузера), а нам нужно показывать ВСЕ ТБ и все причины. Здесь ноль
+# фреймворка: сворачивание — прямое переключение display у строк, один проход O(n).
+_PIVOT_JS = """
+<style>
+table.t2s-pivot{width:100%;border-collapse:collapse;font-size:13px;
+  font-variant-numeric:tabular-nums;margin-top:4px}
+table.t2s-pivot th{position:sticky;top:0;z-index:1;background:var(--surface-2);
+  color:var(--ink-2);font-weight:600;text-align:left;padding:8px 10px;
+  border-bottom:1px solid var(--hair)}
+table.t2s-pivot th.num,table.t2s-pivot td.num{text-align:right}
+table.t2s-pivot td{padding:6px 10px;border-bottom:1px solid var(--hair-soft);color:var(--ink-1)}
+table.t2s-pivot td.neg{color:var(--bad)}
+table.t2s-pivot tr.pg{cursor:pointer}
+table.t2s-pivot tr.pg:hover{background:var(--wash)}
+table.t2s-pivot tr.pg>td:first-child{font-weight:600}
+table.t2s-pivot tr.pg[data-lvl="1"]>td:first-child{font-weight:500;color:var(--ink-2)}
+table.t2s-pivot tr.pg[data-lvl="2"]>td:first-child{font-weight:400;color:var(--ink-2)}
+table.t2s-pivot tr.pg>td:first-child .pl::before{content:"";display:inline-block;
+  width:6px;height:6px;margin-right:9px;vertical-align:middle;
+  border-right:1.5px solid var(--muted);border-bottom:1.5px solid var(--muted);
+  transform:rotate(-45deg);transition:transform .12s ease}
+table.t2s-pivot tr.pg.op>td:first-child .pl::before{transform:rotate(45deg)}
+table.t2s-pivot tr.ptot>td{border-top:2px solid var(--hair);background:var(--surface-2)}
+.t2s-pivot-wrap{max-height:640px;overflow:auto;border:1px solid var(--hair);border-radius:12px}
+.t2s-pivot-tools{display:flex;gap:8px;justify-content:flex-end;margin:6px 0}
+.t2s-pivot-tools button{cursor:pointer;border:1px solid var(--hair);background:var(--surface-2);
+  color:var(--ink-2);border-radius:8px;padding:4px 11px;font-size:12px}
+.t2s-pivot-tools button:hover{background:var(--surface-1)}
+</style>
+<script>
+document.addEventListener("DOMContentLoaded",function(){
+Array.prototype.slice.call(document.querySelectorAll("table.t2s-pivot")).forEach(function(t){
+  var tb=t.tBodies[0]; if(!tb) return;
+  var rows=Array.prototype.slice.call(tb.rows);
+  var lv=function(r){var a=r.getAttribute("data-lvl"); return a===null?-1:parseInt(a,10);};
+  var open={};                                   // индекс строки-группы → раскрыта?
+
+  // видимость: один проход сверху вниз. Строка видна, если ВСЕ её предки раскрыты.
+  function refresh(){
+    var anc=[];                                  // anc[l] — предок уровня l раскрыт?
+    for(var i=0;i<rows.length;i++){
+      var r=rows[i], l=lv(r);
+      if(l<0){ r.style.display=""; continue; }   // ИТОГО — всегда видно
+      anc.length=l;
+      var vis=true;
+      for(var k=0;k<l;k++){ if(!anc[k]){ vis=false; break; } }
+      r.style.display=vis?"":"none";
+      if(r.classList.contains("pg")){
+        anc[l]=!!open[i];
+        r.classList.toggle("op",!!open[i]);
+      }
+    }
+  }
+  rows.forEach(function(r,i){
+    if(!r.classList.contains("pg")) return;
+    r.addEventListener("click",function(){ open[i]=!open[i]; refresh(); });
+  });
+
+  // обёртка со скроллом + кнопки
+  var wrap=document.createElement("div"); wrap.className="t2s-pivot-wrap";
+  t.parentNode.insertBefore(wrap,t); wrap.appendChild(t);
+  var tools=t.parentNode.parentNode.querySelector(".t2s-pivot-tools");
+  if(tools){
+    var be=tools.querySelector(".t2s-expall"), all=false;
+    if(be) be.onclick=function(){
+      all=!all;
+      rows.forEach(function(r,i){ if(r.classList.contains("pg")) open[i]=all; });
+      be.textContent=all?"⊟ Свернуть всё":"⊞ Развернуть всё";
+      refresh();
+    };
+    var bc=tools.querySelector(".t2s-csv");
+    if(bc) bc.onclick=function(){                // CSV: путь предков + меры, все строки
+      var hdr=Array.prototype.slice.call(t.tHead.rows[0].cells).map(function(c){return c.textContent;});
+      var path=[], out=[hdr.join(";")];
+      rows.forEach(function(r){
+        var l=lv(r); if(l<0) return;
+        var cells=Array.prototype.slice.call(r.cells);
+        path.length=l; path[l]=cells[0].textContent.trim();
+        var nums=cells.slice(1).map(function(c){return c.getAttribute("data-v")||c.textContent;});
+        out.push(path.join(" / ")+";"+nums.join(";"));
+      });
+      var blob=new Blob(["\\ufeff"+out.join("\\n")],{type:"text/csv;charset=utf-8"});
+      var a=document.createElement("a");
+      a.href=URL.createObjectURL(blob); a.download="pivot.csv"; a.click();
+    };
+  }
+  refresh();                                     // старт: виден только верхний уровень
+});
+});
+</script>
+"""
+
+
 def enhance_tables(html: str) -> str:
     """Вшить Tabulator и сделать все таблицы интерактивными. Идемпотентно.
     Вставляем перед ПОСЛЕДНИМ </body> (не первым!): вшитый ECharts содержит `</body>` внутри
@@ -327,7 +355,7 @@ def enhance_tables(html: str) -> str:
     бы библиотеку пополам."""
     if "t2s-tab-wrap" in html:
         return html
-    assets = tabulator_head() + _TAB_INIT
+    assets = tabulator_head() + _TAB_INIT + _PIVOT_JS
     idx = html.rfind("</body>")
     return (html[:idx] + assets + html[idx:]) if idx != -1 else html + assets
 

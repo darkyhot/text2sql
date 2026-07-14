@@ -720,31 +720,21 @@ _PIVOT_RE = re.compile(
     r"свод\w*\s*(?:таблиц\w*|диаграмм\w*|отч[её]т\w*|)"          # сводная таблица/диаграмма/…
     r"[^.]*?\b(?:колон\w*|пол[яей]\w*|разрез\w*|измерени\w*)"    # …с колонками / с полями / по разрезам
     r"\s*[:\-—]?\s*(?P<cols>[^.]+)", re.I)
-_PIVOT_TOP_DEFAULT = 10        # с сущностью (компанией) веток тысячи → топ-N на каждом уровне
-# Предел строк сводной. Замерено в браузере (Tabulator, вложенные группы): раскрытие
-# 500 строк ≈ 2.4с, 1000 ≈ 9с, 2000+ — зависание. Узкое место — рендер раскрытых строк,
-# кэш подытогов не помогает. Поэтому единственный рычаг — не плодить строки.
-_PIVOT_MAX_LEAVES = 500
+# Топ-N для «широких» разрезов (компании/ГОСБ). Свой рендер держит 20 тыс. строк
+# (загрузка 1.8с, раскрытие 0.4с) — можно не жадничать. Для сравнения: Tabulator висел на 2000.
+_PIVOT_TOP_DEFAULT = 20
+_PIVOT_FULL_MAX = 30           # разрез с таким числом значений показываем ЦЕЛИКОМ (все ТБ, все причины)
+_PIVOT_MAX_ROWS = 20000        # аварийный предел строк (свой рендер держит десятки тысяч)
 
 
-def _level_caps(n_dims: int, topn: int) -> list[int]:
-    """Топ-N на каждом уровне так, чтобы всего строк было ≤ _PIVOT_MAX_LEAVES.
-    «Топ-10 везде» при 4 разрезах даёт 11⁴ ≈ 14 тыс. строк и вешает браузер. Ужимаем САМЫЙ
-    БОЛЬШОЙ уровень (при равенстве — более глубокий): бюджет распределяется равномерно, и ни
-    один разрез не схлопывается в 2 значения, пока остальные держат 10."""
-    caps = [max(2, topn)] * max(1, n_dims)
-
-    def est(cs: list[int]) -> int:
-        p = 1
-        for c in cs:
-            p *= c + 1                     # +1 — строка «прочие» на каждом уровне
-        return p
-
-    while est(caps) > _PIVOT_MAX_LEAVES:
-        j = max(range(len(caps)), key=lambda k: (caps[k], k))   # самый большой, при равенстве — глубже
-        if caps[j] <= 2:
-            break                          # дальше ужимать некуда
-        caps[j] -= 1
+def _level_caps(df: pd.DataFrame, dcols: list[str], topn: int) -> list[int]:
+    """Сколько значений показывать на каждом уровне. Низкокардинальные разрезы (ТБ, причина
+    оттока, сегмент) — ЦЕЛИКОМ: усекать их нельзя, это искажает картину. Режем только
+    «широкие» разрезы (компании, ГОСБ) — там топ-N по мере, остальное в «прочие»."""
+    caps = []
+    for c in dcols:
+        n = int(df[c].nunique(dropna=False))
+        caps.append(n if n <= _PIVOT_FULL_MAX else max(topn, 3))
     return caps
 _PIVOT_TOP_RE = re.compile(r"топ[\s\-–]?(\d{1,3})", re.I)
 # слова, не различающие книги («ФЛ доля рынка» vs «ФЛ КПЭ»): по ним матчить нельзя.
@@ -849,47 +839,45 @@ def _pivot(df: pd.DataFrame, question: str, prep: Prep, books) -> dict | None:
     tm = _PIVOT_TOP_RE.search(question)                        # «топ 10» из промта, иначе дефолт
     topn = min(int(tm.group(1)), 200) if tm else _PIVOT_TOP_DEFAULT
 
-    # СВОДНАЯ: строки-ЛИСТЬЯ, у каждой все разрезы своими колонками (раскладка «вбок», как в Excel
-    # в табличном виде). Иерархию/подытоги/сворачивание собирает Tabulator (groupBy) — заодно
-    # получаем фильтры, сортировку и единый стиль. Длинные ветки режем до топ-N по мере, остаток —
-    # честная строка «прочие (N)», поэтому групповые суммы Tabulator сходятся с полными данными.
+    # СВОДНАЯ — ДЕРЕВО строк: на каждом уровне строка-группа с подытогом, ниже вложенные.
+    # Рендерим и сворачиваем СВОИМ кодом, без Tabulator: его вложенная группировка не тянет объём
+    # (замерено: 2000 строк — зависание браузера), а нам нужно показывать ВСЕ ТБ и все причины.
+    # Подытоги считаются по полным данным ⇒ сходятся, даже когда «широкие» ветки усечены.
     meas = list(series)
-    leaves: list[tuple[list[str], list[float]]] = []
+    rows: list[dict] = []
     truncated = False
 
     def _sums(part) -> list[float]:
         return [float(part[m].sum()) for m in meas]
 
-    caps = _level_caps(len(dcols), topn)                     # топ-N на уровень под лимит строк
+    caps = _level_caps(df, dcols, topn)          # низкокардинальные — целиком, широкие — топ-N
 
-    def _walk(part: pd.DataFrame, lvl: int, path: list[str]) -> None:
+    def _walk(part: pd.DataFrame, lvl: int) -> None:
         nonlocal truncated
-        if len(leaves) >= _PIVOT_MAX_LEAVES * 2:             # аварийный стоп (не должен срабатывать)
+        if len(rows) >= _PIVOT_MAX_ROWS:
             truncated = True
             return
         col = dcols[lvl]
         gb = part.groupby(col, dropna=False)
         order = list(gb[key].sum().sort_values().index)      # самое сильное снижение — вверх
-        shown = order[:caps[lvl]]
-        for val in shown:
+        last = lvl == len(dcols) - 1
+        for val in order[:caps[lvl]]:
             sub = gb.get_group(val)
-            p = path + [fmt_val(val)]
-            if lvl == len(dcols) - 1:
-                leaves.append((p, _sums(sub)))
-            else:
-                _walk(sub, lvl + 1, p)
+            rows.append({"lvl": lvl, "label": fmt_val(val), "vals": _sums(sub), "leaf": last})
+            if not last:
+                _walk(sub, lvl + 1)
         rest = order[caps[lvl]:]
         if rest:                                             # честный остаток ветки
             sub = part[part[col].isin(rest)]
-            pad = [""] * (len(dcols) - lvl - 1)
-            leaves.append((path + [f"прочие ({len(rest)})"] + pad, _sums(sub)))
+            rows.append({"lvl": lvl, "label": f"прочие ({len(rest)})",
+                         "vals": _sums(sub), "leaf": True})
 
-    _walk(agg, 0, [])
+    _walk(agg, 0)
     grand = _sums(agg)
-    logger.info("investigate СВОДНАЯ: разрезы=%s | меры=%s | комбинаций=%d | топ по уровням=%s | "
-                "строк-листьев=%d%s | нет колонок=%s", dcols, meas, total, caps, len(leaves),
+    logger.info("investigate СВОДНАЯ: разрезы=%s | меры=%s | комбинаций=%d | значений на уровень=%s | "
+                "строк=%d%s | нет колонок=%s", dcols, meas, total, caps, len(rows),
                 " (ОБРЕЗАНО)" if truncated else "", missing)
-    return {"dims": [t for t, _c, _k in dims], "measures": meas, "leaves": leaves, "grand": grand,
+    return {"dims": [t for t, _c, _k in dims], "measures": meas, "rows": rows, "grand": grand,
             "total": total, "topn": topn, "caps": caps, "key": key, "missing": missing,
             "truncated": truncated}
 
@@ -1809,12 +1797,13 @@ def _assemble_md(prep, frame, table, fqn, question, where, net, gross_loss, gros
         if pivot["missing"]:
             L.append(f"\n> ⚠️ Нет в таблице, пропущены: {', '.join(pivot['missing'])}")
         L.append("")
-        L.append("| " + " | ".join(pivot["dims"] + pivot["measures"]) + " |")
-        L.append("|" + "---|" * len(pivot["dims"]) + "--:|" * len(pivot["measures"]))
-        for path, vals in pivot["leaves"][:200]:
-            L.append("| " + " | ".join(path) + " | " + " | ".join(_fmt(v) for v in vals) + " |")
-        L.append("| " + " | ".join(["**ИТОГО**"] + [""] * (len(pivot["dims"]) - 1))
-                 + " | " + " | ".join(f"**{_fmt(v)}**" for v in pivot["grand"]) + " |")
+        L.append("| " + " / ".join(pivot["dims"]) + " | " + " | ".join(pivot["measures"]) + " |")
+        L.append("|---|" + "--:|" * len(pivot["measures"]))
+        for r in pivot["rows"][:300]:
+            pad = "&nbsp;" * (4 * r["lvl"])
+            lab = r["label"] if r["leaf"] else f"**{r['label']}**"
+            L.append(f"| {pad}{lab} | " + " | ".join(_fmt(v) for v in r["vals"]) + " |")
+        L.append("| **ИТОГО** | " + " | ".join(f"**{_fmt(v)}**" for v in pivot["grand"]) + " |")
         L.append("")
     if recovery:
         L.append(f"## 🎯 Снижение vs потенциал в разрезе «{lb.col_title(rec_dim)}»")
@@ -1951,32 +1940,38 @@ def _assemble_html(prep, frame, table, fqn, question, where, net, gross_loss, gr
         H.append(f"<table><thead><tr>{head}</tr></thead><tbody>{rows}</tbody></table>")
         H.append(im(quadrant) + "</div>")          # who_chart убран: дублирует таблицу
     if pivot:
-        # каждый разрез — СВОЯ колонка (раскладка «вбок»); у мер data-v = сырое число,
-        # чтобы Tabulator сам считал подытоги групп. data-pivot = сколько колонок группировать.
-        thead = ("".join(f"<th>{_h.escape(d)}</th>" for d in pivot["dims"])
-                 + "".join(f"<th>{_h.escape(m)}</th>" for m in pivot["measures"]))
+        # СВОЙ рендер (Tabulator для сводной не используем — не тянет объём). Одна колонка-иерархия
+        # с отступом по уровню + меры. Сворачивание — свой JS по data-lvl, O(n).
+        nd = len(pivot["dims"])
+        thead = (f"<th>{_h.escape(' / '.join(pivot['dims']))}</th>"
+                 + "".join(f"<th class='num'>{_h.escape(m)}</th>" for m in pivot["measures"]))
         prows = "".join(
-            "<tr>" + "".join(f"<td>{_h.escape(c)}</td>" for c in path)
-            + "".join(f"<td data-v='{v:.4f}' style='text-align:right'>{_h.escape(_fmt(v))}</td>"
-                      for v in vals) + "</tr>"
-            for path, vals in pivot["leaves"])
-        note = (f"<p class='factline'>Группировка: {_h.escape(' → '.join(pivot['dims']))}. "
+            f"<tr data-lvl='{r['lvl']}'{'' if r['leaf'] else ' class=pg'}>"
+            f"<td style='padding-left:{10 + r['lvl'] * 20}px'>"
+            f"<span class='pl'>{_h.escape(r['label'])}</span></td>"
+            + "".join(f"<td class='num{' neg' if v < 0 else ''}' data-v='{v:.2f}'>"
+                      f"{_h.escape(_fmt(v))}</td>" for v in r["vals"])
+            + "</tr>" for r in pivot["rows"])
+        prows += ("<tr class='ptot'><td><b>ИТОГО</b></td>"
+                  + "".join(f"<td class='num'><b>{_h.escape(_fmt(v))}</b></td>"
+                            for v in pivot["grand"]) + "</tr>")
+        caps_txt = "/".join(map(str, pivot["caps"]))
+        note = (f"<p class='factline'>Иерархия: {_h.escape(' → '.join(pivot['dims']))}. "
                 f"Меры: {_h.escape(', '.join(pivot['measures']))}. "
-                f"Комбинаций: {pivot['total']}; показан топ по уровням "
-                f"{'/'.join(map(str, pivot['caps']))} по «{_h.escape(pivot['key'])}», остаток свёрнут "
-                f"в «прочие», поэтому подытоги групп сходятся с полными данными. ИТОГО: "
-                + " · ".join(f"<b>{_h.escape(_fmt(v))}</b>" for v in pivot["grand"]) + "</p>")
+                f"Комбинаций: {pivot['total']}; значений на уровень: {caps_txt} "
+                f"(широкие разрезы — топ по «{_h.escape(pivot['key'])}», остаток в «прочие»). "
+                f"Подытоги считаются по полным данным — суммы сходятся.</p>")
         if pivot["truncated"]:
-            note += ("<p class='factline'>⚠️ Показана часть комбинаций (сработал предел строк) — "
-                     "уменьшите число разрезов или укажите «топ N».</p>")
+            note += ("<p class='factline'>⚠️ Показана часть строк (предел) — уберите разрез "
+                     "или укажите «топ N».</p>")
         if pivot["missing"]:
             note += (f"<p class='factline'>⚠️ Нет в таблице, пропущены: "
                      f"{_h.escape(', '.join(pivot['missing']))}</p>")
-        # data-pivot = сколько ПЕРВЫХ колонок группировать. Группируем все разрезы КРОМЕ последнего:
-        # иначе самый глубокий разрез дублировался бы (заголовок группы + идентичная строка-лист).
-        # Последний разрез остаётся обычной колонкой — строки под группой и есть его значения.
         H.append("<h2>📋 Сводная таблица</h2><div class='card'>" + note
-                 + f"<table data-pivot='{max(1, len(pivot['dims']) - 1)}'>"
+                 + "<div class='t2s-pivot-tools'>"
+                   "<button type='button' class='t2s-expall'>⊞ Развернуть всё</button>"
+                   "<button type='button' class='t2s-csv'>⬇ CSV</button></div>"
+                 + f"<table class='t2s-pivot' data-lvls='{nd}'>"
                  f"<thead><tr>{thead}</tr></thead><tbody>{prows}</tbody></table></div>")
     if recovery:
         rows = "".join(

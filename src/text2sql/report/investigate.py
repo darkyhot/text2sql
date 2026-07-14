@@ -1944,9 +1944,12 @@ def _assemble_html(prep, frame, table, fqn, question, where, net, gross_loss, gr
         if pivot["missing"]:
             note += (f"<p class='factline'>⚠️ Нет в таблице, пропущены: "
                      f"{_h.escape(', '.join(pivot['missing']))}</p>")
+        # data-pivot = сколько ПЕРВЫХ колонок группировать. Группируем все разрезы КРОМЕ последнего:
+        # иначе самый глубокий разрез дублировался бы (заголовок группы + идентичная строка-лист).
+        # Последний разрез остаётся обычной колонкой — строки под группой и есть его значения.
         H.append("<h2>📋 Сводная таблица</h2><div class='card'>" + note
-                 + f"<table data-pivot='{len(pivot['dims'])}'><thead><tr>{thead}</tr></thead>"
-                 f"<tbody>{prows}</tbody></table></div>")
+                 + f"<table data-pivot='{max(1, len(pivot['dims']) - 1)}'>"
+                 f"<thead><tr>{thead}</tr></thead><tbody>{prows}</tbody></table></div>")
     if recovery:
         rows = "".join(
             f"<tr><td>{_h.escape(sv)}</td><td style='text-align:right'>{n}</td>"

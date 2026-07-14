@@ -135,8 +135,21 @@ def tabulator_head() -> str:
 # разделители, липкая приглушённая шапка, tabular-nums, мягкий hover-wash. Числовые колонки —
 # вправо; колонки-доли (%/доля) получают прогресс-бар в ячейке.
 _TAB_CSS = """
-<style>.t2s-gsum{color:var(--ink-2);font-weight:600;margin-left:8px}
-.t2s-gcnt{color:var(--muted);font-size:.85em;margin-left:6px}</style>
+<style>
+/* Заголовок группы в сводной. Правило: иерархию несут ОТСТУП и ВЕС, не заливка и не цвет.
+   Хром тихий: числа — не жирные, счётчик — приглушён, разделитель — волосяной. */
+/* Tabulator красит ЛЮБОЙ span внутри группы в #d00 (правило рассчитано на счётчик) — из-за
+   этого и метка, и суммы становились красными. Сбрасываем и задаём цвета сами. */
+.tabulator-row.tabulator-group span{color:inherit;margin-left:0}
+/* специфичность: сброс выше (2 класса + тег), поэтому свои цвета задаём так же «весомо» */
+.tabulator-row.tabulator-group span.t2s-ghead{display:flex;align-items:baseline;gap:10px;width:100%}
+.tabulator-row.tabulator-group span.t2s-glab{color:var(--ink-1)}
+.tabulator-row.tabulator-group span.t2s-gcnt{color:var(--muted);font-size:.85em;font-weight:400}
+.tabulator-row.tabulator-group span.t2s-gsum{margin-left:auto;display:flex;gap:22px;
+  color:var(--ink-2);font-weight:500;font-variant-numeric:tabular-nums;white-space:nowrap;
+  padding-right:12px}
+.tabulator-row.tabulator-group span.t2s-gsum span.neg{color:var(--bad)}
+</style>
 <style>
 .t2s-tab-wrap{margin:12px 0}
 .t2s-tools{display:flex;justify-content:flex-end;margin:0 0 6px}
@@ -154,6 +167,25 @@ _TAB_CSS = """
 .tabulator-row{background:transparent;border-bottom:1px solid var(--hair-soft)}
 .tabulator-row.tabulator-row-even{background:transparent}
 .tabulator-row:hover{background:var(--wash)!important}
+/* Группы сводной. У Tabulator они залиты серым (#ccc) — отсюда «полосатость». Убираем заливку:
+   уровень читается ОТСТУПОМ и ВЕСОМ. Стрелку либы прячем и рисуем свой шеврон (он поворачивается). */
+.tabulator-row.tabulator-group{background:transparent!important;
+  border-bottom:1px solid var(--hair-soft);border-top:none;
+  color:var(--ink-1);font-weight:600;padding:8px 10px 8px 30px;position:relative}
+.tabulator-row.tabulator-group:hover{background:var(--wash)!important}
+.tabulator-row.tabulator-group .tabulator-arrow{display:none!important}
+.tabulator-row.tabulator-group::before{content:"";position:absolute;left:12px;top:calc(50% - 4px);
+  width:6px;height:6px;border-right:1.5px solid var(--muted);border-bottom:1.5px solid var(--muted);
+  transform:rotate(-45deg);transition:transform .12s ease}
+.tabulator-row.tabulator-group.tabulator-group-visible::before{transform:rotate(45deg)}
+/* уровень 0 — опорный (жирнее, отбит сверху); глубже — легче и с отступом */
+.tabulator-row.tabulator-group.tabulator-group-level-0{border-top:1px solid var(--hair)}
+.tabulator-row.tabulator-group.tabulator-group-level-1{padding-left:52px;font-weight:500}
+.tabulator-row.tabulator-group.tabulator-group-level-1::before{left:34px}
+.tabulator-row.tabulator-group.tabulator-group-level-2{padding-left:74px;font-weight:400}
+.tabulator-row.tabulator-group.tabulator-group-level-2::before{left:56px}
+.tabulator-row.tabulator-group.tabulator-group-level-1 span.t2s-glab,
+.tabulator-row.tabulator-group.tabulator-group-level-2 span.t2s-glab{color:var(--ink-2)}
 .tabulator-row .tabulator-cell{border-right:none;padding:7px 10px;color:var(--ink-1)}
 .tabulator .tabulator-footer{background:var(--surface-2);border-top:1px solid var(--hair);color:var(--ink-2)}
 .tabulator .tabulator-footer .tabulator-page{background:var(--surface-1);border:1px solid var(--hair);
@@ -213,31 +245,57 @@ document.addEventListener("DOMContentLoaded",function(){
       // Суммы честные: усечённые ветки пришли строкой «прочие», она входит в группу.
       var nd=isPivot?parseInt(t.getAttribute("data-pivot"),10):0;
       if(isPivot){
-        var vIdx=[]; for(var q=nd;q<ths.length;q++) vIdx.push(q);
+        // МЕРЫ = колонки, у ячеек которых есть data-v (сырое число). Считать «всё после
+        // группируемых» нельзя: последний разрез (ГОСБ) — обычная колонка и мерой не является.
+        var vIdx=[], fr=tbody.rows[0];
+        if(fr) Array.prototype.slice.call(fr.cells).forEach(function(td,i){
+          if(td.hasAttribute("data-v")) vIdx.push(i);
+        });
         opt.groupBy=cols.slice(0,nd).map(function(c){return c.field;});
-        opt.groupStartOpen=[true,false,false,false,false];
+        opt.groupStartOpen=false;              // старт: только верхний уровень (кнопка раскроет)
+        // По умолчанию Tabulator вешает сворачивание ТОЛЬКО на стрелку (groupToggleElement:"arrow"),
+        // а мы её прячем и рисуем свой шеврон — кликать было не по чему. Делаем кликабельной
+        // всю строку заголовка группы.
+        opt.groupToggleElement="header";
         opt.pagination=false; opt.movableColumns=false;
         opt.groupHeader=function(value,count,rws){
           var sums=vIdx.map(function(i){
             return rws.reduce(function(a,r){var d=r.getData?r.getData():r; return a+(d["v"+i]||0);},0);
           });
-          return "<b>"+(value||"—")+"</b> <span class='t2s-gsum'>"+sums.map(fmtNum).join(" · ")
-                 +"</span> <span class='t2s-gcnt'>("+count+")</span>";
+          var esc=function(s){var d=document.createElement("span");d.textContent=s;return d.innerHTML;};
+          return "<span class='t2s-ghead'><span class='t2s-glab'>"+esc(value||"—")+"</span>"
+               + "<span class='t2s-gcnt'>"+count+"</span>"
+               + "<span class='t2s-gsum'>"
+               + sums.map(function(v){
+                   return "<span class='"+(v<0?"neg":"")+"'>"+fmtNum(v)+"</span>";
+                 }).join("")
+               + "</span></span>";
         };
       }
       var tab=new Tabulator(host,opt);
       if(isPivot){
         var eall=false;
         var be=document.createElement("button"); be.textContent="⊞ Развернуть всё";
+        // Раскрытие/сворачивание ВСЕХ уровней. Тонкость: show() на группе перерисовывает таблицу
+        // и обесценивает компоненты, взятые ДО этого, — поэтому наивный обход раскрывал лишь
+        // первую ветку. blockRedraw() глушит перерисовку на время обхода: и корректно, и быстро
+        // (135мс против 6.4с у варианта «перечитывать дерево после каждого show»).
         be.onclick=function(){
           eall=!eall;
-          try{
-            (function walk(gs){gs.forEach(function(g){
-              eall?g.show():g.hide();
-              var sg=g.getSubGroups(); if(sg&&sg.length) walk(sg);
-            });})(tab.getGroups());
-          }catch(e){console.warn("expand all",e);}
           be.textContent=eall?"⊟ Свернуть всё":"⊞ Развернуть всё";
+          try{
+            tab.blockRedraw();
+            for(var pass=0; pass<nd+1; pass++){
+              var acted=false;
+              (function walk(gs){(gs||[]).forEach(function(g){
+                if(g.isVisible()!==eall){ eall?g.show():g.hide(); acted=true; }
+                var s=g.getSubGroups?g.getSubGroups():null;
+                if(s&&s.length) walk(s);
+              });})(tab.getGroups());
+              if(!acted) break;
+            }
+          }catch(e){ console.warn("expand all",e); }
+          finally{ try{ tab.restoreRedraw(); }catch(e){} }
         };
         tools.appendChild(be);
       }

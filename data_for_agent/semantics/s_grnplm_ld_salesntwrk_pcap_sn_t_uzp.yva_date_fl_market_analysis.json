@@ -18,9 +18,9 @@
   ],
   "measures": [
     {
-      "name": "diff_fl_26_25_qty",
-      "label": "Разница ФЛ 2026-2025",
-      "column": "diff_fl_26_25_qty",
+      "name": "fl_26_qty",
+      "label": "Физлица за 2026",
+      "column": "fl_26_qty",
       "agg": "sum",
       "kind": "count",
       "unit": "people",
@@ -30,9 +30,9 @@
       "is_outcome": false
     },
     {
-      "name": "fl_26_qty",
-      "label": "Физлица 2026",
-      "column": "fl_26_qty",
+      "name": "fl_25_qty",
+      "label": "Физлица за 2025",
+      "column": "fl_25_qty",
       "agg": "sum",
       "kind": "count",
       "unit": "people",
@@ -42,9 +42,9 @@
       "is_outcome": false
     },
     {
-      "name": "fl_25_qty",
-      "label": "Физлица 2025",
-      "column": "fl_25_qty",
+      "name": "diff_fl_26_25_qty",
+      "label": "Разница физлиц 2026-2025",
+      "column": "diff_fl_26_25_qty",
       "agg": "sum",
       "kind": "count",
       "unit": "people",
@@ -54,13 +54,13 @@
       "is_outcome": false
     },
     {
-      "name": "potential_1q_26",
-      "label": "Потенциал 1 кв 2026",
-      "column": "potential_1q_26",
+      "name": "fl_unic_26_qty",
+      "label": "ФЛ в КПЭ 2026",
+      "column": "fl_unic_26_qty",
       "agg": "sum",
       "kind": "count",
-      "unit": "count",
-      "good_direction": "up",
+      "unit": "people",
+      "good_direction": "none",
       "priority": 3,
       "scope_mask": null,
       "is_outcome": false
@@ -78,9 +78,9 @@
       "is_outcome": false
     },
     {
-      "name": "fl_unic_26_qty",
-      "label": "ФЛ в КПЭ 2026",
-      "column": "fl_unic_26_qty",
+      "name": "diff_fl_unic_26_25_qty",
+      "label": "Разница ФЛ в КПЭ 2026-2025",
+      "column": "diff_fl_unic_26_25_qty",
       "agg": "sum",
       "kind": "count",
       "unit": "people",
@@ -90,13 +90,13 @@
       "is_outcome": false
     },
     {
-      "name": "diff_fl_unic_26_25_qty",
-      "label": "Разница ФЛ в КПЭ",
-      "column": "diff_fl_unic_26_25_qty",
+      "name": "potential_1q_26",
+      "label": "Потенциал 1 кв 2026",
+      "column": "potential_1q_26",
       "agg": "sum",
       "kind": "count",
-      "unit": "people",
-      "good_direction": "none",
+      "unit": "count",
+      "good_direction": "up",
       "priority": 6,
       "scope_mask": null,
       "is_outcome": false
@@ -177,7 +177,7 @@
   "dimensions": [
     {
       "name": "gosb_name",
-      "label": "ГОСБ",
+      "label": "Название ГОСБ",
       "card": 2534,
       "kind": "geo",
       "id_partner": null,
@@ -211,7 +211,7 @@
     },
     {
       "name": "holding_name",
-      "label": "Холдинг",
+      "label": "Название холдинга",
       "card": 2,
       "kind": "org",
       "id_partner": null,
@@ -222,7 +222,7 @@
     },
     {
       "name": "segment_name_bp",
-      "label": "Сегмент",
+      "label": "Сегмент клиента",
       "card": 5,
       "kind": "category",
       "id_partner": null,
@@ -281,7 +281,7 @@
   "tool_flags": [],
   "boring_cols": [],
   "question_bank": [
-    "Как «Разница ФЛ 2026-2025» распределён по «ГОСБ»?",
+    "Как «Физлица за 2026» распределён по «Название ГОСБ»?",
     "Кто ключевые «Название компании» и какая концентрация?",
     "Насколько эффективен инструмент (сравнить с/без)?"
   ],

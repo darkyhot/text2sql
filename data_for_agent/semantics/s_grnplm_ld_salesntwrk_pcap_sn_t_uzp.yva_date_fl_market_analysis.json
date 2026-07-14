@@ -19,7 +19,7 @@
   "measures": [
     {
       "name": "fl_26_qty",
-      "label": "Физлица за 2026",
+      "label": "Физлица в доле рынка 2026",
       "column": "fl_26_qty",
       "agg": "sum",
       "kind": "count",
@@ -31,7 +31,7 @@
     },
     {
       "name": "fl_25_qty",
-      "label": "Физлица за 2025",
+      "label": "Физлица в доле рынка 2025",
       "column": "fl_25_qty",
       "agg": "sum",
       "kind": "count",
@@ -43,7 +43,7 @@
     },
     {
       "name": "diff_fl_26_25_qty",
-      "label": "Разница физлиц 2026-2025",
+      "label": "Разница физлиц 2026/2025",
       "column": "diff_fl_26_25_qty",
       "agg": "sum",
       "kind": "count",
@@ -54,9 +54,9 @@
       "is_outcome": false
     },
     {
-      "name": "fl_unic_26_qty",
-      "label": "ФЛ в КПЭ 2026",
-      "column": "fl_unic_26_qty",
+      "name": "fl_unic_25_qty",
+      "label": "Физлица в КПЭ 2025",
+      "column": "fl_unic_25_qty",
       "agg": "sum",
       "kind": "count",
       "unit": "people",
@@ -66,9 +66,9 @@
       "is_outcome": false
     },
     {
-      "name": "fl_unic_25_qty",
-      "label": "ФЛ в КПЭ 2025",
-      "column": "fl_unic_25_qty",
+      "name": "fl_unic_26_qty",
+      "label": "Физлица в КПЭ 2026",
+      "column": "fl_unic_26_qty",
       "agg": "sum",
       "kind": "count",
       "unit": "people",
@@ -79,7 +79,7 @@
     },
     {
       "name": "diff_fl_unic_26_25_qty",
-      "label": "Разница ФЛ в КПЭ 2026-2025",
+      "label": "Разница физлиц КПЭ 2026/2025",
       "column": "diff_fl_unic_26_25_qty",
       "agg": "sum",
       "kind": "count",
@@ -95,7 +95,7 @@
       "column": "potential_1q_26",
       "agg": "sum",
       "kind": "count",
-      "unit": "count",
+      "unit": "people",
       "good_direction": "up",
       "priority": 6,
       "scope_mask": null,
@@ -107,7 +107,7 @@
       "column": "potential_4q_25",
       "agg": "sum",
       "kind": "count",
-      "unit": "count",
+      "unit": "people",
       "good_direction": "up",
       "priority": 7,
       "scope_mask": null,
@@ -119,7 +119,7 @@
       "column": "potential_3q_25",
       "agg": "sum",
       "kind": "count",
-      "unit": "count",
+      "unit": "people",
       "good_direction": "up",
       "priority": 8,
       "scope_mask": null,
@@ -127,7 +127,7 @@
     },
     {
       "name": "fl_self_emplyeed_25_qty",
-      "label": "Самозанятые 2025",
+      "label": "Самозанятые физлица 2025",
       "column": "fl_self_emplyeed_25_qty",
       "agg": "sum",
       "kind": "count",
@@ -139,7 +139,7 @@
     },
     {
       "name": "fl_gpx_25_qty",
-      "label": "ГПХ 2025",
+      "label": "Физлица по ГПХ 2025",
       "column": "fl_gpx_25_qty",
       "agg": "sum",
       "kind": "count",
@@ -151,7 +151,7 @@
     },
     {
       "name": "fl_self_emplyeed_26_qty",
-      "label": "Самозанятые 2026",
+      "label": "Самозанятые физлица 2026",
       "column": "fl_self_emplyeed_26_qty",
       "agg": "sum",
       "kind": "count",
@@ -163,7 +163,7 @@
     },
     {
       "name": "fl_gpx_26_qty",
-      "label": "ГПХ 2026",
+      "label": "Физлица по ГПХ 2026",
       "column": "fl_gpx_26_qty",
       "agg": "sum",
       "kind": "count",
@@ -222,7 +222,7 @@
     },
     {
       "name": "segment_name_bp",
-      "label": "Сегмент клиента",
+      "label": "Сегмент",
       "card": 5,
       "kind": "category",
       "id_partner": null,
@@ -236,7 +236,7 @@
     },
     {
       "name": "last_activity_status",
-      "label": "Статус активности",
+      "label": "Статус последней активности",
       "card": 3,
       "kind": "status",
       "id_partner": null,
@@ -281,7 +281,7 @@
   "tool_flags": [],
   "boring_cols": [],
   "question_bank": [
-    "Как «Физлица за 2026» распределён по «Название ГОСБ»?",
+    "Как «Физлица в доле рынка 2026» распределён по «Название ГОСБ»?",
     "Кто ключевые «Название компании» и какая концентрация?",
     "Насколько эффективен инструмент (сравнить с/без)?"
   ],

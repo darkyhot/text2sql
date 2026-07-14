@@ -258,10 +258,19 @@ document.addEventListener("DOMContentLoaded",function(){
         // всю строку заголовка группы.
         opt.groupToggleElement="header";
         opt.pagination=false; opt.movableColumns=false;
-        opt.groupHeader=function(value,count,rws){
-          var sums=vIdx.map(function(i){
-            return rws.reduce(function(a,r){var d=r.getData?r.getData():r; return a+(d["v"+i]||0);},0);
-          });
+        // КЭШ подытогов: Tabulator дёргает groupHeader на КАЖДОЙ перерисовке, а мы перебирали
+        // все строки группы — на вложенных группах это квадратично и вешало браузер.
+        var sumCache={};
+        opt.groupHeader=function(value,count,rws,group){
+          var key=(group&&group.getKey?group.getKey():value)+"|"+count+"|"
+                  +(rws.length?(rws[0].getData?rws[0].getData().c0:""):"");
+          var sums=sumCache[key];
+          if(!sums){
+            sums=vIdx.map(function(i){
+              return rws.reduce(function(a,r){var d=r.getData?r.getData():r; return a+(d["v"+i]||0);},0);
+            });
+            sumCache[key]=sums;
+          }
           var esc=function(s){var d=document.createElement("span");d.textContent=s;return d.innerHTML;};
           return "<span class='t2s-ghead'><span class='t2s-glab'>"+esc(value||"—")+"</span>"
                + "<span class='t2s-gcnt'>"+count+"</span>"

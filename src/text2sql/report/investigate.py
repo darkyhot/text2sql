@@ -721,7 +721,31 @@ _PIVOT_RE = re.compile(
     r"[^.]*?\b(?:колон\w*|пол[яей]\w*|разрез\w*|измерени\w*)"    # …с колонками / с полями / по разрезам
     r"\s*[:\-—]?\s*(?P<cols>[^.]+)", re.I)
 _PIVOT_TOP_DEFAULT = 10        # с сущностью (компанией) веток тысячи → топ-N на каждом уровне
-_PIVOT_MAX_LEAVES = 5000       # предохранитель от раздувания HTML (Tabulator пагинирует)
+# Предел строк сводной. Замерено в браузере (Tabulator, вложенные группы): раскрытие
+# 500 строк ≈ 2.4с, 1000 ≈ 9с, 2000+ — зависание. Узкое место — рендер раскрытых строк,
+# кэш подытогов не помогает. Поэтому единственный рычаг — не плодить строки.
+_PIVOT_MAX_LEAVES = 500
+
+
+def _level_caps(n_dims: int, topn: int) -> list[int]:
+    """Топ-N на каждом уровне так, чтобы всего строк было ≤ _PIVOT_MAX_LEAVES.
+    «Топ-10 везде» при 4 разрезах даёт 11⁴ ≈ 14 тыс. строк и вешает браузер. Ужимаем САМЫЙ
+    БОЛЬШОЙ уровень (при равенстве — более глубокий): бюджет распределяется равномерно, и ни
+    один разрез не схлопывается в 2 значения, пока остальные держат 10."""
+    caps = [max(2, topn)] * max(1, n_dims)
+
+    def est(cs: list[int]) -> int:
+        p = 1
+        for c in cs:
+            p *= c + 1                     # +1 — строка «прочие» на каждом уровне
+        return p
+
+    while est(caps) > _PIVOT_MAX_LEAVES:
+        j = max(range(len(caps)), key=lambda k: (caps[k], k))   # самый большой, при равенстве — глубже
+        if caps[j] <= 2:
+            break                          # дальше ужимать некуда
+        caps[j] -= 1
+    return caps
 _PIVOT_TOP_RE = re.compile(r"топ[\s\-–]?(\d{1,3})", re.I)
 # слова, не различающие книги («ФЛ доля рынка» vs «ФЛ КПЭ»): по ним матчить нельзя.
 # Хранятся ОСНОВАМИ (см. _stems): «года/году/годом» → «год», «физических» → «физ».
@@ -836,15 +860,17 @@ def _pivot(df: pd.DataFrame, question: str, prep: Prep, books) -> dict | None:
     def _sums(part) -> list[float]:
         return [float(part[m].sum()) for m in meas]
 
+    caps = _level_caps(len(dcols), topn)                     # топ-N на уровень под лимит строк
+
     def _walk(part: pd.DataFrame, lvl: int, path: list[str]) -> None:
         nonlocal truncated
-        if len(leaves) >= _PIVOT_MAX_LEAVES:
+        if len(leaves) >= _PIVOT_MAX_LEAVES * 2:             # аварийный стоп (не должен срабатывать)
             truncated = True
             return
         col = dcols[lvl]
         gb = part.groupby(col, dropna=False)
         order = list(gb[key].sum().sort_values().index)      # самое сильное снижение — вверх
-        shown = order[:topn]
+        shown = order[:caps[lvl]]
         for val in shown:
             sub = gb.get_group(val)
             p = path + [fmt_val(val)]
@@ -852,7 +878,7 @@ def _pivot(df: pd.DataFrame, question: str, prep: Prep, books) -> dict | None:
                 leaves.append((p, _sums(sub)))
             else:
                 _walk(sub, lvl + 1, p)
-        rest = order[topn:]
+        rest = order[caps[lvl]:]
         if rest:                                             # честный остаток ветки
             sub = part[part[col].isin(rest)]
             pad = [""] * (len(dcols) - lvl - 1)
@@ -860,11 +886,12 @@ def _pivot(df: pd.DataFrame, question: str, prep: Prep, books) -> dict | None:
 
     _walk(agg, 0, [])
     grand = _sums(agg)
-    logger.info("investigate СВОДНАЯ: разрезы=%s | меры=%s | комбинаций=%d | топ-%d на уровень | "
-                "строк-листьев=%d%s | нет колонок=%s", dcols, meas, total, topn, len(leaves),
+    logger.info("investigate СВОДНАЯ: разрезы=%s | меры=%s | комбинаций=%d | топ по уровням=%s | "
+                "строк-листьев=%d%s | нет колонок=%s", dcols, meas, total, caps, len(leaves),
                 " (ОБРЕЗАНО)" if truncated else "", missing)
     return {"dims": [t for t, _c, _k in dims], "measures": meas, "leaves": leaves, "grand": grand,
-            "total": total, "topn": topn, "key": key, "missing": missing, "truncated": truncated}
+            "total": total, "topn": topn, "caps": caps, "key": key, "missing": missing,
+            "truncated": truncated}
 
 
 def _who(df, frame: Frame, assets, lbls, elab=fmt_val,
@@ -1775,8 +1802,9 @@ def _assemble_md(prep, frame, table, fqn, question, where, net, gross_loss, gros
         L.append("")
     if pivot:
         L.append("## 📋 Сводная таблица")
+        caps_txt = "/".join(map(str, pivot["caps"]))
         L.append(f"_Группировка: {' → '.join(pivot['dims'])}. Меры: {', '.join(pivot['measures'])}. "
-                 f"Комбинаций: {pivot['total']}; на каждом уровне — топ-{pivot['topn']} по «{pivot['key']}», "
+                 f"Комбинаций: {pivot['total']}; показан топ по уровням {caps_txt} по «{pivot['key']}», "
                  f"остаток свёрнут в «прочие» — подытоги сходятся с полными данными._")
         if pivot["missing"]:
             L.append(f"\n> ⚠️ Нет в таблице, пропущены: {', '.join(pivot['missing'])}")
@@ -1934,9 +1962,9 @@ def _assemble_html(prep, frame, table, fqn, question, where, net, gross_loss, gr
             for path, vals in pivot["leaves"])
         note = (f"<p class='factline'>Группировка: {_h.escape(' → '.join(pivot['dims']))}. "
                 f"Меры: {_h.escape(', '.join(pivot['measures']))}. "
-                f"Комбинаций: {pivot['total']}; на каждом уровне — топ-{pivot['topn']} по "
-                f"«{_h.escape(pivot['key'])}», остаток свёрнут в «прочие», поэтому подытоги групп "
-                f"сходятся с полными данными. ИТОГО: "
+                f"Комбинаций: {pivot['total']}; показан топ по уровням "
+                f"{'/'.join(map(str, pivot['caps']))} по «{_h.escape(pivot['key'])}», остаток свёрнут "
+                f"в «прочие», поэтому подытоги групп сходятся с полными данными. ИТОГО: "
                 + " · ".join(f"<b>{_h.escape(_fmt(v))}</b>" for v in pivot["grand"]) + "</p>")
         if pivot["truncated"]:
             note += ("<p class='factline'>⚠️ Показана часть комбинаций (сработал предел строк) — "

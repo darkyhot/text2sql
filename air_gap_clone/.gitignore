@@ -1,0 +1,5 @@
+# Артефакты запуска ноутбука (регенерируются) — не коммитим.
+generated/output/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/

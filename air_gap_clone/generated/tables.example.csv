@@ -1,0 +1,4 @@
+schema,table
+public,clients
+public,tasks
+public,payments

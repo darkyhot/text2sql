@@ -1,0 +1,96 @@
+{
+  "profile_version": 1,
+  "generated_at": "2026-07-20T00:00:00+00:00",
+  "source_dialect": "greenplum",
+  "note": "Пример профиля: реальные значения только в categorical_keep.",
+  "tables": [
+    {
+      "schema": "public",
+      "table": "clients",
+      "relkind": "table",
+      "is_view": false,
+      "storage": "heap",
+      "distributed_by": ["id"],
+      "partitioned_by": [],
+      "row_count": {"value": 500000, "estimated": true},
+      "constraints": {
+        "pk": ["id"],
+        "uniques": [["email"]],
+        "fks": [],
+        "checks": []
+      },
+      "defaults": {},
+      "not_null": ["id", "client_name"],
+      "columns": {
+        "id":          {"pg_type": "bigint", "policy": "key", "role": "pk", "n_distinct": -1.0, "null_frac": 0.0},
+        "client_name": {"pg_type": "text", "policy": "pii", "null_frac": 0.0, "avg_width": 18, "generator": "full_name", "unique_like": false},
+        "email":       {"pg_type": "character varying(120)", "policy": "pii", "null_frac": 0.02, "avg_width": 22, "generator": "email", "unique_like": true, "char_len": 120},
+        "phone":       {"pg_type": "character varying(20)", "policy": "pii", "null_frac": 0.1, "avg_width": 12, "generator": "phone", "unique_like": false, "char_len": 20},
+        "region":      {"pg_type": "text", "policy": "categorical_keep", "null_frac": 0.01, "n_distinct": 4,
+                        "values": [["Центр", 0.4], ["Юг", 0.25], ["Сибирь", 0.2], ["Урал", 0.14]]}
+      }
+    },
+    {
+      "schema": "public",
+      "table": "tasks",
+      "relkind": "table",
+      "is_view": false,
+      "storage": "append_optimized_column",
+      "distributed_by": ["task_id"],
+      "partitioned_by": ["created_at"],
+      "row_count": {"value": 1200000, "estimated": true},
+      "constraints": {
+        "pk": ["task_id"],
+        "uniques": [],
+        "fks": [{"columns": ["client_id"], "ref_schema": "public", "ref_table": "clients", "ref_columns": ["id"]}],
+        "checks": ["CHECK ((amount >= (0)::numeric))"]
+      },
+      "defaults": {},
+      "not_null": ["task_id", "client_id", "task_type"],
+      "columns": {
+        "task_id":    {"pg_type": "bigint", "policy": "key", "role": "pk", "n_distinct": -1.0, "null_frac": 0.0},
+        "client_id":  {"pg_type": "bigint", "policy": "key", "role": "fk", "n_distinct": -0.3, "null_frac": 0.0,
+                       "references": {"schema": "public", "table": "clients", "column": "id"},
+                       "fanout": {"dist": "uniform"}},
+        "task_type":  {"pg_type": "text", "policy": "categorical_keep", "null_frac": 0.0, "n_distinct": 4,
+                       "values": [["отток", 0.4], ["привлечение", 0.3], ["сопровождение", 0.2], ["прочее", 0.1]]},
+        "status":     {"pg_type": "text", "policy": "categorical_synth", "null_frac": 0.0, "n_distinct": 5,
+                       "freqs": [0.5, 0.2, 0.15, 0.1, 0.05]},
+        "amount":     {"pg_type": "numeric(14,2)", "policy": "sensitive_numeric", "null_frac": 0.05, "n_distinct": -0.8,
+                       "precision": 14, "scale": 2, "dist": "lognormal", "avg_hint": "~5e4"},
+        "created_at": {"pg_type": "timestamp without time zone", "policy": "datetime", "null_frac": 0.0,
+                       "range": {"start": "2020-01-01", "end": "2024-12-31"}, "order_group": true},
+        "updated_at": {"pg_type": "timestamp without time zone", "policy": "datetime", "null_frac": 0.1,
+                       "range": {"start": "2020-01-01", "end": "2024-12-31"}, "order_group": true}
+      }
+    },
+    {
+      "schema": "public",
+      "table": "payments",
+      "relkind": "table",
+      "is_view": false,
+      "storage": "heap",
+      "distributed_by": ["payment_id"],
+      "partitioned_by": [],
+      "row_count": {"value": 900000, "estimated": true},
+      "constraints": {
+        "pk": ["payment_id"],
+        "uniques": [],
+        "fks": [{"columns": ["task_id"], "ref_schema": "public", "ref_table": "tasks", "ref_columns": ["task_id"]}],
+        "checks": []
+      },
+      "defaults": {},
+      "not_null": ["payment_id", "task_id"],
+      "columns": {
+        "payment_id": {"pg_type": "bigint", "policy": "key", "role": "pk", "n_distinct": -1.0, "null_frac": 0.0},
+        "task_id":    {"pg_type": "bigint", "policy": "key", "role": "fk", "n_distinct": -0.6, "null_frac": 0.0,
+                       "references": {"schema": "public", "table": "tasks", "column": "task_id"},
+                       "fanout": {"dist": "uniform"}},
+        "amount":     {"pg_type": "numeric(12,2)", "policy": "sensitive_numeric", "null_frac": 0.0, "n_distinct": -0.9,
+                       "precision": 12, "scale": 2, "dist": "lognormal", "avg_hint": "~1e4"},
+        "paid_at":    {"pg_type": "date", "policy": "datetime", "null_frac": 0.0,
+                       "range": {"start": "2020-01-01", "end": "2024-12-31"}}
+      }
+    }
+  ]
+}

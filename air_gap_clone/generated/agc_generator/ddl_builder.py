@@ -1,13 +1,10 @@
 """DDL-билдер: CREATE TABLE из профиля (не завися от pg_dump).
 
-Воспроизводим типы, PK/UNIQUE/NOT NULL/FK/CHECK, DEFAULT. По умолчанию тестовая
-БД — всё heap, одиночный сегмент (DISTRIBUTED BY / партиции опускаем). Флаг
-keep_gpdb сохраняет GPDB-специфику (DISTRIBUTED BY, комментарий о партициях).
-Внешние таблицы (gpfdist/PXF) → обычные таблицы-заглушки.
-
-Таблицы упорядочиваем топологически по FK, чтобы родители создавались раньше детей.
-FK на таблицы вне профиля опускаем (не на что ссылаться), но значения всё равно
-резолвим из синтетического пула (см. key_linker).
+Воспроизводим типы, NOT NULL, DEFAULT и PK (гипотеза по сэмплу — удобно агенту,
+хотя на реальных данных ключ не объявлен). FK НЕ создаём: связей в профиле нет,
+ключи джойнов подбираются позже на синтетике. По умолчанию тестовая БД — heap,
+одиночный сегмент; флаг keep_gpdb сохраняет DISTRIBUTED BY и заметку о партициях.
+Вью материализуем как обычные таблицы-заглушки.
 """
 from __future__ import annotations
 
@@ -15,35 +12,6 @@ from agc_common import get_logger, quote_ident
 from agc_generator.profile_parser import Profile, Table
 
 log = get_logger("generator.ddl")
-
-
-def topo_sort(tables: list[Table]) -> list[Table]:
-    """Порядок создания: родитель раньше ребёнка. Циклы разрываем стабильно."""
-    fqns = {t.fqn for t in tables}
-    by_fqn = {t.fqn: t for t in tables}
-    deps: dict[str, set] = {t.fqn: set() for t in tables}
-    for t in tables:
-        for fk in t.fks:
-            ref = f"{fk.get('ref_schema')}.{fk.get('ref_table')}"
-            if ref in fqns and ref != t.fqn:
-                deps[t.fqn].add(ref)
-    ordered, visited, temp = [], set(), set()
-
-    def visit(fqn: str):
-        if fqn in visited:
-            return
-        if fqn in temp:  # цикл — не углубляемся дальше
-            return
-        temp.add(fqn)
-        for d in sorted(deps[fqn]):
-            visit(d)
-        temp.discard(fqn)
-        visited.add(fqn)
-        ordered.append(by_fqn[fqn])
-
-    for fqn in sorted(by_fqn):
-        visit(fqn)
-    return ordered
 
 
 def _column_ddl(table: Table, name: str) -> str:
@@ -58,28 +26,11 @@ def _column_ddl(table: Table, name: str) -> str:
     return " ".join(parts)
 
 
-def build_table_ddl(table: Table, profile_fqns: set, keep_gpdb: bool) -> str:
+def build_table_ddl(table: Table, keep_gpdb: bool) -> str:
     lines = [_column_ddl(table, name) for name in table.columns]
-
     if table.pk:
         cols = ", ".join(quote_ident(c) for c in table.pk)
-        lines.append(f"  PRIMARY KEY ({cols})")
-    for uni in table.constraints.get("uniques") or []:
-        cols = ", ".join(quote_ident(c) for c in uni)
-        lines.append(f"  UNIQUE ({cols})")
-    for fk in table.fks:
-        ref = f"{fk.get('ref_schema')}.{fk.get('ref_table')}"
-        if ref not in profile_fqns:
-            log.info("FK %s.%s -> %s опущен (цель вне профиля)", table.schema, table.table, ref)
-            continue
-        cols = ", ".join(quote_ident(c) for c in fk.get("columns") or [])
-        ref_cols = ", ".join(quote_ident(c) for c in fk.get("ref_columns") or [])
-        lines.append(
-            f"  FOREIGN KEY ({cols}) REFERENCES "
-            f"{quote_ident(fk['ref_schema'])}.{quote_ident(fk['ref_table'])} ({ref_cols})"
-        )
-    for check in table.constraints.get("checks") or []:
-        lines.append(f"  {check}")
+        lines.append(f"  PRIMARY KEY ({cols})  -- гипотеза по сэмплу")
 
     ddl = (
         f"CREATE TABLE {quote_ident(table.schema)}.{quote_ident(table.table)} (\n"
@@ -98,23 +49,20 @@ def build_table_ddl(table: Table, profile_fqns: set, keep_gpdb: bool) -> str:
 
 
 def build_ddl(profile: Profile, *, keep_gpdb: bool = False) -> str:
-    tables = [t for t in profile.tables if not t.is_view]
-    views = [t for t in profile.tables if t.is_view]
+    tables = list(profile.tables)
+    views = [t for t in tables if t.is_view]
     if views:
-        log.info("Вью в профиле (%d) материализуем как обычные таблицы-заглушки: %s",
+        log.info("Вью в профиле (%d) материализуем как таблицы-заглушки: %s",
                  len(views), ", ".join(v.fqn for v in views))
-    all_tables = tables + views  # вью тоже как таблицы
-    profile_fqns = {t.fqn for t in all_tables}
-    ordered = topo_sort(all_tables)
-
-    schemas = sorted({t.schema for t in ordered})
+    schemas = sorted({t.schema for t in tables})
     header = [
         "-- Автосгенерированный DDL тестовой БД (air-gap clone).",
         "-- Реальные данные не воспроизводятся; структура — из profile.json.",
+        "-- PK — гипотеза по сэмплу; FK не создаются (подбираются на синтетике).",
         "",
     ]
     for s in schemas:
         header.append(f"CREATE SCHEMA IF NOT EXISTS {quote_ident(s)};")
     header.append("")
-    body = [build_table_ddl(t, profile_fqns, keep_gpdb) for t in ordered]
+    body = [build_table_ddl(t, keep_gpdb) for t in tables]
     return "\n".join(header) + "\n\n".join(body) + "\n"

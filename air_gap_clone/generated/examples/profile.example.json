@@ -1,8 +1,8 @@
 {
-  "profile_version": 1,
+  "profile_version": 2,
   "generated_at": "2026-07-20T00:00:00+00:00",
   "source_dialect": "greenplum",
-  "note": "Пример профиля: реальные значения только в categorical_keep.",
+  "note": "Пример профиля v2: реальные значения только в categorical_keep; PK — гипотеза по сэмплу; FK нет.",
   "tables": [
     {
       "schema": "public",
@@ -10,24 +10,20 @@
       "relkind": "table",
       "is_view": false,
       "storage": "heap",
-      "distributed_by": ["id"],
+      "distributed_by": ["client_id"],
       "partitioned_by": [],
-      "row_count": {"value": 500000, "estimated": true},
-      "constraints": {
-        "pk": ["id"],
-        "uniques": [["email"]],
-        "fks": [],
-        "checks": []
-      },
+      "row_count": {"value": 500000, "estimated": true, "sample_rows": 500000},
+      "pk_hypothesis": ["client_id"],
+      "column_dependencies": [],
       "defaults": {},
-      "not_null": ["id", "client_name"],
+      "not_null": ["client_id", "client_name"],
       "columns": {
-        "id":          {"pg_type": "bigint", "policy": "key", "role": "pk", "n_distinct": -1.0, "null_frac": 0.0},
-        "client_name": {"pg_type": "text", "policy": "pii", "null_frac": 0.0, "avg_width": 18, "generator": "full_name", "unique_like": false},
-        "email":       {"pg_type": "character varying(120)", "policy": "pii", "null_frac": 0.02, "avg_width": 22, "generator": "email", "unique_like": true, "char_len": 120},
-        "phone":       {"pg_type": "character varying(20)", "policy": "pii", "null_frac": 0.1, "avg_width": 12, "generator": "phone", "unique_like": false, "char_len": 20},
+        "client_id":   {"pg_type": "bigint", "policy": "key", "role": "pk", "pk_inferred": true, "n_distinct": 500000, "null_frac": 0.0},
+        "client_name": {"pg_type": "text", "policy": "pii", "null_frac": 0.0, "generator": "full_name", "unique_like": false},
+        "inn":         {"pg_type": "character varying(12)", "policy": "pii", "null_frac": 0.03, "generator": "inn", "unique_like": true, "char_len": 12},
+        "phone":       {"pg_type": "character varying(20)", "policy": "pii", "null_frac": 0.1, "generator": "phone", "unique_like": false, "char_len": 20},
         "region":      {"pg_type": "text", "policy": "categorical_keep", "null_frac": 0.01, "n_distinct": 4,
-                        "values": [["Центр", 0.4], ["Юг", 0.25], ["Сибирь", 0.2], ["Урал", 0.14]]}
+                        "values": [["Центр", 0.4], ["Юг", 0.25], ["Сибирь", 0.2], ["Урал", 0.15]]}
       }
     },
     {
@@ -37,59 +33,31 @@
       "is_view": false,
       "storage": "append_optimized_column",
       "distributed_by": ["task_id"],
-      "partitioned_by": ["created_at"],
-      "row_count": {"value": 1200000, "estimated": true},
-      "constraints": {
-        "pk": ["task_id"],
-        "uniques": [],
-        "fks": [{"columns": ["client_id"], "ref_schema": "public", "ref_table": "clients", "ref_columns": ["id"]}],
-        "checks": ["CHECK ((amount >= (0)::numeric))"]
-      },
+      "partitioned_by": ["task_date"],
+      "row_count": {"value": 1200000, "estimated": true, "sample_rows": 1000000},
+      "pk_hypothesis": ["task_id"],
+      "column_dependencies": [{"determinant": "task_subtype", "dependent": "task_questionary"}],
       "defaults": {},
-      "not_null": ["task_id", "client_id", "task_type"],
+      "not_null": ["task_id", "task_type"],
       "columns": {
-        "task_id":    {"pg_type": "bigint", "policy": "key", "role": "pk", "n_distinct": -1.0, "null_frac": 0.0},
-        "client_id":  {"pg_type": "bigint", "policy": "key", "role": "fk", "n_distinct": -0.3, "null_frac": 0.0,
-                       "references": {"schema": "public", "table": "clients", "column": "id"},
-                       "fanout": {"dist": "uniform"}},
-        "task_type":  {"pg_type": "text", "policy": "categorical_keep", "null_frac": 0.0, "n_distinct": 4,
-                       "values": [["отток", 0.4], ["привлечение", 0.3], ["сопровождение", 0.2], ["прочее", 0.1]]},
-        "status":     {"pg_type": "text", "policy": "categorical_synth", "null_frac": 0.0, "n_distinct": 5,
-                       "freqs": [0.5, 0.2, 0.15, 0.1, 0.05]},
-        "amount":     {"pg_type": "numeric(14,2)", "policy": "sensitive_numeric", "null_frac": 0.05, "n_distinct": -0.8,
-                       "precision": 14, "scale": 2, "dist": "lognormal", "avg_hint": "~5e4"},
-        "created_at": {"pg_type": "timestamp without time zone", "policy": "datetime", "null_frac": 0.0,
-                       "range": {"start": "2020-01-01", "end": "2024-12-31"}, "order_group": true},
-        "updated_at": {"pg_type": "timestamp without time zone", "policy": "datetime", "null_frac": 0.1,
-                       "range": {"start": "2020-01-01", "end": "2024-12-31"}, "order_group": true}
-      }
-    },
-    {
-      "schema": "public",
-      "table": "payments",
-      "relkind": "table",
-      "is_view": false,
-      "storage": "heap",
-      "distributed_by": ["payment_id"],
-      "partitioned_by": [],
-      "row_count": {"value": 900000, "estimated": true},
-      "constraints": {
-        "pk": ["payment_id"],
-        "uniques": [],
-        "fks": [{"columns": ["task_id"], "ref_schema": "public", "ref_table": "tasks", "ref_columns": ["task_id"]}],
-        "checks": []
-      },
-      "defaults": {},
-      "not_null": ["payment_id", "task_id"],
-      "columns": {
-        "payment_id": {"pg_type": "bigint", "policy": "key", "role": "pk", "n_distinct": -1.0, "null_frac": 0.0},
-        "task_id":    {"pg_type": "bigint", "policy": "key", "role": "fk", "n_distinct": -0.6, "null_frac": 0.0,
-                       "references": {"schema": "public", "table": "tasks", "column": "task_id"},
-                       "fanout": {"dist": "uniform"}},
-        "amount":     {"pg_type": "numeric(12,2)", "policy": "sensitive_numeric", "null_frac": 0.0, "n_distinct": -0.9,
-                       "precision": 12, "scale": 2, "dist": "lognormal", "avg_hint": "~1e4"},
-        "paid_at":    {"pg_type": "date", "policy": "datetime", "null_frac": 0.0,
-                       "range": {"start": "2020-01-01", "end": "2024-12-31"}}
+        "task_id":          {"pg_type": "bigint", "policy": "key", "role": "pk", "pk_inferred": true, "n_distinct": 1000000, "null_frac": 0.0},
+        "task_type":        {"pg_type": "text", "policy": "categorical_keep", "null_frac": 0.0, "n_distinct": 4,
+                             "values": [["отток", 0.4], ["привлечение", 0.3], ["сопровождение", 0.2], ["прочее", 0.1]]},
+        "task_subtype":     {"pg_type": "text", "policy": "categorical_keep", "null_frac": 0.0, "n_distinct": 5,
+                             "values": [["A1", 0.35], ["A2", 0.25], ["B1", 0.2], ["B2", 0.15], ["C1", 0.05]]},
+        "task_questionary": {"pg_type": "text", "policy": "categorical_keep", "null_frac": 0.05,
+                             "depends_on": ["task_subtype"], "n_distinct": 5,
+                             "value_map": {"A1": "QST-РАБОТА-С-ОТТОКОМ", "A2": "QST-УДЕРЖАНИЕ", "B1": "QST-ПРИВЛЕЧЕНИЕ", "B2": "QST-КРОСС-ПРОДАЖИ", "C1": "QST-СОПРОВОЖДЕНИЕ"}},
+        "status":           {"pg_type": "text", "policy": "categorical_synth", "null_frac": 0.0, "n_distinct": 5,
+                             "freqs": [0.5, 0.2, 0.15, 0.1, 0.05]},
+        "amount":           {"pg_type": "numeric(14,2)", "policy": "sensitive_numeric", "null_frac": 0.05, "n_distinct": -0.8,
+                             "precision": 14, "scale": 2, "dist": "lognormal", "avg_hint": "~5e4"},
+        "task_date":        {"pg_type": "date", "policy": "datetime", "null_frac": 0.0,
+                             "range": {"start": "2020-01-01", "end": "2024-12-31"}},
+        "created_at":       {"pg_type": "timestamp without time zone", "policy": "datetime", "null_frac": 0.0,
+                             "range": {"start": "2020-01-01", "end": "2024-12-31"}, "order_group": true},
+        "updated_at":       {"pg_type": "timestamp without time zone", "policy": "datetime", "null_frac": 0.1,
+                             "range": {"start": "2020-01-01", "end": "2024-12-31"}, "order_group": true}
       }
     }
   ]

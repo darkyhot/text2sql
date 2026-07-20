@@ -15,9 +15,20 @@
     tables:
       "schema.table":
         order_groups: [["created_at", "updated_at"]]  # даты: created <= updated
+        dependencies:                                  # функциональные зависимости
+          - determinant: task_subtype                  # категория-детерминант
+            dependent:   task_questionary               # зависимая колонка
+            order_by:    task_date                      # (опц.) представитель — свежайший
+            keep_representative: true                   # хранить реальный представитель (whitelist)
 
 Разрешённые классы в policy: categorical_keep, sensitive_numeric, pii, key,
 datetime, sensitive.
+
+Зависимость: для каждой категории determinant берётся ОДИН представитель dependent
+(строка с максимальным order_by, где dependent не NULL). В синтетике та же категория
+получает тот же представитель — «опросник остаётся у своего подтипа». При
+keep_representative=true реальный представитель (whitelist-opt-in) кладётся в профиль;
+иначе генератор ставит стабильный синтетический токен на категорию.
 """
 from __future__ import annotations
 
@@ -92,3 +103,18 @@ class Policy:
 
     def order_groups(self, schema: str, table: str) -> list[list[str]]:
         return list((self._tables.get(f"{schema}.{table}") or {}).get("order_groups") or [])
+
+    def dependencies(self, schema: str, table: str) -> list[dict]:
+        """Функциональные зависимости таблицы: [{determinant, dependent, order_by?, keep_representative?}]."""
+        deps = (self._tables.get(f"{schema}.{table}") or {}).get("dependencies") or []
+        out = []
+        for d in deps:
+            if not d.get("determinant") or not d.get("dependent"):
+                continue
+            out.append({
+                "determinant": d["determinant"],
+                "dependent": d["dependent"],
+                "order_by": d.get("order_by"),
+                "keep_representative": bool(d.get("keep_representative", True)),
+            })
+        return out

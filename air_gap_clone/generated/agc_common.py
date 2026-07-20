@@ -4,9 +4,17 @@
 """
 from __future__ import annotations
 
+import hashlib
 import logging
 import re
 import sys
+
+
+def stable_hash(*parts) -> int:
+    """Детерминированный хэш строк в int — НЕ зависит от PYTHONHASHSEED (в отличие от
+    builtin hash()). Нужен, чтобы --seed давал одинаковый результат между запусками."""
+    s = "\x1f".join(str(p) for p in parts)
+    return int.from_bytes(hashlib.blake2b(s.encode("utf-8"), digest_size=8).digest(), "big")
 
 # SQL-идентификатор: буква/underscore, далее буквы/цифры/underscore/$.
 # Всё, что не проходит, — не подставляем в SQL как имя объекта (защита от инъекции).

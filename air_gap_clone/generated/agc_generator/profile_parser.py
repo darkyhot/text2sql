@@ -1,4 +1,8 @@
-"""Парсер profile.json в удобные структуры для генератора."""
+"""Парсер profile.json в удобные структуры для генератора.
+
+FK в профиле нет (по договорённости — джойны подбираются позже). Есть PK-гипотеза
+и функциональные зависимости (column_dependencies).
+"""
 from __future__ import annotations
 
 import json
@@ -27,7 +31,8 @@ class Table:
     partitioned_by: list
     row_count: int
     row_count_estimated: bool
-    constraints: dict
+    pk_hypothesis: list
+    column_dependencies: list  # [{determinant, dependent}]
     defaults: dict
     not_null: list
     columns: dict  # name -> Column
@@ -38,11 +43,7 @@ class Table:
 
     @property
     def pk(self) -> list:
-        return self.constraints.get("pk") or []
-
-    @property
-    def fks(self) -> list:
-        return self.constraints.get("fks") or []
+        return self.pk_hypothesis or []
 
 
 @dataclass
@@ -71,9 +72,10 @@ def load_profile(path: str | Path) -> Profile:
             partitioned_by=t.get("partitioned_by") or [],
             row_count=int(rc.get("value") or 0),
             row_count_estimated=bool(rc.get("estimated", True)),
-            constraints=t.get("constraints") or {},
+            pk_hypothesis=t.get("pk_hypothesis") or [],
+            column_dependencies=t.get("column_dependencies") or [],
             defaults=t.get("defaults") or {},
             not_null=t.get("not_null") or [],
             columns=columns,
         ))
-    return Profile(version=int(data.get("profile_version", 1)), tables=tables)
+    return Profile(version=int(data.get("profile_version", 2)), tables=tables)

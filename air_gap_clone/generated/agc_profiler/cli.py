@@ -62,12 +62,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
     src.add_argument("--tables-csv", help="CSV со списком таблиц (колонки schema,table)")
     p.add_argument("--policy", help="YAML policy-файл (whitelist чувствительности)")
     p.add_argument("--out", default="profile.json", help="куда писать профиль")
-    p.add_argument("--dsn", help="DSN БД (иначе AGC_DB_DSN/DB_DSN/db_config.json/проект)")
+    p.add_argument("--dsn", help="DSN БД (иначе AGC_DB_DSN/DB_DSN/db_config.json)")
     p.add_argument("--db-config", help="db_config.json с параметрами подключения")
-    p.add_argument("--sample", action="store_true",
-                   help="инспектировать форматы коротких текстовых полей адаптивным сэмплом")
-    p.add_argument("--recompute-missing", action="store_true",
-                   help="досчитать null_frac/n_distinct агрегатами там, где пуст pg_stats (СКАН!)")
+    p.add_argument("--sample-n", type=int, default=1_000_000,
+                   help="сколько строк тянуть в сэмпл на таблицу (pandas в памяти)")
     p.add_argument("--statement-timeout-ms", type=int, default=600_000)
     return p
 
@@ -82,8 +80,8 @@ def main(argv: list[str] | None = None) -> int:
 
     engine = make_engine(args.dsn, args.db_config, args.statement_timeout_ms)
     policy = Policy.load(args.policy)
-    profile = build_profile(engine, tables, policy,
-                            sample=args.sample, recompute_missing=args.recompute_missing)
+    profile = build_profile(engine, tables, policy, sample_n=args.sample_n,
+                            timeout_ms=args.statement_timeout_ms)
 
     # Линтер — строгая проверка перед записью (главная точка аудита утечек).
     check_profile(profile)

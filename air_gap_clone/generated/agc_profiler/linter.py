@@ -7,8 +7,10 @@
 from __future__ import annotations
 
 # Ключи, несущие реальные значения строк. Разрешены ТОЛЬКО в categorical_keep.
+# value_map — представители функциональных зависимостей (реальные значения dependent);
+# он тоже допустим лишь в categorical_keep (keep_representative — это whitelist-opt-in).
 FORBIDDEN_REAL_VALUE_KEYS = (
-    "values", "most_common_vals", "mcv",
+    "values", "value_map", "most_common_vals", "mcv",
     "histogram", "histogram_bounds",
     "min_real", "max_real", "min", "max",
 )

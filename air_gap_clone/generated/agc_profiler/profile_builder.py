@@ -1,13 +1,18 @@
-"""Сборка profile.json из каталога + pg_stats + (опц.) сэмпла форматов.
+"""Сборка profile.json из каталога (типы/хранение) + анализа СЭМПЛА в pandas.
 
-Для каждой колонки собираем ТОЛЬКО поля, разрешённые её классом:
-- categorical_keep : реальные distinct-значения и частоты (единственный класс,
-                     куда уходят most_common_vals);
-- categorical_synth: n_distinct + null_frac + форма частот (числа), БЕЗ значений;
-- sensitive_numeric: тип, precision/scale, null_frac, n_distinct, форма распределения,
-                     грубый ориентир среднего (порядок величины), БЕЗ mcv/histogram/min/max;
-- pii             : тип, null_frac, avg_width, генератор, unique_like, БЕЗ значений;
-- key             : роль pk/fk, references, n_distinct, null_frac, fanout;
+Ключевые решения (по договорённости):
+- PK не объявлен в DDL → выводим гипотезу по сэмплу (analyze.find_pk). FK не выводим.
+- Вся статистика/категории/зависимости считаются в pandas на случайном сэмпле
+  (до ~1M строк), а не отдельными GROUP BY к БД. Редкие категории могут потеряться.
+- Функциональные зависимости (task_subtype → task_questionary): для каждой категории
+  берём одного представителя dependent (свежайшая строка, где dependent не NULL).
+
+Для каждой колонки собираем ТОЛЬКО поля, разрешённые её классом (whitelist):
+- categorical_keep : реальные категории и доли (values), либо представители FD (value_map);
+- categorical_synth: n_distinct + доли (freqs), БЕЗ реальных значений;
+- sensitive_numeric: тип, precision/scale, null_frac, форма распределения, порядок среднего;
+- pii             : тип, null_frac, генератор, unique_like — синтетика на выходе;
+- key             : роль pk (гипотеза), n_distinct, null_frac;
 - datetime        : тип, null_frac, синтетический диапазон, order_group.
 """
 from __future__ import annotations
@@ -15,18 +20,19 @@ from __future__ import annotations
 import math
 from datetime import datetime, timezone
 
+import pandas as pd
 from sqlalchemy.engine import Engine
 
 from agc_common import get_logger
+from agc_profiler import analyze
 from agc_profiler import catalog_reader as cat
 from agc_profiler import classifier as clf
-from agc_profiler import stats_reader as st
 from agc_profiler.policy import Policy
-from agc_profiler.sampler import estimate_row_count, sample_columns
+from agc_profiler.sampler import sample_dataframe
 
 log = get_logger("profiler.build")
 
-PROFILE_VERSION = 1
+PROFILE_VERSION = 2
 
 
 def _coarse_magnitude(value: float) -> str | None:
@@ -44,228 +50,170 @@ def _coarse_magnitude(value: float) -> str | None:
     return f"~{lead}e{exp}"
 
 
-def _numeric_avg_hint(policy_entry: dict, hist: list) -> str | None:
-    """avg_hint: сначала из policy; иначе огрублённая медиана histogram_bounds
-    (внутренняя величина, наружу уходит только порядок, не само значение)."""
+def _numeric_avg_hint(policy_entry: dict, series: "pd.Series | None") -> str | None:
+    """avg_hint: из policy; иначе огрублённое среднее сэмпла (наружу — только порядок)."""
     if policy_entry.get("avg_hint"):
         return str(policy_entry["avg_hint"])
-    nums = []
-    for x in hist or []:
-        try:
-            nums.append(float(x))
-        except (TypeError, ValueError):
-            continue
-    if not nums:
+    if series is None:
         return None
-    nums.sort()
-    return _coarse_magnitude(nums[len(nums) // 2])
+    nums = pd.to_numeric(series, errors="coerce").dropna()
+    if nums.empty:
+        return None
+    return _coarse_magnitude(float(nums.mean()))
 
 
-def _build_categorical_keep(stats: dict) -> dict:
-    mcv, mcf = stats.get("mcv") or [], stats.get("mcf") or []
-    values = [[v, round(float(f), 6)] for v, f in zip(mcv, mcf)]
-    covered = sum(f for _, f in values)
-    # Хвост распределения (всё, что вне most_common) — одной синтетической группой.
-    if covered < 0.999 and (stats.get("null_frac") or 0) + covered < 0.999:
-        values.append(["__other__", round(max(0.0, 1.0 - covered - (stats.get("null_frac") or 0)), 6)])
-    return {
-        "null_frac": round(stats.get("null_frac") or 0.0, 6),
-        "n_distinct": stats.get("n_distinct"),
-        "values": values,
-    }
+def _rel_n_distinct(stats: dict, klass: str) -> float | int | None:
+    """n_distinct для профиля. Категории: абсолютное число из сэмпла (не масштабируем).
+    Прочее: относительная оценка (доля уникальных в сэмпле, со знаком минус)."""
+    n_abs = stats.get("n_distinct")
+    if klass in ("categorical_keep", "categorical_synth", "key"):
+        return n_abs
+    up = stats.get("unique_perc") or 0.0
+    if up >= 99.0:
+        return -1.0
+    return -round(up / 100.0, 4) if up else n_abs
 
 
-def _build_column(schema: str, table: str, col: dict, stats: dict, policy_entry: dict,
-                  cons: dict, order_group_cols: set) -> dict:
+def _build_column(name: str, col_meta: dict, stats: dict, policy_entry: dict,
+                  series: "pd.Series | None", is_pk: bool, order_group_cols: set,
+                  dep_info: dict | None) -> dict:
     klass = policy_entry["class"]
-    name = col["name"]
-    base = {"pg_type": col["pg_type"], "policy": klass, "proposed_source": policy_entry.get("source")}
-    null_frac = round(stats.get("null_frac") or 0.0, 6)
-    n_distinct = stats.get("n_distinct")
+    base = {"pg_type": col_meta["pg_type"], "policy": klass,
+            "proposed_source": policy_entry.get("source"),
+            "null_frac": round(stats.get("null_frac") or 0.0, 6),
+            "not_null_perc": stats.get("not_null_perc"),
+            "unique_perc": stats.get("unique_perc")}
+
+    # Зависимая колонка (dependent) с сохранением представителя — особый случай.
+    if dep_info and dep_info.get("value_map") is not None:
+        base["policy"] = "categorical_keep"       # хранит реальные представители → whitelist
+        base["depends_on"] = [dep_info["determinant"]]
+        base["value_map"] = dep_info["value_map"]  # {категория: представитель}
+        base["n_distinct"] = len(dep_info["value_map"])
+        return base
+    if dep_info and dep_info.get("value_map") is None:
+        # Синтетический представитель на категорию (реальные значения не храним).
+        base["policy"] = "categorical_synth"
+        base["depends_on"] = [dep_info["determinant"]]
+        base["dependent_synth"] = True
+        base["n_distinct"] = dep_info.get("card")
+        return base
 
     if klass == "categorical_keep":
-        base.update(_build_categorical_keep(stats))
+        base["n_distinct"] = stats.get("n_distinct")
+        base["values"] = stats.get("categories") or []
     elif klass == "categorical_synth":
-        # Форму частот (числа) сохраняем, реальные метки — НЕТ.
-        freqs = [round(float(f), 6) for f in (stats.get("mcf") or [])]
-        base.update({"null_frac": null_frac, "n_distinct": n_distinct})
+        base["n_distinct"] = stats.get("n_distinct")
+        freqs = [f for _, f in (stats.get("categories") or [])]
         if freqs:
             base["freqs"] = freqs
     elif klass == "sensitive_numeric":
-        base.update({
-            "null_frac": null_frac,
-            "n_distinct": n_distinct,
-            "precision": col.get("precision"),
-            "scale": col.get("scale"),
-            "dist": policy_entry.get("dist", "lognormal"),
-        })
-        hint = _numeric_avg_hint(policy_entry, stats.get("histogram"))
+        base["n_distinct"] = _rel_n_distinct(stats, klass)
+        base["precision"] = col_meta.get("precision")
+        base["scale"] = col_meta.get("scale")
+        base["dist"] = policy_entry.get("dist", "lognormal")
+        hint = _numeric_avg_hint(policy_entry, series)
         if hint:
             base["avg_hint"] = hint
     elif klass == "pii":
-        uniqueish = _is_unique_like(name, n_distinct, cons)
-        base.update({
-            "null_frac": null_frac,
-            "avg_width": stats.get("avg_width"),
-            "generator": policy_entry.get("generator") or "text",
-            "unique_like": uniqueish,
-        })
-        if col.get("char_len"):
-            base["char_len"] = col["char_len"]
+        up = stats.get("unique_perc") or 0.0
+        base["generator"] = policy_entry.get("generator") or "text"
+        base["unique_like"] = is_pk or up >= 90.0
+        if col_meta.get("char_len"):
+            base["char_len"] = col_meta["char_len"]
     elif klass == "key":
-        role = "pk" if name in (cons.get("pk") or []) else ("fk" if _is_fk(name, cons) else "key")
-        base.update({"role": role, "null_frac": null_frac, "n_distinct": n_distinct})
-        fk = _fk_for(name, cons)
-        if fk:
-            idx = fk["columns"].index(name)
-            ref_col = fk["ref_columns"][idx] if idx < len(fk["ref_columns"]) else None
-            base["references"] = {"schema": fk.get("ref_schema"),
-                                  "table": fk.get("ref_table"), "column": ref_col}
-            base["fanout"] = {"dist": "uniform"}  # форма fan-out по умолчанию равномерная
+        base["role"] = "pk" if is_pk else "key"
+        base["pk_inferred"] = bool(is_pk)
+        base["n_distinct"] = _rel_n_distinct(stats, klass)
     elif klass == "datetime":
-        base.update({"null_frac": null_frac})
-        # Диапазон СИНТЕТИЧЕСКИЙ (не реальные min/max): дефолт — последние ~7 лет.
         base["range"] = policy_entry.get("range", {"start": "2018-01-01", "end": "2024-12-31"})
         if name in order_group_cols:
             base["order_group"] = True
     else:  # sensitive (generic)
-        base.update({
-            "null_frac": null_frac,
-            "avg_width": stats.get("avg_width"),
-            "generator": policy_entry.get("generator") or "text",
-        })
+        base["generator"] = policy_entry.get("generator") or "text"
     return base
 
 
-def _is_fk(name: str, cons: dict) -> bool:
-    return any(name in (fk.get("columns") or []) for fk in cons.get("fks") or [])
-
-
-def _fk_for(name: str, cons: dict) -> dict | None:
-    for fk in cons.get("fks") or []:
-        if name in (fk.get("columns") or []):
-            return fk
-    return None
-
-
-def _is_unique_like(name: str, n_distinct: float | None, cons: dict) -> bool:
-    if name in (cons.get("pk") or []):
-        return True
-    if any(name in u for u in cons.get("uniques") or []):
-        return True
-    if n_distinct is not None and n_distinct < 0 and n_distinct <= -0.9:
-        return True
-    return False
-
-
 def build_table_profile(engine: Engine, schema: str, table: str, policy: Policy,
-                        table_stats: dict, *, sample: bool = False,
-                        recompute_missing: bool = False) -> dict:
+                        *, sample_n: int = 1_000_000, timeout_ms: int | None = None) -> dict:
     meta = cat.read_table_meta(engine, schema, table)
     columns = cat.read_columns(engine, schema, table)
-    cons = cat.read_constraints(engine, schema, table)
     dist_key = cat.read_distribution(engine, schema, table)
     part_keys = cat.read_partition_keys(engine, schema, table)
 
-    pk_set = set(cons.get("pk") or [])
-    fk_cols = {c for fk in cons.get("fks") or [] for c in (fk.get("columns") or [])}
+    df = sample_dataframe(engine, schema, table, sample_n,
+                          est=meta.get("reltuples") or None, timeout_ms=timeout_ms)
 
-    # Досчёт статистики по колонкам без pg_stats (по флагу — это скан).
-    if recompute_missing:
-        missing = [c["name"] for c in columns if c["name"] not in table_stats]
-        if missing:
-            table_stats = {**table_stats,
-                           **st.recompute_missing(engine, schema, table, missing)}
-    else:
-        missing = [c["name"] for c in columns if c["name"] not in table_stats]
-        if missing:
-            log.warning("Нет pg_stats для %d колонок %s.%s (ANALYZE не делался?): %s. "
-                        "Запустите с --recompute-missing для точечного досчёта.",
-                        len(missing), schema, table, ", ".join(missing[:8]))
+    pk = analyze.find_pk(df) if not df.empty else []
+    pk_set = set(pk)
 
-    # Сэмпл форматов — только для колонок-кандидатов в pii/sensitive (короткие поля).
-    samples: dict[str, list] = {}
-    if sample:
-        need = [c for c in columns
-                if c["name"] not in pk_set and c["name"] not in fk_cols
-                and clf._base_type(c["pg_type"]) in
-                ("text", "character varying", "varchar", "character", "char")]
-        if need:
-            try:
-                samples = sample_columns(engine, schema, table, need,
-                                         est=meta.get("reltuples") or None)
-            except Exception as exc:  # noqa: BLE001
-                log.warning("Сэмпл %s.%s не удался: %s", schema, table, exc)
+    # Статистика + категории по каждой колонке из сэмпла.
+    stats_by_col: dict[str, dict] = {}
+    for col in columns:
+        name = col["name"]
+        s = analyze.column_stats(df, name)
+        if 0 < s["n_distinct"] <= analyze.CATEGORICAL_MAX_DISTINCT:
+            s["categories"] = analyze.top_categories(df, name)
+        stats_by_col[name] = s
+
+    # Функциональные зависимости (policy): представитель dependent на категорию.
+    dep_by_col: dict[str, dict] = {}
+    for dep in policy.dependencies(schema, table):
+        det, dcol = dep["determinant"], dep["dependent"]
+        rep = analyze.dependency_representatives(df, det, dcol, dep.get("order_by"))
+        if not rep:
+            log.warning("Зависимость %s→%s: представителей не найдено (пусто/нет колонок)", det, dcol)
+            continue
+        if dep["keep_representative"]:
+            dep_by_col[dcol] = {"determinant": det, "value_map": rep}
+        else:
+            dep_by_col[dcol] = {"determinant": det, "value_map": None, "card": len(rep)}
+        log.info("Зависимость %s→%s: %d категорий, keep_representative=%s",
+                 det, dcol, len(rep), dep["keep_representative"])
 
     order_group_cols = {c for grp in policy.order_groups(schema, table) for c in grp}
 
     out_columns: dict[str, dict] = {}
     for col in columns:
         name = col["name"]
-        stats = table_stats.get(name, {})
-        proposed, gen = clf.propose(
-            name, col["pg_type"],
-            is_pk=name in pk_set, is_fk=name in fk_cols,
-            n_distinct=stats.get("n_distinct"),
-            sample_values=samples.get(name),
-        )
+        stats = stats_by_col[name]
+        sample_vals = (df[name].dropna().astype(str).head(30).tolist()
+                       if (not df.empty and name in df.columns) else [])
+        proposed, gen = clf.propose(name, col["pg_type"], is_pk=name in pk_set,
+                                    n_distinct=stats.get("n_distinct"), sample_values=sample_vals)
         policy_entry = policy.resolve(schema, table, name, proposed, gen)
-        out_columns[name] = _build_column(schema, table, col, stats, policy_entry,
-                                           cons, order_group_cols)
+        series = df[name] if (not df.empty and name in df.columns) else None
+        out_columns[name] = _build_column(name, col, stats, policy_entry, series,
+                                           name in pk_set, order_group_cols, dep_by_col.get(name))
 
     profile = {
-        "schema": schema,
-        "table": table,
-        "relkind": meta["relkind"],
-        "is_view": meta["is_view"],
-        "storage": meta["storage"],
-        "distributed_by": dist_key,
-        "partitioned_by": part_keys,
-        "row_count": {"value": meta["reltuples"], "estimated": meta["row_count_estimated"]},
-        "constraints": {
-            "pk": cons.get("pk") or [],
-            "uniques": cons.get("uniques") or [],
-            "fks": [{k: v for k, v in fk.items() if not k.startswith("_")}
-                    for fk in cons.get("fks") or []],
-            "checks": cons.get("checks") or [],
-        },
+        "schema": schema, "table": table,
+        "relkind": meta["relkind"], "is_view": meta["is_view"], "storage": meta["storage"],
+        "distributed_by": dist_key, "partitioned_by": part_keys,
+        "row_count": {"value": meta["reltuples"], "estimated": meta["row_count_estimated"],
+                      "sample_rows": int(len(df))},
+        "pk_hypothesis": pk,
+        "column_dependencies": [{"determinant": d["determinant"], "dependent": dcol}
+                                for dcol, d in dep_by_col.items()],
         "defaults": {c["name"]: c["default"] for c in columns if c["default"]},
         "not_null": [c["name"] for c in columns if not c["nullable"]],
         "columns": out_columns,
     }
-    log.info("Профиль %s.%s: %d колонок, storage=%s, dist=%s, part=%s, rows~%s",
-             schema, table, len(out_columns), meta["storage"], dist_key or "-",
-             part_keys or "-", meta["reltuples"])
+    log.info("Профиль %s.%s: %d колонок, pk=%s, storage=%s, sample=%d строк",
+             schema, table, len(out_columns), pk or "-", meta["storage"], len(df))
     return profile
 
 
 def build_profile(engine: Engine, tables: list[tuple[str, str]], policy: Policy,
-                  *, sample: bool = False, recompute_missing: bool = False) -> dict:
-    """Собирает полный профиль по списку (schema, table). pg_stats читаем пачкой на схему."""
-    by_schema: dict[str, list[str]] = {}
-    for schema, table in tables:
-        by_schema.setdefault(schema, []).append(table)
-
-    stats_cache: dict[str, dict[str, dict]] = {}
-    for schema, tnames in by_schema.items():
-        try:
-            stats_cache[schema] = st.read_pg_stats(engine, schema, tnames)
-        except Exception as exc:  # noqa: BLE001
-            log.warning("pg_stats по схеме %s не прочитан: %s", schema, exc)
-            stats_cache[schema] = {t: {} for t in tnames}
-
-    table_profiles = []
-    for schema, table in tables:
-        table_stats = stats_cache.get(schema, {}).get(table, {})
-        table_profiles.append(build_table_profile(
-            engine, schema, table, policy, table_stats,
-            sample=sample, recompute_missing=recompute_missing,
-        ))
-
+                  *, sample_n: int = 1_000_000, timeout_ms: int | None = None) -> dict:
+    table_profiles = [build_table_profile(engine, s, t, policy,
+                                          sample_n=sample_n, timeout_ms=timeout_ms)
+                      for s, t in tables]
     return {
         "profile_version": PROFILE_VERSION,
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "source_dialect": "greenplum",
-        "note": "Синтетический профиль: реальные значения только в categorical_keep.",
+        "note": "Синтетический профиль: реальные значения только в categorical_keep. "
+                "PK — гипотеза по сэмплу; FK не выводится.",
         "tables": table_profiles,
     }

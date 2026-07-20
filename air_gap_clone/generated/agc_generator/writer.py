@@ -6,7 +6,6 @@ from datetime import date, datetime
 from pathlib import Path
 
 from agc_common import get_logger, quote_ident
-from agc_generator.ddl_builder import topo_sort
 from agc_generator.profile_parser import Profile
 
 log = get_logger("generator.writer")
@@ -53,9 +52,8 @@ def _cell_sql(v) -> str:
 
 def write_sql(profile: Profile, data: dict[str, list[dict]], out_path: Path,
               batch: int = 500) -> Path:
-    ordered = topo_sort(list(profile.tables))  # родители раньше — FK не нарушаем при вставке
-    lines = ["-- Синтетические данные (air-gap clone). INSERT-ы в порядке FK-зависимостей.", ""]
-    for table in ordered:
+    lines = ["-- Синтетические данные (air-gap clone). FK нет — порядок вставки любой.", ""]
+    for table in profile.tables:
         rows = data.get(table.fqn, [])
         if not rows:
             continue

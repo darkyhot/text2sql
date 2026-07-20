@@ -1,29 +1,38 @@
 # Policy — whitelist чувствительности (граница безопасности).
 #
 # По умолчанию КАЖДАЯ колонка чувствительна и синтезируется. Реальные значения
-# (most_common_vals/histogram_bounds) уходят в профиль ТОЛЬКО для колонок,
-# явно помеченных здесь как categorical_keep. Забыли пометить новую колонку с ФИО —
-# она НЕ утечёт (по умолчанию синтезируется), в отличие от blacklist-подхода.
+# уходят в профиль ТОЛЬКО для колонок, явно помеченных здесь как categorical_keep
+# (и для представителей зависимостей с keep_representative — это тоже whitelist).
+# Забыли пометить новую колонку с ФИО — она НЕ утечёт (по умолчанию синтезируется).
 #
 # Классы: categorical_keep | sensitive_numeric | pii | key | datetime | sensitive
+# PK выводится гипотезой по сэмплу автоматически; FK не выводится.
 version: 1
 
 columns:
-  # Бизнес-категории — сохраняем реальные distinct-значения и частоты (для GROUP BY).
-  "public.tasks.task_type": categorical_keep
-  "public.tasks.status":    categorical_keep
-  "public.clients.region":  categorical_keep
+  # Бизнес-категории — сохраняем реальные значения и доли (для GROUP BY).
+  "public.tasks.task_type":    categorical_keep
+  "public.tasks.task_subtype": categorical_keep
+  "public.clients.region":     categorical_keep
 
-  # Явно чувствительные — синтез (это и так дефолт, но фиксируем генератор).
-  "public.clients.client_name": {class: pii, generator: full_name}
-  "public.clients.email":       {class: pii, generator: email}
+  # Явно чувствительные — синтетика (это и так дефолт, но фиксируем генератор).
+  "public.clients.client_name": {class: pii, generator: full_name}   # Иванов Иван Иванович
+  "public.clients.inn":         {class: pii, generator: inn}         # 1234567890
   "public.clients.phone":       {class: pii, generator: phone}
 
   # Числовые суммы — форма распределения без реальных значений.
-  "public.tasks.amount":     {class: sensitive_numeric, dist: lognormal, avg_hint: "~5e4"}
-  "public.payments.amount":  {class: sensitive_numeric, dist: lognormal, avg_hint: "~1e4"}
+  "public.tasks.amount": {class: sensitive_numeric, dist: lognormal, avg_hint: "~5e4"}
 
 tables:
-  # Порядок связанных дат: created_at <= updated_at.
   "public.tasks":
+    # Порядок связанных дат: created_at <= updated_at.
     order_groups: [["created_at", "updated_at"]]
+    # Функциональная зависимость: для каждого task_subtype берём представителя
+    # task_questionary (свежайшая строка по task_date, где он не NULL) и держим
+    # эту связь в синтетике. keep_representative=true → реальный представитель
+    # (whitelist-opt-in); false → стабильный синтетический токен на подтип.
+    dependencies:
+      - determinant: task_subtype
+        dependent:   task_questionary
+        order_by:    task_date
+        keep_representative: true

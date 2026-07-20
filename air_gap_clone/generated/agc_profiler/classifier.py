@@ -36,8 +36,8 @@ _NAME_HINTS = (
 _NUMERIC_TYPES = ("smallint", "integer", "bigint", "numeric", "decimal",
                   "real", "double precision", "money")
 _DATETIME_TYPES = ("date", "timestamp", "time")
-# Порог кардинальности для кандидата в категориальные (по абсолютному n_distinct).
-CATEGORICAL_MAX_DISTINCT = 50
+# Категория = меньше этого числа уникальных значений в сэмпле.
+CATEGORICAL_MAX_DISTINCT = 200
 
 
 def _base_type(pg_type: str) -> str:
@@ -58,14 +58,13 @@ def propose(
     pg_type: str,
     *,
     is_pk: bool = False,
-    is_fk: bool = False,
     n_distinct: float | None = None,
     sample_values: list | None = None,
 ) -> tuple[str, str | None]:
-    """Возвращает (предложенный_класс, генератор|None)."""
+    """Возвращает (предложенный_класс, генератор|None). FK не выводим — только PK."""
     base = _base_type(pg_type)
 
-    if is_pk or is_fk:
+    if is_pk:
         return "key", None
 
     # Формат значений из сэмпла (только короткие поля попадают сюда со значениями).

@@ -12,7 +12,7 @@ import math
 import random
 from datetime import date, datetime, timedelta
 
-from agc_common import get_logger
+from agc_common import get_logger, stable_hash
 
 log = get_logger("generator.values")
 
@@ -23,11 +23,15 @@ except Exception:  # noqa: BLE001
     _FAKER = None
 
 # --- встроенные словари для pii-фолбэка (без внешних зависимостей) ---
+# Значения ЯВНО синтетические (в духе «Иванов Иван Иванович», «ИНН 1234567890»),
+# чтобы сразу было видно: это не реальные данные.
 _FIRST_M = ["Александр", "Дмитрий", "Максим", "Сергей", "Андрей", "Алексей", "Иван", "Кирилл"]
 _FIRST_F = ["Анна", "Елена", "Ольга", "Наталья", "Мария", "Татьяна", "Ирина", "Екатерина"]
+_PATR_M = ["Иванович", "Петрович", "Сергеевич", "Андреевич", "Алексеевич", "Дмитриевич"]
+_PATR_F = ["Ивановна", "Петровна", "Сергеевна", "Андреевна", "Алексеевна", "Дмитриевна"]
 _LAST = ["Иванов", "Петров", "Смирнов", "Кузнецов", "Соколов", "Попов", "Лебедев", "Козлов"]
 _STREETS = ["Ленина", "Мира", "Советская", "Гагарина", "Победы", "Садовая", "Лесная"]
-_COMPANY = ["Импульс", "Вектор", "Горизонт", "Альфа", "Дельта", "Партнёр", "Синтез", "Ресурс"]
+_COMPANY = ["Ромашка", "Импульс", "Вектор", "Горизонт", "Альфа", "Дельта", "Пример", "Ресурс"]
 _COMPANY_FORM = ["ООО", "АО", "ПАО", "ЗАО"]
 
 
@@ -40,32 +44,63 @@ def _apply_nulls(values: list, null_frac: float, rng: random.Random) -> list:
 # --------------------------------------------------------------------------- #
 # Категориальные                                                              #
 # --------------------------------------------------------------------------- #
-def gen_categorical_keep(values: list, n: int, null_frac: float, rng: random.Random) -> list:
-    """Сэмпл из реальных distinct-значений по их весам — сохраняет кардинальность
-    и распределение групп (для корректных GROUP BY)."""
-    labels = [v[0] for v in values] or ["__empty__"]
-    weights = [max(0.0, float(v[1])) for v in values] or [1.0]
+def _weighted_all_present(labels: list, weights: list, n: int, rng: random.Random) -> list:
+    """Сэмпл по весам, но КАЖДАЯ категория присутствует хотя бы раз (если n>=|labels|).
+    Так все категории попадают в синтетику — важно для GROUP BY по редким значениям."""
+    labels = labels or ["__empty__"]
+    weights = [max(0.0, float(w)) for w in weights] or [1.0]
     total = sum(weights) or 1.0
     weights = [w / total for w in weights]
-    out = rng.choices(labels, weights=weights, k=n)
+    if n <= 0:
+        return []
+    if n >= len(labels):
+        out = list(labels)  # по одному каждой категории
+        out += rng.choices(labels, weights=weights, k=n - len(labels))
+        rng.shuffle(out)
+    else:
+        out = rng.choices(labels, weights=weights, k=n)
+    return out
+
+
+def gen_categorical_keep(values: list, n: int, null_frac: float, rng: random.Random) -> list:
+    """Сэмпл из реальных distinct-значений по их весам — сохраняет кардинальность и
+    распределение групп; каждая категория присутствует хотя бы раз."""
+    labels = [v[0] for v in values]
+    weights = [v[1] for v in values]
+    out = _weighted_all_present(labels, weights, n, rng)
     return _apply_nulls(out, null_frac, rng)
 
 
 def gen_categorical_synth(k: int, freqs: list | None, n: int, null_frac: float,
                           rng: random.Random, prefix: str = "cat") -> list:
-    """K синтетических токенов, сэмпл по весам freqs (или равномерно). Реальные
-    метки не используются — сохраняем только форму кардинальности/частот."""
+    """K синтетических токенов, сэмпл по весам freqs (или равномерно); каждая
+    категория присутствует хотя бы раз. Реальные метки не используются."""
     k = max(1, k)
     tokens = [f"{prefix}_{i:04d}" for i in range(k)]
-    if freqs and len(freqs) >= 1:
+    if freqs:
         w = [max(0.0, float(x)) for x in freqs[:k]]
-        while len(w) < k:  # доборем хвост маленькими весами
+        while len(w) < k:
             w.append(min(w) if w else 1.0)
     else:
         w = [1.0] * k
-    total = sum(w) or 1.0
-    w = [x / total for x in w]
-    out = rng.choices(tokens, weights=w, k=n)
+    out = _weighted_all_present(tokens, w, n, rng)
+    return _apply_nulls(out, null_frac, rng)
+
+
+def gen_dependent_keep(determinant_values: list, value_map: dict, rng: random.Random,
+                       null_frac: float = 0.0) -> list:
+    """Зависимая колонка с реальными представителями: dependent = value_map[determinant].
+    «Опросник» остаётся привязан к своему подтипу. Неизвестная категория → None."""
+    out = [value_map.get(str(d)) if d is not None else None for d in determinant_values]
+    return _apply_nulls(out, null_frac, rng)
+
+
+def gen_dependent_synth(determinant_values: list, rng: random.Random,
+                        prefix: str = "dep", null_frac: float = 0.0) -> list:
+    """Зависимая колонка с СИНТЕТИЧЕСКИМ представителем: стабильный токен на категорию
+    (одинаковый для одной категории), реальные значения не используются."""
+    out = [None if d is None else f"{prefix}_{stable_hash(prefix, d) % 100000:05d}"
+           for d in determinant_values]
     return _apply_nulls(out, null_frac, rng)
 
 
@@ -152,9 +187,10 @@ def _faker_value(generator: str, seq: int) -> str:
 
 def _builtin_pii(generator: str, rng: random.Random, seq: int) -> str:
     if generator == "full_name":
+        # ФИО с отчеством: «Иванов Иван Иванович» / «Иванова Анна Ивановна».
         if rng.random() < 0.5:
-            return f"{rng.choice(_LAST)} {rng.choice(_FIRST_M)}"
-        return f"{rng.choice(_LAST)}а {rng.choice(_FIRST_F)}"
+            return f"{rng.choice(_LAST)} {rng.choice(_FIRST_M)} {rng.choice(_PATR_M)}"
+        return f"{rng.choice(_LAST)}а {rng.choice(_FIRST_F)} {rng.choice(_PATR_F)}"
     if generator == "email":
         return f"user{seq:06d}@example.test"
     if generator == "phone":
